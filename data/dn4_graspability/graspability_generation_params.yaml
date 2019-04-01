@@ -1,0 +1,19 @@
+!!python/object:autolab_core.yaml_config.YamlConfig
+config: !!python/object/apply:collections.OrderedDict
+- - [env_config, cfg/tools/generate_gqcnn_training_dataset_pile.yaml]
+  - - policies
+    - !!python/object/apply:collections.OrderedDict
+      - - - parallel_jaw
+          - !!python/object/apply:collections.OrderedDict
+            - - [config, cfg/tools/policies/dexnet_greedy_parallel_jaw.yaml]
+        - - suction
+          - !!python/object/apply:collections.OrderedDict
+            - - [config, cfg/tools/policies/dexnet_greedy_suction.yaml]
+  - - ray
+    - !!python/object/apply:collections.OrderedDict
+      - - [num_cpus, 2]
+        - [redirect_output, 0]
+file_contents: "# Environment config\nenv_config: cfg/tools/generate_gqcnn_training_dataset_pile.yaml\n\
+  \n# Policies to execute\npolicies:\n    parallel_jaw:\n        config: cfg/tools/policies/dexnet_greedy_parallel_jaw.yaml\n\
+  \    suction:\n        config: cfg/tools/policies/dexnet_greedy_suction.yaml\n\n\
+  # Ray\nray:\n  num_cpus: 2\n  redirect_output: 0\n"

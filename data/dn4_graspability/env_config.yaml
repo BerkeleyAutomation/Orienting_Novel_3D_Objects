@@ -1,0 +1,656 @@
+!!python/object:autolab_core.yaml_config.YamlConfig
+config: !!python/object/apply:collections.OrderedDict
+- - [env_type, multiple_objects]
+  - [num_states, 1000]
+  - [num_images_per_state, 5]
+  - [num_random_actions_per_state, 10]
+  - [states_per_garbage_collect, 10]
+  - [debug, 0]
+  - [gqcnn_image_scale_factor, 0.3333]
+  - - dexnet_policy
+    - !!python/object/apply:collections.OrderedDict
+      - - - database
+          - !!python/object/apply:collections.OrderedDict
+            - - [database_path, /nfs/diskstation/db/dexnet_4.hdf5]
+              - - object_keys
+                - !!python/object/apply:collections.OrderedDict
+                  - - [thingiverse, all]
+                    - [thingiverse-packaged, all]
+        - - params
+          - !!python/object/apply:collections.OrderedDict
+            - - [check_collisions, 1]
+              - [reference_frame, world]
+              - [gripper, yumi_metal_spline]
+              - [metric_name, robust_wrench_resistance]
+              - [metric_thresh, 0.5]
+              - - axis_angle
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, -10]
+                    - [max, 10]
+              - - approach_angle
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, -10]
+                    - [max, 10]
+                    - [num, 3]
+  - - random_policy
+    - !!python/object/apply:collections.OrderedDict
+      - - - params
+          - !!python/object/apply:collections.OrderedDict
+            - - - translation
+                - !!python/object/apply:collections.OrderedDict
+                  - - - min
+                      - [-0.2, -0.25, 0.0]
+                    - - max
+                      - [0.2, 0.25, 0.1]
+              - - approach_angle
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, -5]
+                    - [max, 5]
+  - - ray
+    - !!python/object/apply:collections.OrderedDict
+      - - [num_cpus, 4]
+        - [redirect_output, 0]
+  - - datasets
+    - !!python/object/apply:collections.OrderedDict
+      - - - states
+          - !!python/object/apply:collections.OrderedDict
+            - - - tensors
+                - !!python/object/apply:collections.OrderedDict
+                  - - [datapoints_per_file, 100]
+                    - - fields
+                      - !!python/object/apply:collections.OrderedDict
+                        - - - obj_poses
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                          - - obj_coms
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                          - - obj_ids
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint32]
+                          - - camera_poses
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                          - - camera_intrs
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                                - [height, 7]
+                          - - robot_poses
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                          - - action_start_ind
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint64]
+                          - - action_end_ind
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint32]
+                          - - image_start_ind
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint32]
+                          - - image_end_ind
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint32]
+        - - actions
+          - !!python/object/apply:collections.OrderedDict
+            - - - tensors
+                - !!python/object/apply:collections.OrderedDict
+                  - - [datapoints_per_file, 100]
+                    - - fields
+                      - !!python/object/apply:collections.OrderedDict
+                        - - - grasp_poses
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                          - - grasp_metrics
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                          - - collisions
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint8]
+                          - - state_ind
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint32]
+        - - images
+          - !!python/object/apply:collections.OrderedDict
+            - - - tensors
+                - !!python/object/apply:collections.OrderedDict
+                  - - [datapoints_per_file, 100]
+                    - - fields
+                      - !!python/object/apply:collections.OrderedDict
+                        - - - depth_ims
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                                - [channels, 1]
+                          - - camera_poses
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                          - - camera_intrs
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                                - [height, 7]
+                          - - state_ind
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint32]
+                          - - grasp_start_ind
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint32]
+                          - - grasp_end_ind
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint32]
+        - - grasps
+          - !!python/object/apply:collections.OrderedDict
+            - - - tensors
+                - !!python/object/apply:collections.OrderedDict
+                  - - [datapoints_per_file, 100]
+                    - - fields
+                      - !!python/object/apply:collections.OrderedDict
+                        - - - tf_depth_ims
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                                - [height, 32]
+                                - [width, 32]
+                                - [channels, 1]
+                          - - grasps
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                                - [height, 5]
+                          - - grasp_metrics
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, float32]
+                          - - collisions
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint8]
+                          - - image_ind
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint32]
+                          - - action_ind
+                            - !!python/object/apply:collections.OrderedDict
+                              - - [dtype, uint32]
+  - - transitions
+    - !!python/object/apply:collections.OrderedDict
+      - - [max_timesteps, 1]
+        - - collision_checking
+          - !!python/object/apply:collections.OrderedDict
+            - - [approach_dist, 0.1]
+              - [delta_approach, 0.005]
+              - [sim_grasp_approach, 0]
+              - [sim_collisions_on_grasp_failures, 0]
+        - - metric
+          - !!python/object/apply:collections.OrderedDict
+            - - - parallel_jaw
+                - !!python/object/apply:collections.OrderedDict
+                  - - [successful_grasp_thresh, 0.5]
+                    - [quality_method, wrench_resistance]
+                    - [friction_coef, 0.6]
+                    - [soft_fingers, 1]
+                    - [quality_type, robust_quasi_static]
+                    - [max_approach_table_angle, 45]
+                    - [all_contacts_required, 1]
+                    - [check_approach, 0]
+                    - [use_trimesh_contacts, 1]
+                    - [use_stable_poses, 0]
+                    - [wrench_relative_to_grasp, 0]
+                    - [torque_scaling, 1.0]
+                    - [wrench_norm_thresh, 0.001]
+                    - [wrench_regularizer, 1.0e-10]
+                    - [num_cone_faces, 8]
+                    - [num_force_components, 3]
+                    - [num_boundary_points, 32]
+                    - [max_struct_pct_incr, 0.1]
+                    - [max_flex_pct_incr, 0.1]
+                    - [max_cone_pct_incr, 0.1]
+                    - - grasp_uncertainty
+                      - !!python/object/apply:collections.OrderedDict
+                        - - [sigma_grasp_trans_x, 0.001]
+                          - [sigma_grasp_trans_y, 0.001]
+                          - [sigma_grasp_trans_z, 0.001]
+                          - [sigma_grasp_rot_x, 0.0001]
+                          - [sigma_grasp_rot_y, 0.0001]
+                          - [sigma_grasp_rot_z, 0.0001]
+                          - [sigma_backup_dist, 0.0001]
+                          - [sigma_penetration_dist, 0.001]
+                          - [sigma_grasp_approach, 0.01]
+                          - [num_prealloc_samples, 0]
+                    - - params_uncertainty
+                      - !!python/object/apply:collections.OrderedDict
+                        - - [sigma_friction_coef, 0.01]
+                          - [sigma_torque_scaling, 0.001]
+                          - [sigma_finger_radius, 0.001]
+                          - [sigma_target_wrench, 0.01]
+                          - [num_prealloc_samples, 0]
+                    - [num_quality_samples, 10]
+                    - [sampling_snapshot_rate, 1]
+              - - suction
+                - !!python/object/apply:collections.OrderedDict
+                  - - [successful_grasp_thresh, 0.5]
+                    - [quality_method, suction_wrench_resistance]
+                    - [friction_coef, 0.6]
+                    - [soft_fingers, 1]
+                    - [quality_type, robust_quasi_static]
+                    - [max_approach_table_angle, 45]
+                    - [all_contacts_required, 1]
+                    - [check_approach, 0]
+                    - [use_trimesh_contacts, 1]
+                    - [use_stable_poses, 0]
+                    - [wrench_relative_to_grasp, 0]
+                    - [torque_scaling, 1000.0]
+                    - [wrench_norm_thresh, 0.001]
+                    - [wrench_regularizer, 1.0e-10]
+                    - [num_cone_faces, 3]
+                    - [num_force_components, 3]
+                    - [num_boundary_points, 32]
+                    - [max_struct_pct_incr, 0.1]
+                    - [max_flex_pct_incr, 0.1]
+                    - [max_cone_pct_incr, 0.1]
+                    - - grasp_uncertainty
+                      - !!python/object/apply:collections.OrderedDict
+                        - - [sigma_grasp_trans_x, 0.001]
+                          - [sigma_grasp_trans_y, 0.001]
+                          - [sigma_grasp_trans_z, 0.001]
+                          - [sigma_grasp_rot_x, 0.01]
+                          - [sigma_grasp_rot_y, 0.01]
+                          - [sigma_grasp_rot_z, 0.01]
+                          - [sigma_backup_dist, 0.001]
+                          - [sigma_penetration_dist, 0.001]
+                          - [sigma_grasp_approach, 0.01]
+                          - [num_prealloc_samples, 0]
+                    - - params_uncertainty
+                      - !!python/object/apply:collections.OrderedDict
+                        - - [sigma_friction_coef, 0.01]
+                          - [sigma_torque_scaling, 0.001]
+                          - [sigma_finger_radius, 0.001]
+                          - [sigma_target_wrench, 0.01]
+                          - [num_prealloc_samples, 0]
+                    - [num_quality_samples, 10]
+                    - [sampling_snapshot_rate, 1]
+        - - dynamic_simulation
+          - !!python/object/apply:collections.OrderedDict
+            - - [gui, 0]
+              - [use_real_time, 0]
+              - [max_object_lift, 0.35]
+              - [lift_acceleration, 5.0]
+              - [max_steps_per_lift, 100]
+              - [max_steps_per_settle, 250]
+              - [mag_v_thresh, 0.005]
+              - [mag_w_thresh, 0.1]
+  - - reward
+    - !!python/object/apply:collections.OrderedDict
+      - - [type, object]
+  - - action_space
+    - !!python/object/apply:collections.OrderedDict
+      - - - parallel_jaw
+          - !!python/object/apply:collections.OrderedDict
+            - - - translation
+                - !!python/object/apply:collections.OrderedDict
+                  - - - min
+                      - [-0.2, -0.25, 0.005]
+                    - - max
+                      - [0.2, 0.25, 0.2]
+              - - approach_angle
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, -45]
+                    - [max, 45]
+        - - suction
+          - !!python/object/apply:collections.OrderedDict
+            - - - translation
+                - !!python/object/apply:collections.OrderedDict
+                  - - - min
+                      - [-0.2, -0.25, 0.005]
+                    - - max
+                      - [0.2, 0.25, 0.2]
+              - - approach_angle
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, -60]
+                    - [max, 60]
+        - - push
+          - !!python/object/apply:collections.OrderedDict
+            - - - translation
+                - !!python/object/apply:collections.OrderedDict
+                  - - - min
+                      - [-0.2, -0.25, 0.005]
+                    - - max
+                      - [0.2, 0.25, 0.2]
+              - - approach_angle
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, -45]
+                    - [max, 45]
+              - [push_distance, 0.2]
+  - - state_space
+    - !!python/object/apply:collections.OrderedDict
+      - - [urdf_cache_dir, /nfs/diskstation/projects/dex-net/objects/urdf/dexnet_4.0]
+        - [replace, 0]
+        - [samples_per_object, 3]
+        - - pile
+          - !!python/object/apply:collections.OrderedDict
+            - - - min
+                - [-0.1, -0.1]
+              - - max
+                - [0.1, 0.1]
+        - - object
+          - !!python/object/apply:collections.OrderedDict
+            - - [database_path, /nfs/diskstation/db/dexnet_4.hdf5]
+              - - object_keys
+                - !!python/object/apply:collections.OrderedDict
+                  - - [thingiverse, all]
+                    - [thingiverse-packaged, all]
+              - - planar_translation
+                - !!python/object/apply:collections.OrderedDict
+                  - - - min
+                      - [-0.1, -0.1]
+                    - - max
+                      - [0.1, 0.1]
+              - - scale
+                - !!python/object/apply:collections.OrderedDict
+                  - - [mean, 1.0]
+                    - [var, 0.0]
+              - - center_of_mass
+                - !!python/object/apply:collections.OrderedDict
+                  - - [sigma, 0.0]
+              - [stp_min_prob, 0.01]
+              - [stp_com_sigma, 0.0025]
+              - [stp_num_samples, 10]
+              - [mass, 1.0]
+              - [density, 4000]
+              - [mean_num_obj, 10]
+              - [max_obj_per_pile, 15]
+              - [max_obj_diam, 0.25]
+              - [drop_height, 0.35]
+              - [max_steps_per_reset, 250]
+              - [mag_v_thresh, 0.005]
+              - [mag_w_thresh, 0.1]
+              - - mat_props
+                - !!python/object/apply:collections.OrderedDict
+                  - - - rgb
+                      - !!python/object/apply:collections.OrderedDict
+                        - - - min
+                            - [0.0, 0.0, 0.0]
+                          - - max
+                            - [1.0, 1.0, 1.0]
+                    - - ambient
+                      - !!python/object/apply:collections.OrderedDict
+                        - - [min, 0.0]
+                          - [max, 1.0]
+                    - - diffuse
+                      - !!python/object/apply:collections.OrderedDict
+                        - - [min, 0.0]
+                          - [max, 1.0]
+                    - - shininess
+                      - !!python/object/apply:collections.OrderedDict
+                        - - [min, 0]
+                          - [max, 1.0]
+                    - - alpha
+                      - !!python/object/apply:collections.OrderedDict
+                        - - [min, 0.0]
+                          - [max, 1.0]
+                    - [smooth, 0]
+        - - camera
+          - !!python/object/apply:collections.OrderedDict
+            - - [frame, primesense_overhead]
+              - [render_mode, depth]
+              - [mesh_filename, data/objects/camera/camera.obj]
+              - [im_width, 640]
+              - [im_height, 480]
+              - - focal_length
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, 520]
+                    - [max, 540]
+              - - delta_optical_center
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, -10.0]
+                    - [max, 10.0]
+              - - x
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, 0.0]
+                    - [max, 0.0]
+              - - y
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, 0.0]
+                    - [max, 0.0]
+              - - radius
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, 0.75]
+                    - [max, 0.95]
+              - - elevation
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, 1]
+                    - [max, 20]
+              - - azimuth
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, 0]
+                    - [max, 360]
+              - - roll
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, -5]
+                    - [max, 5]
+        - - robot
+          - !!python/object/apply:collections.OrderedDict
+            - - [frame, base]
+              - [use_kinematics, 0]
+              - [pid_max_steps, 250]
+              - - parallel_jaw
+                - !!python/object/apply:collections.OrderedDict
+                  - - [gripper, yumi_metal_spline]
+                    - [home_pose, data/grippers/yumi_metal_spline/home_pose.tf]
+              - - suction
+                - !!python/object/apply:collections.OrderedDict
+                  - - [gripper, righthand]
+                    - [home_pose, data/grippers/righthand/home_pose.tf]
+              - - push
+                - !!python/object/apply:collections.OrderedDict
+                  - - [gripper, yumi_metal_spline_closed]
+                    - [home_pose, data/grippers/yumi_metal_spline_closed/home_pose.tf]
+              - - translation
+                - !!python/object/apply:collections.OrderedDict
+                  - - - min
+                      - [-0.45, -0.05, 0.0]
+                    - - max
+                      - [-0.35, 0.05, 0.0]
+        - - workspace
+          - !!python/object/apply:collections.OrderedDict
+            - - - min
+                - [-0.2, -0.25, 0.0]
+              - - max
+                - [0.2, 0.25, 0.3]
+              - - objects
+                - !!python/object/apply:collections.OrderedDict
+                  - - - plane
+                      - !!python/object/apply:collections.OrderedDict
+                        - - [mesh_filename, data/objects/plane/plane.obj]
+                          - [pose_filename, data/objects/plane/pose.tf]
+                          - - mat_props
+                            - !!python/object/apply:collections.OrderedDict
+                              - - - rgb
+                                  - !!python/object/apply:collections.OrderedDict
+                                    - - - min
+                                        - [0.6, 0.6, 0.6]
+                                      - - max
+                                        - [0.6, 0.6, 0.6]
+                                - - ambient
+                                  - !!python/object/apply:collections.OrderedDict
+                                    - - [min, 0.0]
+                                      - [max, 1.0]
+                                - - diffuse
+                                  - !!python/object/apply:collections.OrderedDict
+                                    - - [min, 0.0]
+                                      - [max, 1.0]
+                                - - shininess
+                                  - !!python/object/apply:collections.OrderedDict
+                                    - - [min, 0]
+                                      - [max, 1.0]
+                                - - alpha
+                                  - !!python/object/apply:collections.OrderedDict
+                                    - - [min, 0.0]
+                                      - [max, 1.0]
+                                - [smooth, 0]
+        - - light
+          - !!python/object/apply:collections.OrderedDict
+            - - - point_lights
+                - !!python/object/apply:collections.OrderedDict
+                  - - [mean, 1]
+                    - [min, 1]
+              - - rgb
+                - !!python/object/apply:collections.OrderedDict
+                  - - - min
+                      - [0.9, 0.9, 0.9]
+                    - - max
+                      - [1.0, 1.0, 1.0]
+              - - strength
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, 0.25]
+                    - [max, 0.75]
+              - - location
+                - !!python/object/apply:collections.OrderedDict
+                  - - - min
+                      - [-0.1, -0.1, 0.5]
+                    - - max
+                      - [0.1, 0.1, 1.5]
+  - - vis
+    - !!python/object/apply:collections.OrderedDict
+      - - [reset, 0]
+        - [grasp_metric, 1]
+        - [grasp, 0]
+        - [state, 0]
+        - [initial_obs, 0]
+        - [dexnet_grasps, 0]
+        - [random_grasps, 0]
+        - [all_grasps, 0]
+        - [camera, 0]
+        - [obs, 0]
+        - [tf_obs, 0]
+        - [action_stats, 1]
+        - [log_rate, 1]
+        - [quality_scale, 0.3]
+        - [save_images, 0]
+        - [cam_dist, 0.5]
+        - [cam_elev, 45]
+        - [num_cam_az, 8]
+        - [animate, 0]
+file_contents: "# general params\nenv_type: multiple_objects\nnum_states: 1000\nnum_images_per_state:\
+  \ 5\nnum_random_actions_per_state: 10\nstates_per_garbage_collect: 10\ndebug: 0\n\
+  \n# gqcnn params\ngqcnn_image_scale_factor: 0.3333\n\n# policy params\ndexnet_policy:\n\
+  \  database:\n    database_path: /nfs/diskstation/db/dexnet_4.hdf5\n    object_keys:\n\
+  \      thingiverse: all\n      thingiverse-packaged: all\n\n  params:\n    check_collisions:\
+  \ 1\n    reference_frame: world\n\n    gripper: yumi_metal_spline\n    metric_name:\
+  \ robust_wrench_resistance\n    metric_thresh: 0.5\n\n    axis_angle:\n      min:\
+  \ -10\n      max: 10\n\n    approach_angle:\n      min: -10\n      max: 10\n   \
+  \   num: 3  \n\nrandom_policy:\n  params:\n    translation:\n      min:\n      \
+  \  - -0.2\n        - -0.25\n        - 0.0\n\n      max:\n        - 0.2\n       \
+  \ - 0.25\n        - 0.1\n\n    approach_angle:\n      min: -5\n      max: 5  \n\n\
+  # ray params\nray:\n  num_cpus: 4\n  redirect_output: 0\n\n# dataset params\ndatasets:\n\
+  \  states:\n    tensors:\n      datapoints_per_file: 100\n      fields:\n      \
+  \  # states\n        obj_poses:\n          dtype: float32\n        obj_coms:\n \
+  \         dtype: float32\n        obj_ids:\n          dtype: uint32\n        camera_poses:\n\
+  \          dtype: float32\n        camera_intrs:\n          dtype: float32\n   \
+  \       height: 7\n        robot_poses:\n          dtype: float32\n        action_start_ind:\n\
+  \          dtype: uint64\n        action_end_ind:\n          dtype: uint32\n   \
+  \     image_start_ind:\n          dtype: uint32\n        image_end_ind:\n      \
+  \    dtype: uint32\n  actions:\n    tensors:\n      datapoints_per_file: 100\n \
+  \     fields:\n        grasp_poses:\n          dtype: float32\n        grasp_metrics:\n\
+  \          dtype: float32\n        collisions:\n          dtype: uint8\n       \
+  \ state_ind:\n          dtype: uint32\n  images:\n    tensors:\n      datapoints_per_file:\
+  \ 100\n      fields:\n        depth_ims:\n          dtype: float32\n          channels:\
+  \ 1\n        camera_poses:\n          dtype: float32\n        camera_intrs:\n  \
+  \        dtype: float32\n          height: 7\n        state_ind:\n          dtype:\
+  \ uint32\n        grasp_start_ind:\n          dtype: uint32\n        grasp_end_ind:\n\
+  \          dtype: uint32\n  grasps:\n    tensors:\n      datapoints_per_file: 100\n\
+  \      fields:\n        tf_depth_ims:\n          dtype: float32\n          height:\
+  \ 32\n          width: 32\n          channels: 1\n        grasps:\n          dtype:\
+  \ float32\n          height: 5\n        grasp_metrics:\n          dtype: float32\n\
+  \        collisions:\n          dtype: uint8\n        image_ind:\n          dtype:\
+  \ uint32\n        action_ind:\n          dtype: uint32\n\n# environment params\n\
+  transitions:\n  max_timesteps: 1\n\n  collision_checking:\n    approach_dist: 0.1\n\
+  \    delta_approach: 0.005\n    sim_grasp_approach: 0\n    sim_collisions_on_grasp_failures:\
+  \ 0\n\n  metric:\n    parallel_jaw:\n      # threshold for successful grasps\n \
+  \     successful_grasp_thresh: 0.5\n\n      # required parameters\n      quality_method:\
+  \ wrench_resistance\n      friction_coef: 0.6\n      soft_fingers: 1\n      quality_type:\
+  \ robust_quasi_static\n      max_approach_table_angle: 45 # in degrees\n\n     \
+  \ all_contacts_required: 1\n      check_approach: 0\n      use_trimesh_contacts:\
+  \ 1\n      use_stable_poses: 0\n      wrench_relative_to_grasp: 0\n\n      # optional\
+  \ deterministic parameters\n      torque_scaling: 1.0\n      wrench_norm_thresh:\
+  \ 0.001\n      wrench_regularizer: 0.0000000001\n\n      num_cone_faces: 8\n   \
+  \   num_force_components: 3\n      num_boundary_points: 32\n      max_struct_pct_incr:\
+  \ 0.1\n      max_flex_pct_incr: 0.1\n      max_cone_pct_incr: 0.1\n\n      # PARAMS\
+  \ for robust grasp metrics\n      # uncertainty\n      grasp_uncertainty:\n    \
+  \    sigma_grasp_trans_x: 0.001\n        sigma_grasp_trans_y: 0.001\n        sigma_grasp_trans_z:\
+  \ 0.001\n        sigma_grasp_rot_x: 0.0001\n        sigma_grasp_rot_y: 0.0001\n\
+  \        sigma_grasp_rot_z: 0.0001\n        sigma_backup_dist: 0.0001\n        sigma_penetration_dist:\
+  \ 0.001\n        sigma_grasp_approach: 0.01\n        num_prealloc_samples: 0\n \
+  \     params_uncertainty:\n        sigma_friction_coef: 0.01\n        sigma_torque_scaling:\
+  \ 0.001\n        sigma_finger_radius: 0.001\n        sigma_target_wrench: 0.01\n\
+  \        num_prealloc_samples: 0\n\n      # sampling params\n      num_quality_samples:\
+  \ 10\n      sampling_snapshot_rate: 1\n\n    suction:\n      # threshold for successful\
+  \ grasps\n      successful_grasp_thresh: 0.5\n\n      # required parameters\n  \
+  \    quality_method: suction_wrench_resistance\n      friction_coef: 0.6\n     \
+  \ soft_fingers: 1\n      quality_type: robust_quasi_static\n      max_approach_table_angle:\
+  \ 45 # in degrees\n\n      all_contacts_required: 1\n      check_approach: 0\n \
+  \     use_trimesh_contacts: 1\n      use_stable_poses: 0\n      wrench_relative_to_grasp:\
+  \ 0\n    \n      # optional deterministic parameters\n      torque_scaling: 1000.0\n\
+  \      wrench_norm_thresh: 0.001\n      wrench_regularizer: 0.0000000001\n\n   \
+  \   num_cone_faces: 3\n      num_force_components: 3\n      num_boundary_points:\
+  \ 32\n      max_struct_pct_incr: 0.1\n      max_flex_pct_incr: 0.1\n      max_cone_pct_incr:\
+  \ 0.1\n    \n      # PARAMS for robust grasp metrics\n      # uncertainty\n    \
+  \  grasp_uncertainty:\n        sigma_grasp_trans_x: 0.001\n        sigma_grasp_trans_y:\
+  \ 0.001\n        sigma_grasp_trans_z: 0.001\n        sigma_grasp_rot_x: 0.01\n \
+  \       sigma_grasp_rot_y: 0.01\n        sigma_grasp_rot_z: 0.01\n        sigma_backup_dist:\
+  \ 0.001\n        sigma_penetration_dist: 0.001\n        sigma_grasp_approach: 0.01\n\
+  \        num_prealloc_samples: 0\n      params_uncertainty:\n        sigma_friction_coef:\
+  \ 0.01\n        sigma_torque_scaling: 0.001\n        sigma_finger_radius: 0.001\n\
+  \        sigma_target_wrench: 0.01\n        num_prealloc_samples: 0\n\n      # sampling\
+  \ params\n      num_quality_samples: 10\n      sampling_snapshot_rate: 1      \n\
+  \n  dynamic_simulation:\n    gui: 0\n    use_real_time: 0\n\n    max_object_lift:\
+  \ 0.35\n    lift_acceleration: 5.0\n    max_steps_per_lift: 100\n    max_steps_per_settle:\
+  \ 250\n    mag_v_thresh: 0.005\n    mag_w_thresh: 0.1\n\nreward:\n type: object\n\
+  \naction_space:\n  parallel_jaw:\n    translation:\n      min:\n        - -0.2\n\
+  \        - -0.25\n        - 0.005\n\n      max:\n        - 0.2\n        - 0.25\n\
+  \        - 0.2\n\n    approach_angle:\n      min: -45\n      max: 45\n\n  suction:\n\
+  \    translation:\n      min:\n        - -0.2\n        - -0.25\n        - 0.005\n\
+  \n      max:\n        - 0.2\n        - 0.25\n        - 0.2\n\n    approach_angle:\n\
+  \      min: -60\n      max: 60\n\n  push:\n    translation:\n      min:\n      \
+  \  - -0.2\n        - -0.25\n        - 0.005\n\n      max:\n        - 0.2\n     \
+  \   - 0.25\n        - 0.2\n\n    approach_angle:\n      min: -45\n      max: 45\n\
+  \n    push_distance: 0.2\n\nstate_space:\n  urdf_cache_dir: /nfs/diskstation/projects/dex-net/objects/urdf/dexnet_4.0\n\
+  \n  replace: 0\n  samples_per_object: 3\n\n  pile:\n    min:\n      - -0.1\n   \
+  \   - -0.1\n    max:\n      - 0.1\n      - 0.1\n\n  object:\n    database_path:\
+  \ /nfs/diskstation/db/dexnet_4.hdf5\n    object_keys:\n      thingiverse: all\n\
+  \      thingiverse-packaged: all\n\n    planar_translation:\n      min:\n      \
+  \  - -0.1\n        - -0.1\n      max:\n        - 0.1\n        - 0.1\n\n    scale:\n\
+  \      mean: 1.0\n      var: 0.0\n\n    center_of_mass:\n      sigma: 0.0\n\n  \
+  \  stp_min_prob: 0.01\n    stp_com_sigma: 0.0025\n    stp_num_samples: 10\n\n  \
+  \  mass: 1.0\n    density: 4000\n\n    mean_num_obj: 10\n    max_obj_per_pile: 15\n\
+  \    max_obj_diam: 0.25\n\n    drop_height: 0.35\n\n    max_steps_per_reset: 250\n\
+  \    mag_v_thresh: 0.005\n    mag_w_thresh: 0.1\n\n    mat_props:\n      rgb:\n\
+  \        min:\n          - 0.0\n          - 0.0\n          - 0.0\n        max:\n\
+  \          - 1.0\n          - 1.0\n          - 1.0\n      ambient:\n        min:\
+  \ 0.0\n        max: 1.0\n      diffuse:\n        min: 0.0\n        max: 1.0\n  \
+  \    shininess:\n        min: 0\n        max: 1.0\n      alpha:\n        min: 0.0\n\
+  \        max: 1.0\n      smooth: 0\n\n  camera:\n    frame: primesense_overhead\n\
+  \    render_mode: depth\n    mesh_filename: data/objects/camera/camera.obj\n\n \
+  \   im_width: 640\n    im_height: 480\n\n    # intrinsics\n    focal_length:\n \
+  \     min: 520\n      max: 540\n    delta_optical_center:\n      min: -10.0\n  \
+  \    max: 10.0\n\n    # position\n    x:\n      min: 0.0\n      max: 0.0\n    y:\n\
+  \      min: 0.0\n      max: 0.0\n\n    # angles in degrees\n    radius:\n      min:\
+  \ 0.75\n      max: 0.95\n    elevation:\n      min: 1\n      max: 20\n    azimuth:\n\
+  \      min: 0\n      max: 360\n    roll:\n      min: -5\n      max: 5\n\n  robot:\n\
+  \    frame: base\n    use_kinematics: 0\n    pid_max_steps: 250\n\n    parallel_jaw:\n\
+  \      gripper: yumi_metal_spline\n      home_pose: data/grippers/yumi_metal_spline/home_pose.tf\
+  \ \n    suction:\n      gripper: righthand\n      home_pose: data/grippers/righthand/home_pose.tf\
+  \ \n    push:\n      gripper: yumi_metal_spline_closed\n      home_pose: data/grippers/yumi_metal_spline_closed/home_pose.tf\
+  \ \n\n    translation:\n      min:\n        - -0.45\n        - -0.05\n        -\
+  \ 0.0\n      max:\n        - -0.35\n        - 0.05\n        - 0.0\n\n  workspace:\n\
+  \    min:\n      - -0.2\n      - -0.25\n      - 0.0\n\n    max:\n      - 0.2\n \
+  \     - 0.25\n      - 0.3\n\n    objects:\n      plane:\n        mesh_filename:\
+  \ data/objects/plane/plane.obj\n        pose_filename: data/objects/plane/pose.tf\n\
+  \n        mat_props:\n          rgb:\n            min:\n              - 0.6\n  \
+  \            - 0.6\n              - 0.6\n            max:\n              - 0.6\n\
+  \              - 0.6\n              - 0.6\n          ambient:\n            min:\
+  \ 0.0\n            max: 1.0\n          diffuse:\n            min: 0.0\n        \
+  \    max: 1.0\n          shininess:\n            min: 0\n            max: 1.0\n\
+  \          alpha:\n            min: 0.0\n            max: 1.0\n          smooth:\
+  \ 0\n\n  light:\n    point_lights:\n      mean: 1\n      min: 1\n    \n    rgb:\n\
+  \      min:\n        - 0.9\n        - 0.9\n        - 0.9\n      max:\n        -\
+  \ 1.0\n        - 1.0\n        - 1.0\n\n    strength:\n      min: 0.25\n      max:\
+  \ 0.75\n\n    location:\n      min:\n        - -0.1\n        - -0.1\n        - 0.5\n\
+  \      max:\n        - 0.1\n        - 0.1\n        - 1.5\n\nvis:\n  reset: 0\n \
+  \ grasp_metric: 1\n  grasp: 0\n\n  state: 0\n  initial_obs: 0\n\n  dexnet_grasps:\
+  \ 0\n  random_grasps: 0\n  all_grasps: 0\n\n  camera: 0\n  obs: 0\n  tf_obs: 0\n\
+  \n  action_stats: 1\n  log_rate: 1\n\n  quality_scale: 0.3\n\n  save_images: 0\n\
+  \  cam_dist: 0.5\n  cam_elev: 45\n  num_cam_az: 8\n  animate: 0\n"

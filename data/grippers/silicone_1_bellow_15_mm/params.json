@@ -1,0 +1,1 @@
+{"type": "suction", "force_limit": 10000000000.0, "finger_radius": 0.0075, "inner_radius": 0.00375, "backup_dist": 0.02, "penetration_dist": 0.005, "height": 0.005, "material_limit": 0.01, "vacuum_force": 1000.0}

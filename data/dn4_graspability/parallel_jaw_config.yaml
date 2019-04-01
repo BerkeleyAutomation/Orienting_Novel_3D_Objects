@@ -1,0 +1,46 @@
+!!python/object:autolab_core.yaml_config.YamlConfig
+config: !!python/object/apply:collections.OrderedDict
+- - - policy
+    - !!python/object/apply:collections.OrderedDict
+      - - [type, dexnet_greedy]
+        - - database
+          - !!python/object/apply:collections.OrderedDict
+            - - [database_path, /nfs/diskstation/db/dexnet_4.hdf5]
+              - - object_keys
+                - !!python/object/apply:collections.OrderedDict
+                  - - [thingiverse, all]
+                    - [thingiverse-packaged, all]
+                    - [kit, all]
+                    - [3dnet, all]
+                    - [big-kit, all]
+                    - [big-3dnet, all]
+        - - params
+          - !!python/object/apply:collections.OrderedDict
+            - - [check_collisions, 1]
+              - [check_object_interactions, 0]
+              - [external_contact_friction_coef, 0.8]
+              - [reference_frame, world]
+              - [sample_contact_area, 1]
+              - [constrain_finger_surface, 1]
+              - [obj_collision_num_samples, 10]
+              - [gripper, yumi_metal_spline]
+              - [metric_name, robust_wrench_resistance]
+              - - axis_angle
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, -20]
+                    - [max, 20]
+              - - approach_angle
+                - !!python/object/apply:collections.OrderedDict
+                  - - [min, -10]
+                    - [max, 10]
+                    - [num, 3]
+              - [max_blocking_force_angle, 30]
+file_contents: "policy:\n  type: dexnet_greedy\n\n  database:\n    database_path:\
+  \ /nfs/diskstation/db/dexnet_4.hdf5\n    object_keys:\n      thingiverse: all\n\
+  \      thingiverse-packaged: all\n      kit: all\n      3dnet: all\n      big-kit:\
+  \ all\n      big-3dnet: all\n\n  params:\n    check_collisions: 1\n    check_object_interactions:\
+  \ 0\n    external_contact_friction_coef: 0.8\n    reference_frame: world\n\n   \
+  \ sample_contact_area: 1\n    constrain_finger_surface: 1\n    obj_collision_num_samples:\
+  \ 10\n\n    gripper: yumi_metal_spline\n    metric_name: robust_wrench_resistance\n\
+  \n    axis_angle:\n      min: -20\n      max: 20\n\n    approach_angle:\n      min:\
+  \ -10\n      max: 10\n      num: 3\n\n    max_blocking_force_angle: 30\n"

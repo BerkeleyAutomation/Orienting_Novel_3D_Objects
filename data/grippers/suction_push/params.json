@@ -1,0 +1,1 @@
+{"type": "push", "force_limit": 1000.0, "finger_radius": 0.01, "inner_radius": 0.0075, "backup_dist": 0.02, "penetration_dist": 0.005, "height": 0.005, "material_limit": 0.01, "vacuum_force": 25.0}
