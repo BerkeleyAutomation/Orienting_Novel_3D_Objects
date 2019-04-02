@@ -2,9 +2,10 @@ import numpy as np
 import argparse
 import os
 
-from autolab_core import YamlConfig, RigidTransform
+from autolab_core import YamlConfig, RigidTransform, TensorDataset
 from dexnet.envs import GraspingEnv
 from dexnet.visualization import DexNetVisualizer2D as vis2d
+import itertools
 
 def parse_args():
     parser = argparse.ArgumentParser(description='Rollout a policy for bin picking in order to evaluate performance')
@@ -20,6 +21,11 @@ if __name__ == '__main__':
     args = parse_args()
     config = YamlConfig(args.config_filename)
     env = GraspingEnv(config, config['vis'])
+    tensor_config = config['dataset']['tensors']
+    dataset = TensorDataset("/nfs/diskstation/projects/rigid_body/", tensor_config)
+    datapoint = dataset.datapoint_template
+
+    i = 0
     while True:
         try:
             env.reset()
@@ -33,12 +39,29 @@ if __name__ == '__main__':
             n_samples=obj_config['stp_num_samples'],
             threshold=obj_config['stp_min_prob']
         )
-        for pose in stable_poses:
-            rot, trans = RigidTransform.rotation_and_translation_from_matrix(pose)
-            env.state.obj.T_obj_world = RigidTransform(rot, trans, 'obj', 'world')
+        
+        print("Object Number: " + str(i))
+        for pose_pair in list(itertools.combinations(stable_poses, 2)):
+            pose1, pose2 = pose_pair
             
-            vis2d.figure()
-            print env.observation.shape
-            vis2d.imshow(env.observation, auto_subplot=True)
-            vis2d.show()
+            rot_pos1, trans_pos1 = RigidTransform.rotation_and_translation_from_matrix(pose1)
+            pose1_transform = RigidTransform(rot_pos1, trans_pos1, 'obj', 'world')
+            env.state.obj.T_obj_world = pose1_transform
+            datapoint["depth_image1"] = env.observation.data
+            
+            rot_pos2, trans_pos2 = RigidTransform.rotation_and_translation_from_matrix(pose2)
+            pose2_transform = RigidTransform(rot_pos2, trans_pos2, 'obj', 'world')
+            env.state.obj.T_obj_world = pose2_transform
+            datapoint["depth_image2"] = env.observation.data
+            
+            datapoint["transform"] = (pose1_transform.inverse() * pose2_transform).matrix
+            dataset.add(datapoint)
+            
+        i += 1
+        if i > 1000:
+            break
+            
+    dataset.flush()
+            
+
         

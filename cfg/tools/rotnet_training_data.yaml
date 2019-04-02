@@ -57,33 +57,21 @@ dataset:
   tensors:
     datapoints_per_file: 100
     fields:
-      obj_id:
-        dtype: uint32
-      obj_pose: 
+#       obj_id:
+#         dtype: uint32
+      depth_image1:
+        dtype: float32
+        height: 300
+        width: 400
+        channels: 4
+      depth_image2:
+        dtype: float32
+        height: 300
+        width: 400
+        channels: 4
+      transform:
         dtype: float32
         height: 4
-        width: 4
-      num_vertices:
-        dtype: uint32
-      vertices:
-        dtype: float32
-        height: 1000
-        width: 3
-      normals:
-        dtype: float32
-        height: 1000
-        width: 3
-      min_required_forces:
-        dtype: float32
-        height: 1000
-
-      vertex_probs:
-        dtype: float32
-        height: 1000
-        width: 20
-      final_poses:
-        dtype: float32
-        height: 80 # 20 possible * 4
         width: 4
 
 experiments:
