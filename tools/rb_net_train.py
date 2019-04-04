@@ -2,7 +2,8 @@ import numpy as np
 import argparse
 import os
 
-from autolab_core import YamlConfig, RigidTransform, TensorDataset
+from autolab_core import YamlConfig, RigidTransform
+from unsupervised_rbt import TensorDataset
 from dexnet.envs import GraspingEnv
 from dexnet.visualization import DexNetVisualizer2D as vis2d
 import itertools
