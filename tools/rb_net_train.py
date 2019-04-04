@@ -20,28 +20,34 @@ import matplotlib.pyplot as plt
 # and learning to predict that
 # TODO: Improve batching speed/data loading, its still kind of slow rn
 # TODO: Clean up so parameters not defined in __main__ but instead defined in config yaml
+
+n_filters = 64
 class SiameseNetwork(nn.Module):
     def __init__(self):
         super(SiameseNetwork, self).__init__()
         self.cnn1 = nn.Sequential(
-            nn.Conv2d(1, 128, kernel_size=7, padding=3),
+            nn.Conv2d(1, n_filters, kernel_size=7, stride=2, padding=3),
             nn.ReLU(inplace=True),
-            nn.BatchNorm2d(128),
+            nn.BatchNorm2d(n_filters),
+            nn.MaxPool2d(2,2),
             
-            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
             nn.ReLU(inplace=True),
-            nn.BatchNorm2d(128),
+            nn.BatchNorm2d(n_filters),
+            nn.MaxPool2d(2,2),
 
-            nn.Conv2d(128, 128, kernel_size=3, padding=1),
+            nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
             nn.ReLU(inplace=True),
-            nn.BatchNorm2d(128)
+            nn.BatchNorm2d(n_filters),
+            nn.MaxPool2d(2,2),
         )
         self.fc1 = nn.Sequential(
-            nn.Linear(128*im_shape[0]*im_shape[1], 500),
+            nn.Linear(n_filters*5*6, 500),
             nn.ReLU(inplace=True),
 
             nn.Linear(500, 500),
-            nn.ReLU(inplace=True))
+            nn.ReLU(inplace=True)
+        )
         
         self.final_fc = nn.Linear(1000, transform_pred_dim)
 
@@ -69,9 +75,9 @@ def train(epoch, dataset):
     for step in range(n_train_steps):
         print("Step: " + str(step))
         batch = dataset[step*batch_size : step*batch_size+batch_size]
-        im1_batch = Variable(torch.from_numpy(batch["depth_image1"])).to(device)
-        im2_batch = Variable(torch.from_numpy(batch["depth_image2"])).to(device)
-        transform_batch = Variable(torch.from_numpy(batch["transform"].reshape((batch_size, -1)))).to(device)
+        im1_batch = Variable(torch.from_numpy(batch["depth_image1"]).float()).to(device)
+        im2_batch = Variable(torch.from_numpy(batch["depth_image2"]).float()).to(device)
+        transform_batch = Variable(torch.from_numpy(batch["transform"]).float()).to(device)
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch)
         loss = criterion(pred_transform, transform_batch)
@@ -94,9 +100,9 @@ def test(epoch, dataset):
         for step in range(n_test_steps):
             print("Step: " + str(step))
             batch = dataset[step*batch_size + N_train : step*batch_size+batch_size + N_train]
-            im1_batch = Variable(torch.from_numpy(batch["depth_image1"])).to(device)
-            im2_batch = Variable(torch.from_numpy(batch["depth_image2"])).to(device)
-            transform_batch = Variable(torch.from_numpy(batch["transform"].reshape((batch_size, -1)))).to(device)
+            im1_batch = Variable(torch.from_numpy(batch["depth_image1"]).float()).to(device)
+            im2_batch = Variable(torch.from_numpy(batch["depth_image2"]).float()).to(device)
+            transform_batch = Variable(torch.from_numpy(batch["transform"]).float()).to(device)
             pred_transform = model(im1_batch, im2_batch)
             loss = criterion(pred_transform, transform_batch)
             test_loss += loss.item()
@@ -108,13 +114,13 @@ if __name__ == '__main__':
     train_frac = 0.8
     batch_size = 128
     dataset = TensorDataset.open("/nfs/diskstation/projects/rigid_body/")
-    transform_pred_dim = dataset[0]["transform"].flatten().shape[0]
+    transform_pred_dim = 3
     im_shape = dataset[0]["depth_image1"].shape[:-1]
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SiameseNetwork().to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(),lr = 0.0005)
-    num_epochs = 2
+    num_epochs = 100 
     train_losses = []
     test_losses = []
     losses_f_name = "results/losses.p"
