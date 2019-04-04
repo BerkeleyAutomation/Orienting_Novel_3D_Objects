@@ -1,0 +1,563 @@
+# general params
+steps_per_test_case: 2
+rollouts_per_garbage_collect: 10
+debug: 0
+
+# policy params
+fully_observed: 1
+policy:
+  type: toppling
+  #grasping_policy_config_filename: cfg/tools/dexnet_greedy_parallel_jaw.yaml
+  grasping_policy_config_filename: cfg/tools/dexnet_greedy_suction.yaml
+  thresh: 0.15
+  log: 0
+
+model:
+  fraction_before_short_circuit: 0.4
+  num_approx: 30
+  
+  # ground_friction_coeff: 0.25
+  # ground_friction_sigma: .1
+  # finger_friction_coeff: 0.6
+  # finger_friction_sigma: .2
+  ground_friction_coeff: 0.37
+  ground_friction_sigma: .1
+  finger_friction_coeff: 0.82
+  finger_friction_sigma: .2
+  
+  # finger_sigma: 0.0007
+  # push_direction_sigma: .07
+  finger_sigma: 0.000622
+  push_direction_sigma: .069
+  n_trials: 50
+  max_force: 400 # 10x the average for gearbox
+  log: 0
+  baseline: 0
+
+  load: 1
+  datasets:
+    # mini_dexnet: /nfs/diskstation/db/toppling/mini_dexnet_scaled
+    # mini_dexnet: /nfs/diskstation/db/toppling/mini_dexnet
+    # ycb: /nfs/diskstation/db/toppling/ycb/
+    # adversarial: /nfs/diskstation/db/toppling/adversarial
+    thingiverse: /nfs/diskstation/db/toppling/tuned_params
+    thingiverse-packaged: /nfs/diskstation/db/toppling/tuned_params
+    kit: /nfs/diskstation/db/toppling/tuned_params
+    3dnet: /nfs/diskstation/db/toppling/tuned_params
+    big-kit: /nfs/diskstation/db/toppling/tuned_params
+    big-3dnet: /nfs/diskstation/db/toppling/tuned_params
+
+# ray params
+ray:
+  num_cpus: 4
+  redirect_output: 0
+
+# dataset params
+dataset:
+  tensors:
+    datapoints_per_file: 100
+    fields:
+#       obj_id:
+#         dtype: uint32
+      depth_image1:
+        dtype: float32
+        height: 300
+        width: 400
+        channels: 4
+      depth_image2:
+        dtype: float32
+        height: 300
+        width: 400
+        channels: 4
+      transform:
+        dtype: float32
+        height: 4
+        width: 4
+
+experiments:
+  tensors:
+    datapoints_per_file: 100
+    fields:
+      obj_id: 
+        dtype: uint32
+      obj_pose:
+        dtype: float32
+        height: 4
+        width: 4
+      vertex:
+        dtype: float32
+        height: 3
+      normal:
+        dtype: float32
+        height: 3
+      fraction_toppled:
+        dtype: float32
+      # pose_angles:
+      #   dtype: float32
+      #   height: 10
+      actual_poses:
+        dtype: float32
+        height: 40 # 4x4 matrices, 10 of them
+        width: 4
+
+# environment params
+transitions:
+  max_timesteps: 100
+
+  collision_checking:
+    approach_dist: 0.1
+    delta_approach: 0.005
+    sim_grasp_approach: 0
+    sim_collisions_on_grasp_failures: 0
+
+  metric:
+    parallel_jaw:
+      # threshold for successful grasps
+      successful_grasp_thresh: 0.25
+      
+      # required parameters
+      quality_method: wrench_resistance
+      friction_coef: 0.8
+      torsional_friction_coef: 0.0025
+      soft_fingers: 1
+      quality_type: robust_quasi_static
+      max_approach_table_angle: 60 # in degrees
+
+      all_contacts_required: 1
+      check_approach: 0
+      use_trimesh_contacts: 1
+      use_stable_poses: 0
+      wrench_relative_to_grasp: 0
+
+      # optional deterministic parameters
+      torque_scaling: 1.0
+      wrench_norm_thresh: 0.001
+      wrench_regularizer: 0.0000000001
+
+      num_cone_faces: 8
+      num_force_components: 3
+      num_boundary_points: 32
+      max_struct_pct_incr: 0.1
+      max_flex_pct_incr: 0.1
+      max_cone_pct_incr: 0.1
+
+      # evaluate external contacts
+      evaluate_external_contacts: 0 
+      max_blocking_force_angle: 45
+      external_contact_friction_coef: 1.0
+      external_contact_wrench_norm_thresh: 0.1
+
+      # PARAMS for robust grasp metrics
+      # uncertainty
+      grasp_uncertainty:
+        sigma_grasp_trans_x: 0.0025
+        sigma_grasp_trans_y: 0.0025
+        sigma_grasp_trans_z: 0.0025
+        sigma_grasp_rot_x: 0.01
+        sigma_grasp_rot_y: 0.01
+        sigma_grasp_rot_z: 0.01
+        sigma_backup_dist: 0.0001
+        sigma_penetration_dist: 0.001
+        sigma_grasp_approach: 0.01
+        num_prealloc_samples: 0
+      params_uncertainty:
+        sigma_friction_coef: 0.01
+        sigma_torque_scaling: 0.001
+        sigma_finger_radius: 0.001
+        mean_mass: 0.25
+        var_mass: 0.00001
+        sigma_target_wrench: 0.01
+        num_prealloc_samples: 0
+
+      # sampling params
+      num_quality_samples: 10
+      sampling_snapshot_rate: 1
+
+    suction:
+      # threshold for successful grasps
+      successful_grasp_thresh: 0.25
+
+      # required parameters
+      quality_method: suction_wrench_resistance
+      friction_coef: 0.8
+      soft_fingers: 0
+      quality_type: robust_quasi_static
+      max_approach_table_angle: 60 # in degrees
+      mass: 0.25
+
+      all_contacts_required: 1
+      check_approach: 0
+      use_trimesh_contacts: 1
+      use_stable_poses: 0
+      wrench_relative_to_grasp: 0
+    
+      # optional deterministic parameters
+      torque_scaling: 1.0
+      wrench_norm_thresh: 0.001
+      wrench_regularizer: 0.0000000001
+
+      num_cone_faces: 3
+      num_force_components: 3
+      num_boundary_points: 32
+      max_struct_pct_incr: 0.15
+      max_flex_pct_incr: 0.15
+      max_cone_pct_incr: 0.2
+
+      # evaluate external contacts
+      evaluate_external_contacts: 0
+      max_blocking_force_angle: 45
+      external_contact_friction_coef: 1.0
+      external_contact_wrench_norm_thresh: 0.1
+
+      # PARAMS for robust grasp metrics
+      # uncertainty
+      grasp_uncertainty:
+        sigma_grasp_trans_x: 0.001
+        sigma_grasp_trans_y: 0.001
+        sigma_grasp_trans_z: 0.001
+        sigma_grasp_rot_x: 0.01
+        sigma_grasp_rot_y: 0.01
+        sigma_grasp_rot_z: 0.01
+        sigma_backup_dist: 0.001
+        sigma_penetration_dist: 0.001
+        sigma_grasp_approach: 0.01
+        num_prealloc_samples: 0
+      params_uncertainty:
+        sigma_friction_coef: 0.01
+        sigma_torque_scaling: 0.001
+        sigma_finger_radius: 0.001
+        mean_mass: 0.25
+        var_mass: 0.05
+        sigma_target_wrench: 0.01
+        num_prealloc_samples: 0
+
+      # sampling params
+      num_quality_samples: 10
+      sampling_snapshot_rate: 1
+
+  dynamic_simulation:
+    gui: 0 
+    use_real_time: 0
+    remove_out_of_bounds_objects: 0
+
+    max_object_lift: 0.35
+    lift_acceleration: 5.0
+    max_steps_per_lift: 100
+    max_steps_per_settle: 500
+    mag_v_thresh: 0.001
+    mag_w_thresh: 0.01
+
+reward:
+ type: object
+
+action_space:
+  parallel_jaw:
+    translation:
+      min:
+        - -0.2
+        - -0.25
+        - 0.005
+
+      max:
+        - 0.2
+        - 0.25
+        - 0.2
+
+    approach_angle:
+      min: -45
+      max: 45
+
+  suction:
+    translation:
+      min:
+        - -0.2
+        - -0.25
+        - 0.005
+
+      max:
+        - 0.2
+        - 0.25
+        - 0.2
+
+    approach_angle:
+      min: -45
+      max: 45
+
+  push:
+    translation:
+      min:
+        - -0.18 # 0.14 for random, 0.18 normally
+        - -0.23 # 0.19 for random, 0.23 normally
+        - 0.03
+
+      max:
+        - 0.18
+        - 0.23
+        - 0.2
+
+    approach_angle:
+      min: -45
+      max: 45
+
+    push_distance: 0.2
+
+state_space:
+  urdf_cache_dir: /nfs/diskstation/projects/dex-net/objects/urdf/dexnet_4_v2
+
+  replace: 1
+  samples_per_object: 1
+  use_box: 0 # pose 2
+
+  pile:
+    min:
+      - -0.1
+      - -0.15
+    max:
+      - 0.1
+      - 0.15
+
+  object: 
+    database_path: /nfs/diskstation/db/dexnet_4.hdf5
+    object_keys:
+      thingiverse: all
+      thingiverse-packaged: all
+      kit: all
+      3dnet: all
+      big-kit: all
+      big-3dnet: all
+    planar_translation:  
+      min:
+        - -0.1
+        - -0.1
+      max:
+        - 0.1
+        - 0.1
+
+    scale:
+      mean: 1.0
+      var: 0.0
+
+    center_of_mass:
+      sigma: 0.0
+
+    mass: 1.0
+    density: 4000
+
+    exact_num_objs: 1
+    mean_num_obj: 10
+    max_obj_per_pile: 20
+    max_obj_diam: 0.3
+
+    drop_height: 0.35
+
+    max_steps_per_reset: 500
+    mag_v_thresh: 0.001
+    mag_w_thresh: 0.01
+
+    mat_props:
+      rgb:
+        min:
+          - 0.0
+          - 0.0
+          - 0.0
+        max:
+          - 1.0
+          - 1.0
+          - 1.0
+      ambient:
+        min: 0.0
+        max: 1.0
+      diffuse:
+        min: 0.0
+        max: 1.0
+      shininess:
+        min: 0
+        max: 1.0
+      alpha:
+        min: 0.0
+        max: 1.0
+      smooth: 0
+    stp_com_sigma: .0025
+    stp_num_samples: 10
+    stp_min_prob: .05
+
+  camera:
+    frame: phoxi_overhead
+    render_mode: rgbd
+    mesh_filename: data/objects/camera/camera.obj
+
+    im_width: 400
+    im_height: 300
+
+    # intrinsics
+    focal_length:
+      min: 275
+      max: 300
+    delta_optical_center:
+      min: -2.5
+      max: 2.5
+
+    # position
+    x:
+      min: -0.05
+      max: 0.05
+    y:
+      min: -0.05
+      max: 0.05
+
+    # angles in degrees
+    radius:
+      min: 0.75
+      max: 0.9
+    elevation:
+      min: 0.1
+      max: 10
+    azimuth:
+      min: 250
+      max: 290
+    roll:
+      min: 80
+      max: 100
+
+  robot:
+    frame: base
+    use_kinematics: 0
+    max_normal_force: 1000 # 100 for normal YuMi collision level, 1e10 to disable
+    pid_max_steps: 500
+
+    parallel_jaw:
+      gripper: yumi_metal_spline
+      home_pose: data/grippers/yumi_metal_spline/home_pose.tf 
+    suction:
+      gripper: righthand
+      home_pose: data/grippers/righthand/home_pose.tf 
+    push:
+      gripper: yumi_metal_spline_closed
+      home_pose: data/grippers/yumi_metal_spline_closed/home_pose.tf 
+
+    translation:
+      min:
+        - -0.45
+        - -0.05
+        - 0.0
+      max:
+        - -0.35
+        - 0.05
+        - 0.0
+
+  workspace:
+    min:
+      - -0.2
+      - -0.25
+      - 0.0
+
+    max:
+      - 0.2
+      - 0.25
+      - 0.3
+
+    objects:
+      #beveled_bin:
+      #  mesh_filename: data/objects/beveled_bin/mini_bin_extruded.obj
+      #  pose_filename: data/objects/beveled_bin/pose.tf
+
+      #  mat_props:
+      #    rgb:
+      #      min:
+      #        - 0.6
+      #        - 0.6
+      #        - 0.6
+      #      max:
+      #        - 0.6
+      #        - 0.6
+      #        - 0.6
+      #    ambient:
+      #      min: 0.0
+      #      max: 1.0
+      #    diffuse:
+      #      min: 0.0
+      #      max: 1.0
+      #    shininess:
+      #      min: 0
+      #      max: 1.0
+      #    alpha:
+      #      min: 0.0
+      #      max: 1.0
+      #    smooth: 0
+
+      plane:
+        mesh_filename: data/objects/plane/plane.obj
+        pose_filename: data/objects/plane/pose.tf
+
+        mat_props:
+          rgb:
+            min:
+              - 0.6
+              - 0.6
+              - 0.6
+            max:
+              - 0.6
+              - 0.6
+              - 0.6
+          ambient:
+            min: 0.0
+            max: 1.0
+          diffuse:
+            min: 0.0
+            max: 1.0
+          shininess:
+            min: 0
+            max: 1.0
+          alpha:
+            min: 0.0
+            max: 1.0
+          smooth: 0
+
+  light:
+    point_lights:
+      mean: 1
+      min: 1
+    
+    rgb:
+      min:
+        - 0.9
+        - 0.9
+        - 0.9
+      max:
+        - 1.0
+        - 1.0
+        - 1.0
+
+    strength:
+      min: 0.25
+      max: 0.75
+
+    location:
+      min:
+        - -0.1
+        - -0.1
+        - 0.5
+      max:
+        - 0.1
+        - 0.1
+        - 1.5
+
+vis:
+  reset: 0
+  grasp_metric: 1
+
+  initial_state: 0
+  initial_obs: 0
+
+  action: 1
+  obs: 0
+  state: 1
+
+  step_stats: 0
+  log_rate: 1
+
+  save_images: 0
+  cam_dist: 0.5
+  cam_elev: 45
+  num_cam_az: 8
+  animate: 0
