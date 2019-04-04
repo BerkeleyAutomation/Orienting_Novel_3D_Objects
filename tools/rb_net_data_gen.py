@@ -11,7 +11,7 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Rollout a policy for bin picking in order to evaluate performance')
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
-                                           'cfg/tools/rotnet_training_data.yaml'
+                                           'cfg/tools/rb_net_data_gen.yaml'
     )
     parser.add_argument('--config_filename', type=str, default=default_config_filename, help='configuration file to use')
     parser.add_argument('--num_objs', type=int)
@@ -58,10 +58,8 @@ if __name__ == '__main__':
             dataset.add(datapoint)
             
         i += 1
-        if i > 1000:
-            break
-            
-    dataset.flush()
+        if i % 20 == 0:
+            dataset.flush()
             
 
         
