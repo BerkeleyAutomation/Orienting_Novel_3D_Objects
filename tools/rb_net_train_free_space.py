@@ -31,9 +31,8 @@ class SiameseNetwork(nn.Module):
             nn.Conv2d(1, n_filters, kernel_size=7, stride=2, padding=3),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(n_filters),
-            nn.MaxPool2d(2,2),
             
-            nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
+            nn.Conv2d(n_filters, n_filters, kernel_size=5, stride=2, padding=2),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(n_filters),
             nn.MaxPool2d(2,2),
@@ -41,7 +40,11 @@ class SiameseNetwork(nn.Module):
             nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(n_filters),
-            nn.MaxPool2d(2,2),
+            
+            nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.BatchNorm2d(n_filters),
+            nn.MaxPool2d(2,2)
         )
         self.fc1 = nn.Sequential(
             nn.Linear(n_filters*5*6, 100),
@@ -114,11 +117,11 @@ if __name__ == '__main__':
         train_frac = 0.8
         batch_size = 128
         dataset = TensorDataset.open("/nfs/diskstation/projects/rigid_body/")
-        transform_pred_dim = 3
+        transform_pred_dim = 6
         im_shape = dataset[0]["depth_image1"].shape[:-1]
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = SiameseNetwork().to(device)
-        criterion = nn.MSELoss()
+        criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters())
         num_epochs = 100 
         train_losses = []
