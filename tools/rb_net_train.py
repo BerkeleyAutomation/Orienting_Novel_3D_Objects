@@ -111,7 +111,7 @@ def test(epoch, dataset):
     return test_loss/n_test_steps
 
 if __name__ == '__main__':
-    run_train = True
+    run_train = False
     train_frac = 0.8
     batch_size = 128
     dataset = TensorDataset.open("/nfs/diskstation/projects/rigid_body/")
