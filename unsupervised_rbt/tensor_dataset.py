@@ -31,10 +31,10 @@ import os
 import shutil
 import sys
 
-from .constants import *
-from .utils import *
-from . import YamlConfig
-from . import transformations
+from autolab_core.constants import *
+from autolab_core.utils import *
+from autolab_core import YamlConfig
+from autolab_core import transformations
 
 TENSOR_EXT = '.npy'
 COMPRESSED_TENSOR_EXT = '.npz'
