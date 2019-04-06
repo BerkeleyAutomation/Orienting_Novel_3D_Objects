@@ -319,9 +319,9 @@ state_space:
     object_keys:
       thingiverse: all
 #       thingiverse-packaged: all
-#       kit: all
+      kit: all
       3dnet: all
-#       big-kit: all
+      big-kit: all
       big-3dnet: all
     planar_translation:  
       min:

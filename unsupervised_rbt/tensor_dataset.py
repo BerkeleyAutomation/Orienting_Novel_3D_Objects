@@ -520,7 +520,8 @@ class TensorDataset(object):
             return {
                 "depth_image1" : np.expand_dims(np.array([self.datapoint(i)["depth_image1"][:, :, -1] for i in range(inds.start, inds.stop)]), axis=1), 
                 "depth_image2" : np.expand_dims(np.array([self.datapoint(i)["depth_image2"][:, :, -1] for i in range(inds.start, inds.stop)]), axis=1), 
-                "transform" : np.array([rbt_to_euler(self.datapoint(i)["transform"]) for i in range(inds.start, inds.stop)])
+#                 "transform" : np.array([rbt_to_euler(self.datapoint(i)["transform"]) for i in range(inds.start, inds.stop)])
+                "transform" : np.array([self.datapoint(i)["transform_id"] for i in range(inds.start, inds.stop)])
             }
         else:
             return self.datapoint(inds)

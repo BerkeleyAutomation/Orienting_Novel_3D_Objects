@@ -78,7 +78,7 @@ def train(epoch, dataset):
         batch = dataset[step*batch_size : step*batch_size+batch_size]
         im1_batch = Variable(torch.from_numpy(batch["depth_image1"]).float()).to(device)
         im2_batch = Variable(torch.from_numpy(batch["depth_image2"]).float()).to(device)
-        transform_batch = Variable(torch.from_numpy(batch["transform"]).float()).to(device)
+        transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch)
         loss = criterion(pred_transform, transform_batch)
@@ -101,7 +101,7 @@ def test(epoch, dataset):
             batch = dataset[step*batch_size + N_train : step*batch_size+batch_size + N_train]
             im1_batch = Variable(torch.from_numpy(batch["depth_image1"]).float()).to(device)
             im2_batch = Variable(torch.from_numpy(batch["depth_image2"]).float()).to(device)
-            transform_batch = Variable(torch.from_numpy(batch["transform"]).float()).to(device)
+            transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
             pred_transform = model(im1_batch, im2_batch)
             loss = criterion(pred_transform, transform_batch)
             test_loss += loss.item()
@@ -110,13 +110,13 @@ def test(epoch, dataset):
 
 if __name__ == '__main__':
     run_train = True
-    losses_f_name = "results/losses.p"
-    loss_plot_f_name = "plots/losses.png"
+    losses_f_name = "results/losses_free_space.p"
+    loss_plot_f_name = "plots/losses_free_space.png"
     
     if run_train:
         train_frac = 0.8
         batch_size = 128
-        dataset = TensorDataset.open("/nfs/diskstation/projects/rigid_body/")
+        dataset = TensorDataset.open("/nfs/diskstation/projects/rbt_2/")
         transform_pred_dim = 6
         im_shape = dataset[0]["depth_image1"].shape[:-1]
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -133,7 +133,7 @@ if __name__ == '__main__':
             test_losses.append(test_loss)
             print("Epoch %d, Train Loss = %f, Test Loss = %f" % (epoch, train_loss, test_loss))
             pickle.dump({"train_loss" : train_losses, "test_loss" : test_losses}, open( losses_f_name, "wb"))
-            torch.save(model.state_dict(), "models/rb_net.pt")
+            torch.save(model.state_dict(), "models/rb_net_free_space.pt")
             
     else:
         losses = pickle.load( open( losses_f_name, "rb" ) )

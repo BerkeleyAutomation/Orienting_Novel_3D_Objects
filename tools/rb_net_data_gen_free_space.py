@@ -56,6 +56,7 @@ if __name__ == '__main__':
 #             vis2d.show()
             datapoint["depth_image2"] = env.observation.data
             datapoint["transform_id"] = label
+            dataset.add(datapoint)
             
         i += 1
         if i % 20 == 0:
