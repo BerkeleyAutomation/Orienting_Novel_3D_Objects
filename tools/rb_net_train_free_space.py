@@ -23,7 +23,7 @@ from tqdm import tqdm
 # TODO: Improve batching speed/data loading, its still kind of slow rn
 # TODO: Clean up so parameters not defined in __main__ but instead defined in config yaml
 
-n_filters = 64
+n_filters = 4
 class SiameseNetwork(nn.Module):
     def __init__(self):
         super(SiameseNetwork, self).__init__()
@@ -40,14 +40,15 @@ class SiameseNetwork(nn.Module):
             nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(n_filters),
-            
-            nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(n_filters),
             nn.MaxPool2d(2,2)
+            
+#             nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
+#             nn.ReLU(inplace=True),
+#             nn.BatchNorm2d(n_filters),
+#             nn.MaxPool2d(2,2)
         )
         self.fc1 = nn.Sequential(
-            nn.Linear(n_filters*5*6, 100),
+            nn.Linear(n_filters*108, 100),
             nn.ReLU(inplace=True),
             nn.Linear(100, 100),
             nn.ReLU(inplace=True)
@@ -73,6 +74,8 @@ def train(epoch, dataset):
     train_loss = 0
     N_train = int(train_frac*dataset.num_datapoints)
     n_train_steps = N_train//batch_size
+    correct = 0
+    total = 0
     
     for step in tqdm(range(n_train_steps)):
         batch = dataset[step*batch_size : step*batch_size+batch_size]
@@ -81,12 +84,17 @@ def train(epoch, dataset):
         transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch)
+        _, predicted = torch.max(pred_transform, 1)
+        correct += (predicted == transform_batch).sum().item()
+        total += transform_batch.size(0)
+        
         loss = criterion(pred_transform, transform_batch)
         loss.backward()
         train_loss += loss.item()
         optimizer.step()
         
-    return train_loss/n_train_steps
+    class_acc = 100 * correct/total
+    return train_loss/n_train_steps, class_acc
 
 def test(epoch, dataset):
     model.eval()
@@ -94,6 +102,8 @@ def test(epoch, dataset):
     N_train = int(train_frac*dataset.num_datapoints)
     N_test = int( (1 - train_frac)*dataset.num_datapoints)
     n_test_steps = N_test//batch_size
+    correct = 0
+    total = 0
     
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
@@ -103,10 +113,15 @@ def test(epoch, dataset):
             im2_batch = Variable(torch.from_numpy(batch["depth_image2"]).float()).to(device)
             transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
             pred_transform = model(im1_batch, im2_batch)
+            _, predicted = torch.max(pred_transform, 1)
+            correct += (predicted == transform_batch).sum().item()
+            total += transform_batch.size(0)
+            
             loss = criterion(pred_transform, transform_batch)
             test_loss += loss.item()
-        
-    return test_loss/n_test_steps
+       
+    class_acc = 100 * correct/total
+    return test_loss/n_test_steps, class_acc
 
 if __name__ == '__main__':
     run_train = True
@@ -126,25 +141,39 @@ if __name__ == '__main__':
         num_epochs = 100 
         train_losses = []
         test_losses = []
+        train_accs = []
+        test_accs = []
         for epoch in range(num_epochs):
-            train_loss = train(epoch, dataset)
-            test_loss = test(epoch, dataset)
+            train_loss, train_acc = train(epoch, dataset)
+            test_loss, test_acc = test(epoch, dataset)
             train_losses.append(train_loss)
             test_losses.append(test_loss)
-            print("Epoch %d, Train Loss = %f, Test Loss = %f" % (epoch, train_loss, test_loss))
-            pickle.dump({"train_loss" : train_losses, "test_loss" : test_losses}, open( losses_f_name, "wb"))
+            train_accs.append(train_acc)
+            test_accs.append(test_acc)
+            print("Epoch %d, Train Loss = %f, Train Acc = %.2f %%, Test Loss = %f, Test Acc = %.2f %%" % (epoch, train_loss, train_acc, test_loss, test_acc))
+            pickle.dump({"train_loss" : train_losses, "train_acc" : train_accs, "test_loss" : test_losses, "test_acc" : test_accs}, open( losses_f_name, "wb"))
             torch.save(model.state_dict(), "models/rb_net_free_space.pt")
             
     else:
         losses = pickle.load( open( losses_f_name, "rb" ) )
         train_returns = np.array(losses["train_loss"])
         test_returns = np.array(losses["test_loss"])
-        print(train_returns)
-        print(test_returns)
+        train_accs = np.array(losses["train_acc"])
+        test_accs = np.array(losses["test_acc"])
+        
         plt.plot(np.arange(len(train_returns)) + 1, train_returns, label="Training Loss")
         plt.plot(np.arange(len(test_returns)) + 1, test_returns, label="Testing Loss")
         plt.xlabel("Training Iteration")
         plt.ylabel("Loss")
+        plt.title("Training Curve")
+        plt.legend(loc='best')
+        plt.savefig(loss_plot_f_name)
+        plt.close()
+        
+        plt.plot(np.arange(len(train_accs)) + 1, train_accs, label="Training Acc")
+        plt.plot(np.arange(len(test_accs)) + 1, test_accs, label="Testing Acc")
+        plt.xlabel("Training Iteration")
+        plt.ylabel("Classification Accuracy")
         plt.title("Training Curve")
         plt.legend(loc='best')
         plt.savefig(loss_plot_f_name)
