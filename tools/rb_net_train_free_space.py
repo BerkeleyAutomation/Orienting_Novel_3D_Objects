@@ -48,19 +48,20 @@ class SiameseNetwork(nn.Module):
 #             nn.BatchNorm2d(n_filters),
 #             nn.MaxPool2d(2,2)
         )
-        self.fc1 = nn.Sequential(
-            nn.Linear(n_filters*108, 100),
-            nn.ReLU(inplace=True),
-            nn.Linear(100, 100),
-            nn.ReLU(inplace=True)
-        )
-        
-        self.final_fc = nn.Linear(200, transform_pred_dim)
+        # self.fc1 = nn.Sequential(
+        #     nn.Linear(n_filters*108, 100),
+        #     nn.ReLU(inplace=True),
+        #     nn.Linear(100, 100),
+        #     nn.ReLU(inplace=True)
+        # )
+        # 
+        # self.final_fc = nn.Linear(200, transform_pred_dim)
+        self.final_fc = nn.Linear(n_filters*108*2, transform_pred_dim)
 
     def forward_once(self, x):
         output = self.cnn1(x)
         output = output.view(output.size()[0], -1)
-        output = self.fc1(output)
+        #output = self.fc1(output)
         return output
 
     def forward(self, input1, input2):
@@ -70,7 +71,7 @@ class SiameseNetwork(nn.Module):
         output_final = self.final_fc(output_concat)
         return output_final
 
-def train(epoch, dataset):
+def train(dataset):
     model.train()
     train_loss = 0
     N_train = int(train_frac*dataset.num_datapoints)
@@ -97,7 +98,7 @@ def train(epoch, dataset):
     class_acc = 100 * correct/total
     return train_loss/n_train_steps, class_acc
 
-def test(epoch, dataset):
+def test(dataset):
     model.eval()
     test_loss = 0
     N_train = int(train_frac*dataset.num_datapoints)
@@ -134,7 +135,7 @@ def display_conv_layers(model):
         imshow(torchvision.utils.make_grid(model.cnn1[0].weight))
 
 if __name__ == '__main__':
-    run_train = False
+    run_train = True
     losses_f_name = "results/losses_free_space.p"
     loss_plot_f_name = "plots/losses_free_space.png"
     transform_pred_dim = 6
@@ -154,8 +155,8 @@ if __name__ == '__main__':
         train_accs = []
         test_accs = []
         for epoch in range(num_epochs):
-            train_loss, train_acc = train(epoch, dataset)
-            test_loss, test_acc = test(epoch, dataset)
+            train_loss, train_acc = train(dataset)
+            test_loss, test_acc = test(dataset)
             train_losses.append(train_loss)
             test_losses.append(test_loss)
             train_accs.append(train_acc)
