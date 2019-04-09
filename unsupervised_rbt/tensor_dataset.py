@@ -516,15 +516,17 @@ class TensorDataset(object):
 
     def __getitem__(self, inds):
         if isinstance(inds, slice):
-            rbt_to_euler = lambda rbt: transformations.euler_from_quaternion(transformations.quaternion_from_matrix(rbt))
-            return {
-                "depth_image1" : np.expand_dims(np.array([self.datapoint(i)["depth_image1"][:, :, -1] for i in range(inds.start, inds.stop)]), axis=1), 
-                "depth_image2" : np.expand_dims(np.array([self.datapoint(i)["depth_image2"][:, :, -1] for i in range(inds.start, inds.stop)]), axis=1), 
-#                 "transform" : np.array([rbt_to_euler(self.datapoint(i)["transform"]) for i in range(inds.start, inds.stop)])
-                "transform" : np.array([self.datapoint(i)["transform_id"] for i in range(inds.start, inds.stop)])
-            }
+            return self.get_item_list(range(inds.start, inds.stop))
         else:
             return self.datapoint(inds)
+
+    def get_item_list(self, indices):
+        rbt_to_euler = lambda rbt: transformations.euler_from_quaternion(transformations.quaternion_from_matrix(rbt))
+        return {
+            "depth_image1" : np.expand_dims(np.array([self.datapoint(i)["depth_image1"][:, :, -1] for i in indices]), axis=1), 
+            "depth_image2" : np.expand_dims(np.array([self.datapoint(i)["depth_image2"][:, :, -1] for i in indices]), axis=1), 
+            "transform"    : np.array([self.datapoint(i)["transform_id"] for i in indices])
+        }
 
     def datapoint(self, ind, field_names=None):
         """ Loads a tensor datapoint for a given global index.
