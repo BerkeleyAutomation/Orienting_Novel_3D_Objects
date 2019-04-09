@@ -74,7 +74,7 @@ n_filters = 4
 class SiameseNetwork(nn.Module):
     def __init__(self):
         super(SiameseNetwork, self).__init__()
-        self.resnet = ResNet(BasicBlock, [2,2,2,2], 100)
+        self.resnet = ResNet(BasicBlock, [1,1,1,1], 100)
         self.final_fc = nn.Linear(100*2, transform_pred_dim)
 
     def forward(self, input1, input2):
@@ -115,10 +115,10 @@ class ResNet(nn.Module):
         self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, 128, num_blocks[1], stride=1)
-        self.layer3 = self._make_layer(block, 256, num_blocks[2], stride=1)
-        self.layer4 = self._make_layer(block, 512, num_blocks[3], stride=1)
-        self.linear = nn.Linear(512*block.expansion, num_output)
+        self.layer2 = self._make_layer(block, 64, num_blocks[1], stride=2)
+        self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2)
+        self.layer4 = self._make_layer(block, 64, num_blocks[3], stride=2)
+        self.linear = nn.Linear(6912, num_output)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -214,7 +214,7 @@ def display_conv_layers(model):
         plt.imshow(np.transpose(npimg, (1, 2, 0)))
         plt.show()
     with torch.no_grad():
-        imshow(torchvision.utils.make_grid(model.cnn1[0].weight))
+        imshow(torchvision.utils.make_grid(model.resnet.conv1.weight))
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -230,7 +230,7 @@ if __name__ == '__main__':
 
     if run_train:
         train_frac = 0.8
-        batch_size = 4
+        batch_size = 8
         dataset = TensorDataset.open("/nfs/diskstation/projects/rbt_2/")
         im_shape = dataset[0]["depth_image1"].shape[:-1]
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
