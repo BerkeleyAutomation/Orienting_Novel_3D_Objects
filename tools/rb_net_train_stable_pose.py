@@ -15,6 +15,7 @@ import torch.optim as optim
 from torch.autograd import Variable
 import pickle
 import matplotlib.pyplot as plt
+from tqdm import tqdm
 
 # TODO: Make this a real architecture, this is just a minimum working example for now
 # TODO: Convert transform to euler angles, right now just flattening transform
@@ -30,27 +31,29 @@ class SiameseNetwork(nn.Module):
             nn.Conv2d(1, n_filters, kernel_size=7, stride=2, padding=3),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(n_filters),
+            
+            nn.Conv2d(n_filters, n_filters, kernel_size=5, stride=2, padding=2),
+            nn.ReLU(inplace=True),
+            nn.BatchNorm2d(n_filters),
             nn.MaxPool2d(2,2),
+
+            nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
+            nn.ReLU(inplace=True),
+            nn.BatchNorm2d(n_filters),
             
             nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
             nn.ReLU(inplace=True),
             nn.BatchNorm2d(n_filters),
-            nn.MaxPool2d(2,2),
-
-            nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
-            nn.ReLU(inplace=True),
-            nn.BatchNorm2d(n_filters),
-            nn.MaxPool2d(2,2),
+            nn.MaxPool2d(2,2)
         )
         self.fc1 = nn.Sequential(
-            nn.Linear(n_filters*5*6, 500),
+            nn.Linear(n_filters*5*6, 100),
             nn.ReLU(inplace=True),
-
-            nn.Linear(500, 500),
+            nn.Linear(100, 100),
             nn.ReLU(inplace=True)
         )
         
-        self.final_fc = nn.Linear(1000, transform_pred_dim)
+        self.final_fc = nn.Linear(200, transform_pred_dim)
 
     def forward_once(self, x):
         output = self.cnn1(x)
@@ -71,10 +74,7 @@ def train(epoch, dataset):
     N_train = int(train_frac*dataset.num_datapoints)
     n_train_steps = N_train//batch_size
     
-    print(n_train_steps)
-    
-    for step in range(n_train_steps):
-        print("Step: " + str(step))
+    for step in tqdm(range(n_train_steps)):
         batch = dataset[step*batch_size : step*batch_size+batch_size]
         im1_batch = Variable(torch.from_numpy(batch["depth_image1"]).float()).to(device)
         im2_batch = Variable(torch.from_numpy(batch["depth_image2"]).float()).to(device)
@@ -95,10 +95,8 @@ def test(epoch, dataset):
     N_test = int( (1 - train_frac)*dataset.num_datapoints)
     n_test_steps = N_test//batch_size
     
-    print(n_test_steps)
-    
     with torch.no_grad():
-        for step in range(n_test_steps):
+        for step in tqdm(range(n_test_steps)):
             print("Step: " + str(step))
             batch = dataset[step*batch_size + N_train : step*batch_size+batch_size + N_train]
             im1_batch = Variable(torch.from_numpy(batch["depth_image1"]).float()).to(device)
@@ -111,32 +109,29 @@ def test(epoch, dataset):
     return test_loss/n_test_steps
 
 if __name__ == '__main__':
-    run_train = False
-    train_frac = 0.8
-    batch_size = 128
-    dataset = TensorDataset.open("/nfs/diskstation/projects/rigid_body/")
-    transform_pred_dim = 3
-    im_shape = dataset[0]["depth_image1"].shape[:-1]
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = SiameseNetwork().to(device)
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(),lr = 0.0005)
-    num_epochs = 100 
-    train_losses = []
-    test_losses = []
+    run_train = True
     losses_f_name = "results/losses.p"
     loss_plot_f_name = "plots/losses.png"
     
     if run_train:
+        train_frac = 0.8
+        batch_size = 128
+        dataset = TensorDataset.open("/nfs/diskstation/projects/rigid_body/")
+        transform_pred_dim = 3
+        im_shape = dataset[0]["depth_image1"].shape[:-1]
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = SiameseNetwork().to(device)
+        criterion = nn.MSELoss()
+        optimizer = optim.Adam(model.parameters())
+        num_epochs = 100 
+        train_losses = []
+        test_losses = []
         for epoch in range(num_epochs):
             train_loss = train(epoch, dataset)
             test_loss = test(epoch, dataset)
             train_losses.append(train_loss)
             test_losses.append(test_loss)
-            print("TRAIN LOSS")
-            print(train_loss)
-            print("TEST LOSS")
-            print(test_loss)
+            print("Epoch %d, Train Loss = %f, Test Loss = %f" % (epoch, train_loss, test_loss))
             pickle.dump({"train_loss" : train_losses, "test_loss" : test_losses}, open( losses_f_name, "wb"))
             torch.save(model.state_dict(), "models/rb_net.pt")
             

@@ -1,3 +1,6 @@
+*.swp
 results/*
 *.pkl
 unsupervised_rbt.egg-info/
+*.pyc
+*.pt

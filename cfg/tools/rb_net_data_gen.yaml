@@ -69,10 +69,8 @@ dataset:
         height: 300
         width: 400
         channels: 4
-      transform:
-        dtype: float32
-        height: 4
-        width: 4
+      transform_id:
+        dtype: uint32
 
 experiments:
   tensors:
@@ -304,8 +302,8 @@ action_space:
 state_space:
   urdf_cache_dir: /nfs/diskstation/projects/dex-net/objects/urdf/dexnet_4_v2
 
-  replace: 1
-  samples_per_object: 1
+  replace: 0
+  samples_per_object: 500
   use_box: 0 # pose 2
 
   pile:
@@ -320,11 +318,11 @@ state_space:
     database_path: /nfs/diskstation/db/dexnet_4.hdf5
     object_keys:
       thingiverse: all
-      thingiverse-packaged: all
-      kit: all
-      3dnet: all
-      big-kit: all
-      big-3dnet: all
+      #thingiverse-packaged: all
+      #kit: all
+      #3dnet: all
+      #big-kit: all
+      #big-3dnet: all
     planar_translation:  
       min:
         - -0.1
