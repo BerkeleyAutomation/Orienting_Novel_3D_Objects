@@ -231,7 +231,7 @@ if __name__ == '__main__':
     if run_train:
         train_frac = 0.8
         batch_size = 8
-        dataset = TensorDataset.open("/nfs/diskstation/projects/rbt_2/")
+        dataset = TensorDataset.open("/nfs/diskstation/projects/rbt_3/")
         im_shape = dataset[0]["depth_image1"].shape[:-1]
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = SiameseNetwork()

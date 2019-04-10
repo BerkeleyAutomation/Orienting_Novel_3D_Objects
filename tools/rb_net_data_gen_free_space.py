@@ -8,6 +8,9 @@ from dexnet.visualization import DexNetVisualizer2D as vis2d
 import itertools
 from dexnet.envs import NoRemainingSamplesException 
 
+def normalize(z):
+    return z / np.linalg.norm(z)
+
 def parse_args():
     parser = argparse.ArgumentParser(description='Rollout a policy for bin picking in order to evaluate performance')
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -23,7 +26,7 @@ if __name__ == '__main__':
     config = YamlConfig(args.config_filename)
     env = GraspingEnv(config, config['vis'])
     tensor_config = config['dataset']['tensors']
-    dataset = TensorDataset("/nfs/diskstation/projects/rbt_3/", tensor_config)
+    dataset = TensorDataset("/nfs/diskstation/projects/rbt_4/", tensor_config)
     datapoint = dataset.datapoint_template
     
     labels = np.arange(6)
@@ -38,39 +41,31 @@ if __name__ == '__main__':
             break
         
         obj = env.state.obj
-        orig_mesh = obj.mesh
 
-        # compute all stable poses
-        obj_config = config['state_space']['object']
-        stable_poses, _ = env.state.obj.mesh.compute_stable_poses(
-            sigma=obj_config['stp_com_sigma'],
-            n_samples=obj_config['stp_num_samples'],
-            threshold=obj_config['stp_min_prob']
-        )
-        for pose in stable_poses:
-            rot, trans = RigidTransform.rotation_and_translation_from_matrix(pose)
-            obj.T_obj_world = RigidTransform(rot, trans, 'obj', 'world')
-            rotated_mesh = orig_mesh.copy().apply_transform(pose)
-            transforms = [
-                RigidTransform.rotation_from_axis_and_origin([1, 0, 0], rotated_mesh.center_mass, np.pi/4), 
-                RigidTransform.rotation_from_axis_and_origin([1, 0, 0], rotated_mesh.center_mass, 3*np.pi/4), 
-                RigidTransform.rotation_from_axis_and_origin([0, 1, 0], rotated_mesh.center_mass, np.pi/4), 
-                RigidTransform.rotation_from_axis_and_origin([0, 1, 0], rotated_mesh.center_mass, 3*np.pi/4),
-                RigidTransform.rotation_from_axis_and_origin([0, 0, 1], rotated_mesh.center_mass, np.pi/4), 
-                RigidTransform.rotation_from_axis_and_origin([0, 0, 1], rotated_mesh.center_mass, 3*np.pi/4)
-            ]
+        rand_axis = normalize(np.random.rand(3))
+        random_rotation = RigidTransform.rotation_from_axis_and_origin(rand_axis, obj.center_of_mass, np.random.rand())
+        obj.T_obj_world = random_rotation * obj.T_obj_world
+
+        datapoint["depth_image1"] = env.observation.data
         
-            datapoint["depth_image1"] = env.observation.data
-            transformed_results = [t * obj.T_obj_world for t in transforms]
-            
-            for label, transformed_obj, transform_str in zip(labels, transformed_results, transform_strs):
-                env.state.obj.T_obj_world = transformed_obj
-                print(transform_str)
-                vis2d.imshow(env.observation, auto_subplot=True)
-                vis2d.show()
-                datapoint["depth_image2"] = env.observation.data
-                datapoint["transform_id"] = label
-                dataset.add(datapoint)
+        transforms = [
+            RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, np.pi/4), 
+            RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, 3*np.pi/4), 
+            RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, np.pi/4), 
+            RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, 3*np.pi/4),
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, np.pi/4), 
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 3*np.pi/4)
+        ]
+        
+        label = np.random.choice(np.arange(6))
+        new_tf, new_tf_str = transforms[label] * obj.T_obj_world, transform_strs[label]
+        env.state.obj.T_obj_world = new_tf
+        print(new_tf_str)
+        vis2d.imshow(env.observation, auto_subplot=True)
+        vis2d.show()
+        datapoint["depth_image2"] = env.observation.data
+        datapoint["transform_id"] = label
+        dataset.add(datapoint)
             
         i += 1
         if i % 20 == 0:
