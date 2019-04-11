@@ -5,6 +5,7 @@ import os
 from autolab_core import YamlConfig, RigidTransform, TensorDataset
 from dexnet.envs import GraspingEnv
 from dexnet.visualization import DexNetVisualizer2D as vis2d
+from dexnet.visualization import DexNetVisualizer3D as vis3d
 import itertools
 from dexnet.envs import NoRemainingSamplesException 
 
@@ -26,7 +27,7 @@ if __name__ == '__main__':
     config = YamlConfig(args.config_filename)
     env = GraspingEnv(config, config['vis'])
     tensor_config = config['dataset']['tensors']
-    dataset = TensorDataset("/nfs/diskstation/projects/rbt_4/", tensor_config)
+    dataset = TensorDataset("/nfs/diskstation/projects/deleteMe/", tensor_config)
     datapoint = dataset.datapoint_template
     
     labels = np.arange(6)
@@ -46,7 +47,10 @@ if __name__ == '__main__':
         random_rotation = RigidTransform.rotation_from_axis_and_origin(rand_axis, obj.center_of_mass, np.random.rand())
         obj.T_obj_world = random_rotation * obj.T_obj_world
 
-        datapoint["depth_image1"] = env.observation.data
+        #env.render_3d_scene()
+        #vis3d.show()
+        #vis2d.imshow(env.observation, auto_subplot=True)
+        #vis2d.show()
         
         transforms = [
             RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, np.pi/4), 
@@ -59,13 +63,17 @@ if __name__ == '__main__':
         
         label = np.random.choice(np.arange(6))
         new_tf, new_tf_str = transforms[label] * obj.T_obj_world, transform_strs[label]
-        env.state.obj.T_obj_world = new_tf
         print(new_tf_str)
-        vis2d.imshow(env.observation, auto_subplot=True)
-        vis2d.show()
+        datapoint["depth_image1"] = env.observation.data
+        env.state.obj.T_obj_world = new_tf
+        #env.render_3d_scene()
+        #vis3d.show()
+        #vis2d.imshow(env.observation, auto_subplot=True)
+        #vis2d.show()
         datapoint["depth_image2"] = env.observation.data
         datapoint["transform_id"] = label
         dataset.add(datapoint)
+        print datapoint
             
         i += 1
         if i % 20 == 0:

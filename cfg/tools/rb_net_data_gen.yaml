@@ -303,7 +303,7 @@ state_space:
   urdf_cache_dir: /nfs/diskstation/projects/dex-net/objects/urdf/dexnet_4_v2
 
   replace: 0
-  samples_per_object: 500
+  samples_per_object: 100
   use_box: 0 # pose 2
 
   pile:
