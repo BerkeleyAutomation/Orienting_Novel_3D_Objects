@@ -144,18 +144,18 @@ class ResNet(nn.Module):
 
 def train(dataset):
     model.train()
-    N_train = int(train_frac*dataset.num_datapoints)
-    n_train_steps = N_train//batch_size
+    #N_train = int(train_frac*dataset.num_datapoints)
+    #n_train_steps = N_train//batch_size
     train_loss = 0
     correct = 0
     total = 0
     
-    #train_indices = dataset.split('train')[0]
-    #N_train = len(train_indices)
-    #n_train_steps = N_train//batch_size
+    train_indices = dataset.split('train')[0]
+    N_train = len(train_indices)
+    n_train_steps = N_train//batch_size
     for step in tqdm(range(n_train_steps)):
-        batch = dataset[step*batch_size : step*batch_size+batch_size]
-        #batch = dataset.get_item_list(train_indices[step*batch_size : (step+1)*batch_size])
+        #batch = dataset[step*batch_size : step*batch_size+batch_size]
+        batch = dataset.get_item_list(train_indices[step*batch_size : (step+1)*batch_size])
         depth_image1 = (batch["depth_image1"] * 255).astype(int)
         depth_image2 = (batch["depth_image2"] * 255).astype(int)
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
@@ -231,7 +231,7 @@ if __name__ == '__main__':
     if run_train:
         train_frac = 0.8
         batch_size = 8
-        dataset = TensorDataset.open("/nfs/diskstation/projects/rbt_3/")
+        dataset = TensorDataset.open("/nfs/diskstation/projects/rbt_5/")
         im_shape = dataset[0]["depth_image1"].shape[:-1]
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = SiameseNetwork()
