@@ -177,20 +177,20 @@ def train(dataset):
 
 def test(dataset):
     model.eval()
-    N_train = int(train_frac*dataset.num_datapoints)
-    N_test = int( (1 - train_frac)*dataset.num_datapoints)
-    n_test_steps = N_test//batch_size
+    #N_train = int(train_frac*dataset.num_datapoints)
+    #N_test = int( (1 - train_frac)*dataset.num_datapoints)
+    #n_test_steps = N_test//batch_size
     test_loss = 0
     correct = 0
     total = 0
 
-    #test_indices = dataset.split('train')[1]
-    #N_test = len(test_indices)
-    #n_test_steps = N_test // batch_size
+    test_indices = dataset.split('train')[1]
+    N_test = len(test_indices)
+    n_test_steps = N_test // batch_size
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
-            batch = dataset[step*batch_size + N_train : step*batch_size+batch_size + N_train]
-            #batch = dataset.get_item_list(test_indices[step*batch_size : (step+1)*batch_size])
+            #batch = dataset[step*batch_size + N_train : step*batch_size+batch_size + N_train]
+            batch = dataset.get_item_list(test_indices[step*batch_size : (step+1)*batch_size])
             depth_image1 = (batch["depth_image1"] * 255).astype(int)
             depth_image2 = (batch["depth_image2"] * 255).astype(int)
             im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
