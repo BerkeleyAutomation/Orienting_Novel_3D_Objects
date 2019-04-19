@@ -27,14 +27,15 @@ if __name__ == '__main__':
     config = YamlConfig(args.config_filename)
     env = GraspingEnv(config, config['vis'])
     tensor_config = config['dataset']['tensors']
-    dataset = TensorDataset("/nfs/diskstation/projects/deleteMe/", tensor_config)
-    datapoint = dataset.datapoint_template
+    dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/same_not_same_obj/", tensor_config)
+    
     
     labels = np.arange(6)
     transform_strs = ["45 X", "135 X", "45 Y", "135 Y", "45 Z", "135 Z"]
 
     i = 0
     while True:
+        datapoint = dataset.datapoint_template
         print('Object Number: ', i)
         try:
             env.reset()
@@ -46,34 +47,36 @@ if __name__ == '__main__':
         rand_axis = normalize(np.random.rand(3))
         random_rotation = RigidTransform.rotation_from_axis_and_origin(rand_axis, obj.center_of_mass, np.random.rand())
         obj.T_obj_world = random_rotation * obj.T_obj_world
-
         #env.render_3d_scene()
         #vis3d.show()
-        #vis2d.imshow(env.observation, auto_subplot=True)
-        #vis2d.show()
-        
-        transforms = [
-            RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, np.pi/4), 
-            RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, 3*np.pi/4), 
-            RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, np.pi/4), 
-            RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, 3*np.pi/4),
-            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, np.pi/4), 
-            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 3*np.pi/4)
-        ]
-        
-        label = np.random.choice(np.arange(6))
-        new_tf, new_tf_str = transforms[label] * obj.T_obj_world, transform_strs[label]
-        print(new_tf_str)
         datapoint["depth_image1"] = env.observation.data
-        env.state.obj.T_obj_world = new_tf
+        
+        if np.random.rand() < 0.5:
+            transforms = [
+                RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, np.pi/4), 
+                RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, 3*np.pi/4), 
+                RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, np.pi/4), 
+                RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, 3*np.pi/4),
+                RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, np.pi/4), 
+                RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 3*np.pi/4)
+            ]
+            
+            tf_id = np.random.choice(np.arange(6))
+            new_tf, new_tf_str = transforms[tf_id] * obj.T_obj_world, transform_strs[tf_id]
+            env.state.obj.T_obj_world = new_tf
+            datapoint["transform_id"] = 0
+        else:
+            curr_obj_key = env.obj_key
+            while env.obj_key == curr_obj_key:
+                env.reset()
+            datapoint["transform_id"] = 1
         #env.render_3d_scene()
         #vis3d.show()
         #vis2d.imshow(env.observation, auto_subplot=True)
         #vis2d.show()
         datapoint["depth_image2"] = env.observation.data
-        datapoint["transform_id"] = label
+        
         dataset.add(datapoint)
-        print datapoint
             
         i += 1
         if i % 20 == 0:
