@@ -158,6 +158,7 @@ def train(dataset):
         batch = dataset.get_item_list(train_indices[step*batch_size : (step+1)*batch_size])
         depth_image1 = (batch["depth_image1"] * 255).astype(int)
         depth_image2 = (batch["depth_image2"] * 255).astype(int)
+        
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
         transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
@@ -231,7 +232,7 @@ if __name__ == '__main__':
     if run_train:
         train_frac = 0.8
         batch_size = 8
-        dataset = TensorDataset.open("/nfs/diskstation/projects/rbt_5/")
+        dataset = TensorDataset.open("/nfs/diskstation/projects/unsupervised_rbt/random_transform_pairs_xyz_45_135")
         im_shape = dataset[0]["depth_image1"].shape[:-1]
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = SiameseNetwork()

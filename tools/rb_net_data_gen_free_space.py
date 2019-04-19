@@ -27,11 +27,11 @@ if __name__ == '__main__':
     config = YamlConfig(args.config_filename)
     env = GraspingEnv(config, config['vis'])
     tensor_config = config['dataset']['tensors']
-    dataset = TensorDataset("/nfs/diskstation/projects/deleteMe/", tensor_config)
+    dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/axis_pred/", tensor_config)
     datapoint = dataset.datapoint_template
     
-    labels = np.arange(6)
-    transform_strs = ["45 X", "135 X", "45 Y", "135 Y", "45 Z", "135 Z"]
+    labels = np.arange(4)
+    transform_strs = ["45 X", "45 Y", "45 Z", "0"]
 
     i = 0
     while True:
@@ -53,17 +53,18 @@ if __name__ == '__main__':
         #vis2d.show()
         
         transforms = [
-            RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, np.pi/4), 
-            RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, 3*np.pi/4), 
-            RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, np.pi/4), 
-            RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, 3*np.pi/4),
-            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, np.pi/4), 
-            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 3*np.pi/4)
+            RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, np.pi/2), 
+#             RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, 3*np.pi/4), 
+            RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, np.pi/2), 
+#             RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, 3*np.pi/4),
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, np.pi/2), 
+#             RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 3*np.pi/4)
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 0)
         ]
         
-        label = np.random.choice(np.arange(6))
+        label = np.random.choice(np.arange(4))
         new_tf, new_tf_str = transforms[label] * obj.T_obj_world, transform_strs[label]
-        print(new_tf_str)
+        # print(new_tf_str)
         datapoint["depth_image1"] = env.observation.data
         env.state.obj.T_obj_world = new_tf
         #env.render_3d_scene()
@@ -73,7 +74,7 @@ if __name__ == '__main__':
         datapoint["depth_image2"] = env.observation.data
         datapoint["transform_id"] = label
         dataset.add(datapoint)
-        print datapoint
+        # print datapoint
             
         i += 1
         if i % 20 == 0:
