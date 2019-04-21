@@ -27,7 +27,7 @@ if __name__ == '__main__':
     config = YamlConfig(args.config_filename)
     env = GraspingEnv(config, config['vis'])
     tensor_config = config['dataset']['tensors']
-    dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/axis_pred/", tensor_config)
+    dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/axis_pred_2/", tensor_config)
     datapoint = dataset.datapoint_template
     
     labels = np.arange(4)
