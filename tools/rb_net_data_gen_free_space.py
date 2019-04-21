@@ -27,11 +27,11 @@ if __name__ == '__main__':
     config = YamlConfig(args.config_filename)
     env = GraspingEnv(config, config['vis'])
     tensor_config = config['dataset']['tensors']
-    dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/axis_pred/", tensor_config)
+    dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/z_axis_angle_pred_sunday/", tensor_config)
     datapoint = dataset.datapoint_template
     
     labels = np.arange(4)
-    transform_strs = ["45 X", "45 Y", "45 Z", "0"]
+    transform_strs = ["0 Z", "90 Z", "180 Z", "270 Z"]
 
     i = 0
     while True:
@@ -53,13 +53,14 @@ if __name__ == '__main__':
         #vis2d.show()
         
         transforms = [
-            RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, np.pi/2), 
+#             RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, np.pi/2), 
 #             RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, 3*np.pi/4), 
-            RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, np.pi/2), 
+#             RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, np.pi/2), 
 #             RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, 3*np.pi/4),
-            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, np.pi/2), 
-#             RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 3*np.pi/4)
-            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 0)
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 0),
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, np.pi/2),
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, np.pi),
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 3*np.pi/2)
         ]
         
         label = np.random.choice(np.arange(4))
