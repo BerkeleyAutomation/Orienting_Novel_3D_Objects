@@ -9,6 +9,11 @@ from dexnet.visualization import DexNetVisualizer3D as vis3d
 import itertools
 from dexnet.envs import NoRemainingSamplesException 
 
+
+# After the generation run:
+# dataset = TensorDataset.open("/nfs/diskstation/projects/unsupervised_rbt/z_axis_angle_pred")
+# dataset.make_split('train')
+
 def normalize(z):
     return z / np.linalg.norm(z)
 
@@ -27,9 +32,10 @@ if __name__ == '__main__':
     config = YamlConfig(args.config_filename)
     env = GraspingEnv(config, config['vis'])
     tensor_config = config['dataset']['tensors']
-    dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/z_axis_angle_pred_sunday/", tensor_config)
+    dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/z_axis_angle_pred_2/", tensor_config)
     datapoint = dataset.datapoint_template
     
+    # seetings for the lables
     labels = np.arange(4)
     transform_strs = ["0 Z", "90 Z", "180 Z", "270 Z"]
 

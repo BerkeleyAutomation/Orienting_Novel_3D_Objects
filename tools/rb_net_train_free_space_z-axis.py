@@ -18,6 +18,10 @@ import pickle
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+import os
+os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"   # see issue #152
+os.environ["CUDA_VISIBLE_DEVICES"]="0"
+
 # TODO: Make this a real architecture, this is just a minimum working example for now
 # TODO: Convert transform to euler angles, right now just flattening transform
 # and learning to predict that
@@ -91,6 +95,7 @@ class ResNet(nn.Module):
         out = self.layer2(out)
         out = self.layer3(out)
         return self.layer4(out)
+#         return out
 
     def forward(self, x):
         out = self.forward_no_linear(x)
@@ -130,6 +135,7 @@ def train(dataset):
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch) # no softmax?
         _, predicted = torch.max(pred_transform, 1) # indice of the max
+        print(predicted)
         correct += (predicted == transform_batch).sum().item() # total number of correct
         total += transform_batch.size(0) # total numbers (because might have uneven batch sizes)
         
