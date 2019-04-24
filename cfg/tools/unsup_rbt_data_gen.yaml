@@ -1,3 +1,23 @@
+# dataset params
+dataset:
+  tensors:
+    datapoints_per_file: 100
+    fields:
+#       obj_id:
+#         dtype: uint32
+      depth_image1:
+        dtype: float32
+        height: 200
+        width: 200
+#         channels: 4
+      depth_image2:
+        dtype: float32
+        height: 200
+        width: 200
+#         channels: 4
+      transform_id:
+        dtype: uint32
+
 state_space:
   heap:
     workspace:
@@ -71,8 +91,11 @@ state_space:
   camera:
     name: camera
 
-    im_width: 512
-    im_height: 384
+    im_width: 200
+    im_height: 200
+#     old setting don't know why, maybe for transfer learning on dex-net later?
+#     im_width: 512
+#     im_height: 384
 
     # intrinsics
     focal_length:
@@ -103,3 +126,5 @@ state_space:
     roll:
       min: 90
       max: 90
+
+
