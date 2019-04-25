@@ -204,8 +204,8 @@ def parse_args():
 if __name__ == '__main__':    
     args = parse_args()
     run_train = not args.test
-    losses_f_name = "results/losses_free_space.p"
-    loss_plot_f_name = "plots/losses_free_space.png"
+    losses_f_name = "results/losses_unsup.p"
+    loss_plot_f_name = "plots/losses_unsup.png"
     
     # settings
     transform_pred_dim = 4
@@ -251,11 +251,11 @@ if __name__ == '__main__':
             print("Epoch %d, Train Loss = %f, Train Acc = %.2f %%, Test Loss = %f, Test Acc = %.2f %%" % (epoch, train_loss, train_acc, test_loss, test_acc))
             # safe model and losses
             pickle.dump({"train_loss" : train_losses, "train_acc" : train_accs, "test_loss" : test_losses, "test_acc" : test_accs}, open(losses_f_name, "wb"))
-            torch.save(model.state_dict(), "models/rb_net_free_space.pt")
+            torch.save(model.state_dict(), "models/rb_net_unsup.pt")
             
     else:
         model = SiameseNetwork()
-        model.load_state_dict(torch.load("models/rb_net_free_space.pt"))
+        model.load_state_dict(torch.load("models/rb_net_unsup.pt"))
         display_conv_layers(model)
 
         losses = pickle.load( open( losses_f_name, "rb" ) )
