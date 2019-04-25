@@ -9,12 +9,12 @@ dataset:
         dtype: float32
         height: 200
         width: 200
-#         channels: 4
+        channels: 1
       depth_image2:
         dtype: float32
         height: 200
         width: 200
-#         channels: 4
+        channels: 1
       transform_id:
         dtype: uint32
 

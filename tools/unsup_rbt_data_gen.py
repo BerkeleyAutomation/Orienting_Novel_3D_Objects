@@ -23,10 +23,10 @@ def normalize(z):
     
 if __name__ == "__main__":
     # to adjust
-    name_gen_dataset = 'z-axis-only' 
+    name_gen_dataset = 'z-axis-only-train' 
     transform_strs = ["0 Z", "45 Z", "90 Z", "135 Z"]
     
-    # TO DISCUSS: 200x200x1 pixel setting now (in the yaml file)
+    # TO DISCUSS: 200x200 pixel setting now (in the yaml file)
     # setup configurations from file
     config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
@@ -125,8 +125,8 @@ if __name__ == "__main__":
 #             plt.show()
             
             # safe as datapoint and add to dataset
-            datapoint["depth_image1"] = image1
-            datapoint["depth_image2"] = image2
+            datapoint["depth_image1"] = np.expand_dims(image1,-1)
+            datapoint["depth_image2"] = np.expand_dims(image2,-1)
             datapoint["transform_id"] = transform_id
             data_point_counter += 1
             dataset.add(datapoint)
