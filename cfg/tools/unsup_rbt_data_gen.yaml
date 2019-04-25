@@ -7,13 +7,13 @@ dataset:
 #         dtype: uint32
       depth_image1:
         dtype: float32
-        height: 200
-        width: 200
+        height: 128
+        width: 128
         channels: 1
       depth_image2:
         dtype: float32
-        height: 200
-        width: 200
+        height: 128
+        width: 128
         channels: 1
       transform_id:
         dtype: uint32
@@ -91,8 +91,8 @@ state_space:
   camera:
     name: camera
 
-    im_width: 200
-    im_height: 200
+    im_width: 128
+    im_height: 128
 #     old setting don't know why, maybe for transfer learning on dex-net later?
 #     im_width: 512
 #     im_height: 384
