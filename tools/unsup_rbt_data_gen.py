@@ -30,7 +30,7 @@ if __name__ == "__main__":
     name_gen_dataset = 'z-axis-only' 
     transform_strs = ["0 Z", "90 X", "90 Y", "90 Z"]
     
-    # TO DISCUSS: 200x200x1 pixel setting now (in the yaml file)
+    # TO DISCUSS: 200x200 pixel setting now (in the yaml file)
     # setup configurations from file
     config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
@@ -168,11 +168,19 @@ if __name__ == "__main__":
             # plt.show()
             
             # safe as datapoint and add to dataset
+<<<<<<< HEAD
             # datapoint["depth_image1"] = np.expand_dims(image1, -1)
             # datapoint["depth_image2"] = np.expand_dims(image2, -1)
             # datapoint["transform_id"] = transform_id
             # data_point_counter += 1
             # dataset.add(datapoint)
+=======
+            datapoint["depth_image1"] = np.expand_dims(image1,-1)
+            datapoint["depth_image2"] = np.expand_dims(image2,-1)
+            datapoint["transform_id"] = transform_id
+            data_point_counter += 1
+            dataset.add(datapoint)
+>>>>>>> 074d2b8539070ccce028afee108a5834eabe2f42
             
 #             if data_point_counter == 100:
 #                 dataset.flush()
