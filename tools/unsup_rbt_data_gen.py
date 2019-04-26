@@ -57,19 +57,19 @@ if __name__ == "__main__":
     obj_config = config['state_space']['heap']['objects']
     mesh_list = os.listdir(mesh_dir)
     
-    i = 0
+    obj_id = 0
     data_point_counter = 0
     while True:
         # log
-        print(colored('------------- Object Number ' + str(i) + ' -------------', 'red'))
-        i += 1
+        print(colored('------------- Object Number ' + str(obj_id) + ' -------------', 'red'))
+        obj_id += 1
         
         # get random item from the meshes
-        obj_id = random.choice(range(len(mesh_list)))
-        mesh_filename = mesh_list[obj_id]
+        obj_key = random.choice(range(len(mesh_list)))
+        mesh_filename = mesh_list[obj_key]
         print('Object Name: ', mesh_filename)
         # delete object name in the list (that we don't sample it multiple times)
-        del mesh_list[obj_id]
+        del mesh_list[obj_key]
         
         # load object mesh
         mesh = trimesh.load_mesh(os.path.join(mesh_dir,mesh_filename))
@@ -128,6 +128,7 @@ if __name__ == "__main__":
             datapoint["depth_image1"] = np.expand_dims(image1,-1)
             datapoint["depth_image2"] = np.expand_dims(image2,-1)
             datapoint["transform_id"] = transform_id
+            datapoint["obj_id"] = obj_id
             data_point_counter += 1
             dataset.add(datapoint)
             

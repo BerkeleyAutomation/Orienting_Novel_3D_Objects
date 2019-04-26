@@ -2,15 +2,8 @@ import numpy as np
 import argparse
 import os
 import matplotlib.pyplot as plt
-
-from autolab_core import YamlConfig, RigidTransform
-from unsupervised_rbt import TensorDataset
 import itertools
-from perception import DepthImage, RgbdImage
-
 import torch
-import torch.nn as nn
-import torch.nn.functional as F
 import torchvision
 import torch.optim as optim
 from torch.autograd import Variable
@@ -18,144 +11,22 @@ import pickle
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 
+from autolab_core import YamlConfig, RigidTransform
+from unsupervised_rbt import TensorDataset
+from unsupervised_rbt.models import SiameseNetwork
+from perception import DepthImage, RgbdImage
+
 # TODO: Make this a real architecture, this is just a minimum working example for now
-# TODO: Convert transform to euler angles, right now just flattening transform
-# and learning to predict that
 # TODO: Improve batching speed/data loading, its still kind of slow rn
-# TODO: Clean up so parameters not defined in __main__ but instead defined in config yaml
 
-n_filters = 4
-# class SiameseNetwork(nn.Module):
-#     def __init__(self):
-#         super(SiameseNetwork, self).__init__()
-#         self.cnn1 = nn.Sequential(
-#             nn.Conv2d(1, n_filters, kernel_size=7, stride=2, padding=3),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm2d(n_filters),
-#             
-#             nn.Conv2d(n_filters, n_filters, kernel_size=5, stride=2, padding=2),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm2d(n_filters),
-#             nn.MaxPool2d(2,2),
-# 
-#             nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
-#             nn.ReLU(inplace=True),
-#             nn.BatchNorm2d(n_filters),
-#             nn.MaxPool2d(2,2)
-#             
-# #             nn.Conv2d(n_filters, n_filters, kernel_size=3, stride=2, padding=1),
-# #             nn.ReLU(inplace=True),
-# #             nn.BatchNorm2d(n_filters),
-# #             nn.MaxPool2d(2,2)
-#         )
-#         # self.fc1 = nn.Sequential(
-#         #     nn.Linear(n_filters*108, 100),
-#         #     nn.ReLU(inplace=True),
-#         #     nn.Linear(100, 100),
-#         #     nn.ReLU(inplace=True)
-#         # )
-#         # 
-#         # self.final_fc = nn.Linear(200, transform_pred_dim)
-#         self.final_fc = nn.Linear(n_filters*108*2, transform_pred_dim)
-# 
-#     def forward_once(self, x):
-#         output = self.cnn1(x)
-#         output = output.view(output.size()[0], -1)
-#         #output = self.fc1(output)
-#         return output
-# 
-#     def forward(self, input1, input2):
-#         output1 = self.forward_once(input1)
-#         output2 = self.forward_once(input2)
-#         output_concat = torch.cat((output1, output2), 1)
-#         output_final = self.final_fc(output_concat)
-#         return output_final
-
-class SiameseNetwork(nn.Module):
-    def __init__(self):
-        super(SiameseNetwork, self).__init__()
-        self.resnet = ResNet(BasicBlock, [1,1,1,1], 100)
-        self.fc_1 = nn.Linear(100*2, 200)
-        self.final_fc = nn.Linear(200, transform_pred_dim)
-
-    def forward(self, input1, input2):
-        output1 = self.resnet(input1)
-        output2 = self.resnet(input2)
-        output_concat = torch.cat((output1, output2), 1)
-        return self.final_fc(self.fc_1(output_concat))
-
-class BasicBlock(nn.Module):
-    expansion = 1
-
-    def __init__(self, in_planes, planes, stride=1):
-        super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn2 = nn.BatchNorm2d(planes)
-
-        self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion*planes:
-            self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
-            )
-
-    def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
-        out += self.shortcut(x)
-        out = F.relu(out)
-        return out
-
-class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_output=10):
-        super(ResNet, self).__init__()
-        self.in_planes = 64
-
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
-        self.bn1 = nn.BatchNorm2d(64)
-        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, 64, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(block, 64, num_blocks[3], stride=2)
-        self.linear = nn.Linear(6912, num_output)
-
-    def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1]*(num_blocks-1)
-        layers = []
-        for stride in strides:
-            layers.append(block(self.in_planes, planes, stride))
-            self.in_planes = planes * block.expansion
-        return nn.Sequential(*layers)
-
-    def forward_no_linear(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.layer1(out)
-        out = self.layer2(out)
-        out = self.layer3(out)
-        return self.layer4(out)
-
-    def forward(self, x):
-        out = self.forward_no_linear(x)
-        out = F.avg_pool2d(out, 4)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
-        return out
-
-def train(dataset):
+def train(dataset, batch_size):
     model.train()
-    #N_train = int(train_frac*dataset.num_datapoints)
-    #n_train_steps = N_train//batch_size
-    train_loss = 0
-    correct = 0
-    total = 0
+    train_loss, correct, total = 0, 0, 0
     
     train_indices = dataset.split('train')[0]
     N_train = len(train_indices)
     n_train_steps = N_train//batch_size
     for step in tqdm(range(n_train_steps)):
-        #batch = dataset[step*batch_size : step*batch_size+batch_size]
         batch = dataset.get_item_list(train_indices[step*batch_size : (step+1)*batch_size])
         depth_image1 = (batch["depth_image1"] * 255).astype(int)
         depth_image2 = (batch["depth_image2"] * 255).astype(int)
@@ -181,21 +52,15 @@ def train(dataset):
     class_acc = 100 * correct/total
     return train_loss/n_train_steps, class_acc
 
-def test(dataset):
+def test(dataset, batch_size):
     model.eval()
-    #N_train = int(train_frac*dataset.num_datapoints)
-    #N_test = int( (1 - train_frac)*dataset.num_datapoints)
-    #n_test_steps = N_test//batch_size
-    test_loss = 0
-    correct = 0
-    total = 0
+    test_loss, correct, total = 0, 0, 0
 
     test_indices = dataset.split('train')[1]
     N_test = len(test_indices)
     n_test_steps = N_test // batch_size
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
-            #batch = dataset[step*batch_size + N_train : step*batch_size+batch_size + N_train]
             batch = dataset.get_item_list(test_indices[step*batch_size : (step+1)*batch_size])
             depth_image1 = (batch["depth_image1"] * 255).astype(int)
             depth_image2 = (batch["depth_image2"] * 255).astype(int)
@@ -225,46 +90,41 @@ def display_conv_layers(model):
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument('--test', action='store_true')
-    return parser.parse_args()
+    default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                           '..',
+                                           'cfg/tools/unsup_rbt_train.yaml')
+    parser.add_argument('-config', type=str, default=default_config_filename)
+    parser.add_argument('-dataset', type=str)
+    args = parser.parse_args()
+    args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
+    return args
 
 if __name__ == '__main__':
     args = parse_args()
-    run_train = not args.test
-    losses_f_name = "results/losses_free_space_axis_pred.p"
-    loss_plot_f_name = "plots/losses_free_space_axis_pred.png"
-    transform_pred_dim = 4
+    config = YamlConfig(args.config)
 
-    if run_train:
-        train_frac = 0.8
-        batch_size = 8
-        dataset = TensorDataset.open("/nfs/diskstation/projects/unsupervised_rbt/axis_pred")
-        print("NUM DATAPOINTS")
-        print(dataset.num_datapoints)
-        im_shape = dataset[0]["depth_image1"].shape[:-1]
+    if not args.test:
+        dataset = TensorDataset.open(args.dataset)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = SiameseNetwork()
-        model = model.to(device)
+        model = SiameseNetwork(transform_pred_dim).to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters())
-        num_epochs = 100 
-        train_losses = []
-        test_losses = []
-        train_accs = []
-        test_accs = []
-        for epoch in range(num_epochs):
-            train_loss, train_acc = train(dataset)
-            test_loss, test_acc = test(dataset)
+
+        train_losses, test_losses, train_accs, test_accs = [], [], [], []
+        for epoch in range(config['num_epochs']):
+            train_loss, train_acc = train(dataset, config['batch_size'])
+            test_loss, test_acc = test(dataset, config['batch_size'])
             train_losses.append(train_loss)
             test_losses.append(test_loss)
             train_accs.append(train_acc)
             test_accs.append(test_acc)
             print("Epoch %d, Train Loss = %f, Train Acc = %.2f %%, Test Loss = %f, Test Acc = %.2f %%" % (epoch, train_loss, train_acc, test_loss, test_acc))
             pickle.dump({"train_loss" : train_losses, "train_acc" : train_accs, "test_loss" : test_losses, "test_acc" : test_accs}, open( losses_f_name, "wb"))
-            torch.save(model.state_dict(), "models/rb_net_free_space.pt")
+            torch.save(model.state_dict(), config['model_save_dir'])
             
     else:
-        model = SiameseNetwork()
-        model.load_state_dict(torch.load("models/rb_net_free_space.pt"))
+        model = SiameseNetwork(transform_pred_dim)
+        model.load_state_dict(torch.load(config['model_save_dir']))
         display_conv_layers(model)
 
         losses = pickle.load( open( losses_f_name, "rb" ) )
@@ -290,5 +150,3 @@ if __name__ == '__main__':
         plt.legend(loc='best')
         plt.savefig(loss_plot_f_name)
         plt.close()
-
-        
