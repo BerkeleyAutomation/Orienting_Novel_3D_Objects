@@ -75,13 +75,14 @@ class SiameseNetwork(nn.Module):
     def __init__(self):
         super(SiameseNetwork, self).__init__()
         self.resnet = ResNet(BasicBlock, [1,1,1,1], 100)
-        self.final_fc = nn.Linear(100*2, transform_pred_dim)
+        self.fc_1 = nn.Linear(100*2, 200)
+        self.final_fc = nn.Linear(200, transform_pred_dim)
 
     def forward(self, input1, input2):
         output1 = self.resnet(input1)
         output2 = self.resnet(input2)
         output_concat = torch.cat((output1, output2), 1)
-        return self.final_fc(output_concat)
+        return self.final_fc(self.fc_1(output_concat))
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -164,6 +165,10 @@ def train(dataset):
         transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch)
+        # print("TRANSFORM BATCH")
+        # print(transform_batch)
+        # print("PRED TRANSFORM")
+        # print(pred_transform)
         _, predicted = torch.max(pred_transform, 1)
         correct += (predicted == transform_batch).sum().item()
         total += transform_batch.size(0)
@@ -225,14 +230,16 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     run_train = not args.test
-    losses_f_name = "results/losses_free_space.p"
-    loss_plot_f_name = "plots/losses_free_space.png"
-    transform_pred_dim = 6
+    losses_f_name = "results/losses_free_space_axis_pred.p"
+    loss_plot_f_name = "plots/losses_free_space_axis_pred.png"
+    transform_pred_dim = 4
 
     if run_train:
         train_frac = 0.8
         batch_size = 8
-        dataset = TensorDataset.open("/nfs/diskstation/projects/unsupervised_rbt/random_transform_pairs_xyz_45_135")
+        dataset = TensorDataset.open("/nfs/diskstation/projects/unsupervised_rbt/axis_pred")
+        print("NUM DATAPOINTS")
+        print(dataset.num_datapoints)
         im_shape = dataset[0]["depth_image1"].shape[:-1]
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = SiameseNetwork()
