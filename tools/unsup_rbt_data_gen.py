@@ -1,6 +1,6 @@
 from autolab_core import YamlConfig, RigidTransform, TensorDataset
 import os
-# os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
+os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
 # os.environ["PYOPENGL_PLATFORM"] = 'egl'
 
 import numpy as np
@@ -24,9 +24,13 @@ def normalize(z):
     
 if __name__ == "__main__":
     # to adjust
-    name_gen_dataset = 'z-axis-only' 
-    #transform_strs = ["0 Z", "90 X", "90 Y", "90 Z"]
-    transform_strs = ["0 Z", "90 Z", "180 Z", "270 Z"]
+    name_gen_dataset = 'xyz-axis' 
+    if name_gen_dataset.startswith('z-axis-only'):
+        transform_strs = ["0 Z", "90 Z", "180 Z", "270 Z"]
+    elif name_gen_dataset.startswith('xyz-axis'):
+        transform_strs = ["0 Z", "90 X", "90 Y", "90 Z"]
+    else:
+        assert(False)
     
     # TO DISCUSS: 200x200 pixel setting now (in the yaml file)
     # setup configurations from file
