@@ -24,7 +24,7 @@ def normalize(z):
     
 if __name__ == "__main__":
     # to adjust
-    name_gen_dataset = 'z-axis-only-trash' 
+    name_gen_dataset = 'z-axis-only' 
     #transform_strs = ["0 Z", "90 X", "90 Y", "90 Z"]
     transform_strs = ["0 Z", "90 Z", "180 Z", "270 Z"]
     
@@ -60,21 +60,23 @@ if __name__ == "__main__":
     obj_config = config['state_space']['heap']['objects']
     mesh_list = [os.listdir(mesh_dir) for mesh_dir in mesh_dir_list]
 
-    i = 0
     mesh_dir_idx = 0
-    obj_idx = 0
+    obj_id = 0
+    obj_in_dir = 0 # because we have multiple directories
     mesh_dir_lengths = [len(m) for m in mesh_list]
     print(mesh_dir_lengths)
 
     data_point_counter = 0
     while True:
+        obj_id += 1
         # log
-        print(colored('------------- Object Number ' + str(i) + ' -------------', 'red'))
-        i += 1
+        print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
         
         # get random item from the meshes
-        mesh_filename = mesh_list[mesh_dir_idx][obj_idx]
-        obj_idx += 1
+        print("mesh_dir_idx", mesh_dir_idx)
+        print("obj_in_dir", obj_in_dir)
+        mesh_filename = mesh_list[mesh_dir_idx][obj_in_dir]
+        obj_in_dir += 1
         
         print('Object Name: ', mesh_filename)
         
@@ -92,8 +94,9 @@ if __name__ == "__main__":
             threshold=obj_config['stp_min_prob']
         )
         
-        if obj_idx == mesh_dir_lengths[mesh_dir_idx]:
+        if obj_id == mesh_dir_lengths[mesh_dir_idx]:
             mesh_dir_idx += 1
+            obj_in_dir = 0
             
         if mesh_dir_idx == len(mesh_dir_lengths):
             break
@@ -158,6 +161,7 @@ if __name__ == "__main__":
                 datapoint["depth_image1"] = np.expand_dims(image1, -1)
                 datapoint["depth_image2"] = np.expand_dims(image2, -1)
                 datapoint["transform_id"] = transform_id
+                datapoint["obj_id"] = obj_id
                 data_point_counter += 1
                 dataset.add(datapoint)
                 

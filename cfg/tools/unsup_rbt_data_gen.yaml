@@ -3,8 +3,8 @@ dataset:
   tensors:
     datapoints_per_file: 100
     fields:
-#       obj_id:
-#         dtype: uint32
+      obj_id:
+        dtype: uint32
       depth_image1:
         dtype: float32
         height: 128
