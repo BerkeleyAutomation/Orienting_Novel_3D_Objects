@@ -9,6 +9,11 @@ from dexnet.visualization import DexNetVisualizer3D as vis3d
 import itertools
 from dexnet.envs import NoRemainingSamplesException 
 
+
+# After the generation run:
+# dataset = TensorDataset.open("/nfs/diskstation/projects/unsupervised_rbt/z_axis_angle_pred")
+# dataset.make_split('train')
+
 def normalize(z):
     return z / np.linalg.norm(z)
 
@@ -27,11 +32,12 @@ if __name__ == '__main__':
     config = YamlConfig(args.config_filename)
     env = GraspingEnv(config, config['vis'])
     tensor_config = config['dataset']['tensors']
-    dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/same_not_same_obj/", tensor_config)
+    dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/z_axis_angle_pred_2/", tensor_config)
+    datapoint = dataset.datapoint_template
     
-    
-    labels = np.arange(6)
-    transform_strs = ["45 X", "135 X", "45 Y", "135 Y", "45 Z", "135 Z"]
+    # seetings for the lables
+    labels = np.arange(4)
+    transform_strs = ["0 Z", "90 Z", "180 Z", "270 Z"]
 
     i = 0
     while True:
@@ -49,6 +55,23 @@ if __name__ == '__main__':
         obj.T_obj_world = random_rotation * obj.T_obj_world
         #env.render_3d_scene()
         #vis3d.show()
+        #vis2d.imshow(env.observation, auto_subplot=True)
+        #vis2d.show()
+        
+        transforms = [
+#             RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, np.pi/2), 
+#             RigidTransform.rotation_from_axis_and_origin([1, 0, 0], obj.center_of_mass, 3*np.pi/4), 
+#             RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, np.pi/2), 
+#             RigidTransform.rotation_from_axis_and_origin([0, 1, 0], obj.center_of_mass, 3*np.pi/4),
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 0),
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, np.pi/2),
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, np.pi),
+            RigidTransform.rotation_from_axis_and_origin([0, 0, 1], obj.center_of_mass, 3*np.pi/2)
+        ]
+        
+        label = np.random.choice(np.arange(4))
+        new_tf, new_tf_str = transforms[label] * obj.T_obj_world, transform_strs[label]
+        # print(new_tf_str)
         datapoint["depth_image1"] = env.observation.data
         
         if np.random.rand() < 0.5:
@@ -76,8 +99,7 @@ if __name__ == '__main__':
         #vis2d.show()
         datapoint["depth_image2"] = env.observation.data
         
-        dataset.add(datapoint)
-            
+        dataset.add(datapoint) 
         i += 1
         if i % 20 == 0:
             dataset.flush()

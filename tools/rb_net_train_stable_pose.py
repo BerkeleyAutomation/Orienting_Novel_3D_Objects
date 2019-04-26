@@ -22,6 +22,8 @@ from tqdm import tqdm
 # and learning to predict that
 # TODO: Improve batching speed/data loading, its still kind of slow rn
 # TODO: Clean up so parameters not defined in __main__ but instead defined in config yaml
+# TODO: Variables to try/tune
+# => increase receptive net (CIFAR10 is 32x32x3, we have 200x200x1)
 
 n_filters = 64
 class SiameseNetwork(nn.Module):
@@ -109,15 +111,20 @@ def test(epoch, dataset):
     return test_loss/n_test_steps
 
 if __name__ == '__main__':
+    # settings
+    name_gen_dataset = 'z-axis-only-train' 
+    transform_pred_dim = 4
+    
     run_train = True
     losses_f_name = "results/losses.p"
     loss_plot_f_name = "plots/losses.png"
     
     if run_train:
+        # training settings
         train_frac = 0.8
         batch_size = 128
-        dataset = TensorDataset.open("/nfs/diskstation/projects/rigid_body/")
-        transform_pred_dim = 3
+        dataset = dataset = TensorDataset.open("/nfs/diskstation/projects/unsupervised_rbt/"+ name_gen_dataset + "/")
+        if os.path.exists("/home/el/myfile.txt")
         im_shape = dataset[0]["depth_image1"].shape[:-1]
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = SiameseNetwork().to(device)
