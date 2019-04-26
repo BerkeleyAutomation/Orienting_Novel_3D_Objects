@@ -221,6 +221,8 @@ if __name__ == '__main__':
         im_shape = dataset[0]["depth_image1"].shape[:-1]
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         
+        print "\nDataset size: ", len(dataset.split('train')[0])+len(dataset.split('train')[1]), '\n'
+        
         # initialize model
         model = SiameseNetwork(input_shape = im_shape)
         model = model.to(device)
