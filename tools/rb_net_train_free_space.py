@@ -119,7 +119,7 @@ class ResNet(nn.Module):
         self.layer2 = self._make_layer(block, 64, num_blocks[1], stride=2)
         self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2)
         self.layer4 = self._make_layer(block, 64, num_blocks[3], stride=2)
-        self.linear = nn.Linear(6912, num_output)
+        self.linear = nn.Linear(1024, num_output)
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -236,8 +236,8 @@ if __name__ == '__main__':
 
     if run_train:
         train_frac = 0.8
-        batch_size = 8
-        dataset = TensorDataset.open("/nfs/diskstation/projects/unsupervised_rbt/axis_pred")
+        batch_size = 64
+        dataset = TensorDataset.open("/nfs/diskstation/projects/unsupervised_rbt/z-axis-only")
         print("NUM DATAPOINTS")
         print(dataset.num_datapoints)
         im_shape = dataset[0]["depth_image1"].shape[:-1]
