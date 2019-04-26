@@ -68,6 +68,8 @@ state_space:
       stp_min_prob: .05
       object_keys:
         thingiverse: all
+        3dnet: all
+        kit: all
 
       planar_translation:
         min:

@@ -1,0 +1,6 @@
+transform_pred_dim: 4
+batch_size: 64
+num_epochs: 100
+losses_f_name: results/losses_free_space_axis_pred.p
+loss_plot_f_name: plots/losses_free_space_axis_pred.png
+model_save_dir: models/rb_net_free_space.pt
