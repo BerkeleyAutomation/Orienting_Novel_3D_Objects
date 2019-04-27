@@ -4,6 +4,7 @@ import os
 import matplotlib.pyplot as plt
 import itertools
 import torch
+import torch.nn as nn
 import torchvision
 import torch.optim as optim
 from torch.autograd import Variable
@@ -92,7 +93,7 @@ def parse_args():
     parser.add_argument('--test', action='store_true')
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
-                                           'cfg/tools/unsup_rbt_train.yaml')
+                                           'cfg/tools/rb_net_train.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str)
     args = parser.parse_args()
@@ -106,7 +107,7 @@ if __name__ == '__main__':
     if not args.test:
         dataset = TensorDataset.open(args.dataset)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = SiameseNetwork(transform_pred_dim).to(device)
+        model = SiameseNetwork(config['transform_pred_dim']).to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters())
 
@@ -119,15 +120,15 @@ if __name__ == '__main__':
             train_accs.append(train_acc)
             test_accs.append(test_acc)
             print("Epoch %d, Train Loss = %f, Train Acc = %.2f %%, Test Loss = %f, Test Acc = %.2f %%" % (epoch, train_loss, train_acc, test_loss, test_acc))
-            pickle.dump({"train_loss" : train_losses, "train_acc" : train_accs, "test_loss" : test_losses, "test_acc" : test_accs}, open( losses_f_name, "wb"))
+            pickle.dump({"train_loss" : train_losses, "train_acc" : train_accs, "test_loss" : test_losses, "test_acc" : test_accs}, open( config['losses_f_name'], "wb"))
             torch.save(model.state_dict(), config['model_save_dir'])
             
     else:
-        model = SiameseNetwork(transform_pred_dim)
+        model = SiameseNetwork(config['transform_pred_dim'])
         model.load_state_dict(torch.load(config['model_save_dir']))
         display_conv_layers(model)
 
-        losses = pickle.load( open( losses_f_name, "rb" ) )
+        losses = pickle.load( open( config['losses_f_name'], "rb" ) )
         train_returns = np.array(losses["train_loss"])
         test_returns = np.array(losses["test_loss"])
         train_accs = np.array(losses["train_acc"])
@@ -139,7 +140,7 @@ if __name__ == '__main__':
         plt.ylabel("Loss")
         plt.title("Training Curve")
         plt.legend(loc='best')
-        plt.savefig(loss_plot_f_name)
+        plt.savefig(config['losses_plot_f_name'])
         plt.close()
         
         plt.plot(np.arange(len(train_accs)) + 1, train_accs, label="Training Acc")
@@ -148,5 +149,5 @@ if __name__ == '__main__':
         plt.ylabel("Classification Accuracy")
         plt.title("Training Curve")
         plt.legend(loc='best')
-        plt.savefig(loss_plot_f_name)
+        plt.savefig(config['losses_plot_f_name'])
         plt.close()
