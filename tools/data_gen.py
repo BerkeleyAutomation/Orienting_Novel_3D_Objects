@@ -40,7 +40,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
-                                           'cfg/tools/unsup_rbt_data_gen.yaml')
+                                           'cfg/tools/data_gen.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str)
     parser.add_argument('--objpred', action='store_true')
