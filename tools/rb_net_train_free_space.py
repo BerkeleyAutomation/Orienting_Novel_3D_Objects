@@ -91,7 +91,7 @@ def test(dataset, batch_size):
             
             loss = criterion(pred_transform, transform_batch)
             test_loss += loss.item()
-       
+            
     class_acc = 100 * correct/total
     return test_loss/n_test_steps, class_acc
 

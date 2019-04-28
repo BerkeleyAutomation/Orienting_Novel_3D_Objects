@@ -94,6 +94,11 @@ if __name__ == '__main__':
     config = YamlConfig(args.config)
 
     dataset = TensorDataset.open(args.dataset)
+    
+    if not os.path.exists(args.dataset + "/splits/train"):
+        print("Created Train Split")
+        dataset.make_split("train", train_pct=0.8)
+        
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = SiameseNetwork(config['transform_pred_dim']).to(device)
     model.load_state_dict(torch.load(config['model_save_dir']))
