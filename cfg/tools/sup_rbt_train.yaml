@@ -1,0 +1,6 @@
+pred_dim: 51
+batch_size: 64
+num_epochs: 100
+losses_f_name: results/sup_losses.p
+loss_plot_f_name: plots/sup_losses.png
+model_save_dir: models/sup_rbt.pt

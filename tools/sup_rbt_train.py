@@ -31,33 +31,18 @@ def train(dataset, batch_size):
         batch = dataset.get_item_list(train_indices[step*batch_size : (step+1)*batch_size])
         depth_image1 = (batch["depth_image1"] * 255).astype(int)
         depth_image2 = (batch["depth_image2"] * 255).astype(int)
-        
-#         depth_image_show1 = depth_image1[0][0]
-#         plt.imshow(depth_image_show1, cmap='gray')
-#         plt.show()
-        
-#         depth_image_show2 = depth_image2[0][0]
-#         plt.imshow(depth_image_show2, cmap='gray')
-#         plt.show()
-        
+               
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
-        transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
-        
-#         print("TRANSFORM")
-#         print(transform_batch[0])
-        
+        label_batch = Variable(torch.from_numpy(batch["obj_id"].astype(int))).to(device)
+       
         optimizer.zero_grad()
-        pred_transform = model(im1_batch, im2_batch)
-#         print("TRANSFORM BATCH")
-#         print(transform_batch)
-        _, predicted = torch.max(pred_transform, 1)
-#         print("PRED TRANSFORM")
-#         print(predicted)
-        correct += (predicted == transform_batch).sum().item()
-        total += transform_batch.size(0)
+        pred_label = model(im1_batch, im2_batch)
+        _, predicted = torch.max(pred_label, 1)
+        correct += (predicted == label_batch).sum().item()
+        total += label_batch.size(0)
         
-        loss = criterion(pred_transform, transform_batch)
+        loss = criterion(pred_label, label_batch)
         loss.backward()
         train_loss += loss.item()
         optimizer.step()
@@ -79,17 +64,13 @@ def test(dataset, batch_size):
             depth_image2 = (batch["depth_image2"] * 255).astype(int)
             im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
             im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
-            transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
-            pred_transform = model(im1_batch, im2_batch)
-#             print("TRUE TRANSFORMS")
-#             print(transform_batch)
-            _, predicted = torch.max(pred_transform, 1)
-#             print("PREDICTED TRANSFORMS")
-#             print(predicted)
-            correct += (predicted == transform_batch).sum().item()
-            total += transform_batch.size(0)
+            label_batch = Variable(torch.from_numpy(batch["obj_id"].astype(int))).to(device)
+            pred_label = model(im1_batch, im2_batch)
+            _, predicted = torch.max(pred_label, 1)
+            correct += (predicted == label_batch).sum().item()
+            total += label_batch.size(0)
             
-            loss = criterion(pred_transform, transform_batch)
+            loss = criterion(pred_label, label_batch)
             test_loss += loss.item()
             
     class_acc = 100 * correct/total
