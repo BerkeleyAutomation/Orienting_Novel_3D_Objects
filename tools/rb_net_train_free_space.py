@@ -81,7 +81,11 @@ def test(dataset, batch_size):
             im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
             transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
             pred_transform = model(im1_batch, im2_batch)
+#             print("TRUE TRANSFORMS")
+#             print(transform_batch)
             _, predicted = torch.max(pred_transform, 1)
+#             print("PREDICTED TRANSFORMS")
+#             print(predicted)
             correct += (predicted == transform_batch).sum().item()
             total += transform_batch.size(0)
             

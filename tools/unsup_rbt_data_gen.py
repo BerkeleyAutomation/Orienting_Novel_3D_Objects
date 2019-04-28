@@ -36,7 +36,7 @@ def create_scene():
     
 if __name__ == "__main__":
     # to adjust
-    name_gen_dataset = 'xyz-axis' 
+    name_gen_dataset = 'z-axis-only' 
     if name_gen_dataset.startswith('z-axis-only'):
         transform_strs = ["0 Z", "90 Z", "180 Z", "270 Z"]
     elif name_gen_dataset.startswith('xyz-axis'):
@@ -122,14 +122,7 @@ if __name__ == "__main__":
                     scene.set_pose(object_node, pose=new_pose)
                     #update_scene(scene, new_pose)
                     image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                    
-#                     check if the images are too similar (only the ones that have a rotation)
-                    if transform_id != 0:
-                        mse = np.linalg.norm(image1-image2)
-                        if mse < 0.5:
-                            print("skipped, too similar MSE:",mse)
-                            continue
-
+            
 #                     plt.subplot(121)
 #                     plt.imshow(image1, cmap='gray')
 #                     plt.title('Stable pose')
@@ -137,7 +130,14 @@ if __name__ == "__main__":
 #                     plt.imshow(image2, cmap='gray')
 #                     plt.title('After Rigid Transformation: ' + tr_str)
 #                     plt.show()
- 
+
+                    #  check if the images are too similar (only the ones that have a rotation)
+                    if transform_id != 0:
+                        mse = np.linalg.norm(image1-image2)
+                        if mse < 0.75:
+                            print("skipped, too similar MSE:", mse)
+                            continue
+
                     datapoint["depth_image1"] = np.expand_dims(image1, -1)
                     datapoint["depth_image2"] = np.expand_dims(image2, -1)
                     datapoint["transform_id"] = transform_id

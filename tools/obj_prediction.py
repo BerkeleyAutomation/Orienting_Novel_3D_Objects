@@ -9,6 +9,7 @@ import pickle
 import matplotlib.pyplot as plt
 from tqdm import tqdm
 from sklearn.manifold import TSNE
+import seaborn as sns
 
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
@@ -30,19 +31,21 @@ def test(dataset, batch_size):
             depth_image2 = (batch["depth_image2"] * 255).astype(int)
             im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
             im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
-            outputs.extend(model.resnet(im1_batch).item())
-            outputs.extend(model.resnet(im2_batch).item())
+            
+            outputs.extend(model.resnet(im1_batch).cpu().data.numpy())
+            outputs.extend(model.resnet(im2_batch).cpu().data.numpy())
             labels.extend(batch['obj_id'])
             labels.extend(batch['obj_id'])
 
     # tSNE
     tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
     tsne_results = tsne.fit_transform(outputs)
-    fashion_scatter(tsne_results, labels)
+    f, ax, sc, txts = fashion_scatter(tsne_results, labels)
+    ax.savefig("TSNE")
     
-    # KNN vis
-    # Pick 10 test images:
-    depth_image1
+#     # KNN vis
+#     # Pick 10 test images:
+#     depth_image1
     
 
 def fashion_scatter(x, colors):
@@ -79,7 +82,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
-                                           'cfg/tools/unsup_rbt_train.yaml')
+                                           'cfg/tools/rb_net_train.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str)
     args = parser.parse_args()
@@ -92,6 +95,6 @@ if __name__ == '__main__':
 
     dataset = TensorDataset.open(args.dataset)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = SiameseNetwork(transform_pred_dim).to(device)
+    model = SiameseNetwork(config['transform_pred_dim']).to(device)
     model.load_state_dict(torch.load(config['model_save_dir']))
     test(dataset, config['batch_size'])
