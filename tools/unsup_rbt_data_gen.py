@@ -6,6 +6,7 @@ import numpy as np
 import trimesh
 import itertools
 import sys
+import argparse
 
 from pyrender import (Scene, PerspectiveCamera, Mesh, 
                       Viewer, OffscreenRenderer, RenderFlags, Node)   
@@ -35,14 +36,22 @@ def create_scene():
     scene.main_camera_node = next(iter(scene.get_nodes(name=cam.frame)))
     return scene, renderer
 
-    
-if __name__ == "__main__":
-    config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+def parse_args():
+    parser = argparse.ArgumentParser()
+    default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
                                            'cfg/tools/unsup_rbt_data_gen.yaml')
-    config = YamlConfig(config_filename)
+    parser.add_argument('-config', type=str, default=default_config_filename)
+    parser.add_argument('-dataset', type=str)
+    parser.add_argument('--objpred', action='store_true')
+    args = parser.parse_args()
+    return args
+    
+if __name__ == "__main__":
+    args = parse_args()
+    config = YamlConfig(args.config)
     # to adjust
-    name_gen_dataset = 'z-axis-only' 
+    name_gen_dataset = args.dataset
     if config['debug']:
         name_gen_dataset += "_junk"
         
@@ -66,6 +75,11 @@ if __name__ == "__main__":
     mesh_lists = [os.listdir(mesh_dir) for mesh_dir in mesh_dir_list]
     print("NUM OBJECTS")
     print([len(a) for a in mesh_lists])
+    
+    if args.objpred:
+        num_samples_per_obj = config['num_samples_per_obj_objpred']
+    else:
+        num_samples_per_obj = config['num_samples_per_obj']
 
     obj_id = 0
     data_point_counter = 0
@@ -73,9 +87,10 @@ if __name__ == "__main__":
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
-#             if obj_id == 50:
-#                 dataset.flush()
-#                 sys.exit(0)
+            if args.objpred:
+                if obj_id == 50:
+                    dataset.flush()
+                    sys.exit(0)
             # log
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
             
@@ -92,7 +107,7 @@ if __name__ == "__main__":
                 threshold=obj_config['stp_min_prob']
             )
             
-            for _ in range(config['num_samples_per_obj']):             
+            for _ in range(num_samples_per_obj):             
                 # iterate over all stable poses of the object
                 for j, pose_matrix in enumerate(stable_poses):
                     print("Stable Pose number:", j)
