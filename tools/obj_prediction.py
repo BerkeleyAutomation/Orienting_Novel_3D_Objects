@@ -2,6 +2,7 @@ import numpy as np
 import argparse
 import os
 import matplotlib.pyplot as plt
+import matplotlib.patheffects as PathEffects
 import itertools
 import torch
 from torch.autograd import Variable
@@ -34,14 +35,14 @@ def test(dataset, batch_size):
             
             outputs.extend(model.resnet(im1_batch).cpu().data.numpy())
             outputs.extend(model.resnet(im2_batch).cpu().data.numpy())
-            labels.extend(batch['obj_id'])
-            labels.extend(batch['obj_id'])
-
+            labels.extend(list(batch['obj_id']))
+            labels.extend(list(batch['obj_id']))
+    
+    labels = np.array(labels)
     # tSNE
     tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
     tsne_results = tsne.fit_transform(outputs)
-    f, ax, sc, txts = fashion_scatter(tsne_results, labels)
-    ax.savefig("TSNE")
+    fashion_scatter(tsne_results, labels)
     
 #     # KNN vis
 #     # Pick 10 test images:
@@ -50,7 +51,7 @@ def test(dataset, batch_size):
 
 def fashion_scatter(x, colors):
     # choose a color palette with seaborn.
-    num_classes = len(np.unique(colors))
+    num_classes = 51
     palette = np.array(sns.color_palette("hls", num_classes))
 
     # create a scatter plot.
@@ -75,6 +76,8 @@ def fashion_scatter(x, colors):
             PathEffects.Stroke(linewidth=5, foreground="w"),
             PathEffects.Normal()])
         txts.append(txt)
+    
+    plt.savefig('plots/tsne_vis')
 
     return f, ax, sc, txts
 

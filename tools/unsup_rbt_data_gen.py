@@ -5,6 +5,7 @@ os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
 import numpy as np
 import trimesh
 import itertools
+import sys
 
 from pyrender import (Scene, PerspectiveCamera, Mesh, 
                       Viewer, OffscreenRenderer, RenderFlags, Node)   
@@ -36,19 +37,21 @@ def create_scene():
 
     
 if __name__ == "__main__":
+    config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                           '..',
+                                           'cfg/tools/unsup_rbt_data_gen.yaml')
+    config = YamlConfig(config_filename)
     # to adjust
-    name_gen_dataset = 'z-axis-only-obj-pred' 
+    name_gen_dataset = 'z-axis-only' 
+    if config['debug']:
+        name_gen_dataset += "_junk"
+        
     if name_gen_dataset.startswith('z-axis-only'):
         transform_strs = ["0 Z", "90 Z", "180 Z", "270 Z"]
     elif name_gen_dataset.startswith('xyz-axis'):
         transform_strs = ["0 Z", "90 X", "90 Y", "90 Z"]
     else:
         assert(False)
-    
-    config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                           '..',
-                                           'cfg/tools/unsup_rbt_data_gen.yaml')
-    config = YamlConfig(config_filename)
     
     # dataset configuration
     tensor_config = config['dataset']['tensors']
@@ -69,10 +72,10 @@ if __name__ == "__main__":
     
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
-            if obj_id == 50:
-                dataset.flush()
-                sys.exit(0)
             obj_id += 1
+#             if obj_id == 50:
+#                 dataset.flush()
+#                 sys.exit(0)
             # log
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
             
@@ -81,7 +84,6 @@ if __name__ == "__main__":
             obj_mesh = Mesh.from_trimesh(mesh)
             object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
             scene.add_node(object_node)
-            #scene.add(obj_mesh, pose=np.eye(4), name='object')
             
             # calculate stable poses
             stable_poses, _ = mesh.compute_stable_poses(
@@ -114,19 +116,13 @@ if __name__ == "__main__":
                     else:
                         assert(False)
 
-    #                 if len(transform_strs) != len(transforms):
-    #                     print("Error: the number of elements in transform_strs and transforms are not equal")
-    #                     os._exit(1)
-
                     rand_transform = RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=2*np.pi*np.random.random())
                     pose_matrix = rand_transform.matrix @ pose_matrix
                     # get image 1 which is the stable pose
                     scene.set_pose(object_node, pose=pose_matrix)
                     image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-    #                 print("image 1 pose \n", pose_matrix)
 
                     # iterate over all transforms
-
                     obj_datapoints = []             
                     num_too_similar = 0
 
@@ -137,14 +133,14 @@ if __name__ == "__main__":
                         image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
                         if config['debug']:
-                            if transform_id == 0:
-                                plt.subplot(121)
-                                plt.imshow(image1, cmap='gray')
-                                plt.title('Stable pose')
-                                plt.subplot(122)
-                                plt.imshow(image2, cmap='gray')
-                                plt.title('After Rigid Transformation: ' + tr_str)
-                                plt.show()
+                            plt.subplot(121)
+                            plt.imshow(image1, cmap='gray')
+                            plt.title('Stable pose')
+                            plt.subplot(122)
+                            plt.imshow(image2, cmap='gray')
+                            plt.title('After Rigid Transformation: ' + tr_str)
+                            plt.show()
+                            print(transform_id)
 
                         mse = np.linalg.norm(image1-image2)
                         if mse < 0.75:

@@ -49,11 +49,11 @@ def train(dataset, batch_size):
         
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch)
-        # print("TRANSFORM BATCH")
-        # print(transform_batch)
-        # print("PRED TRANSFORM")
-        # print(pred_transform)
+#         print("TRANSFORM BATCH")
+#         print(transform_batch)
         _, predicted = torch.max(pred_transform, 1)
+#         print("PRED TRANSFORM")
+#         print(predicted)
         correct += (predicted == transform_batch).sum().item()
         total += transform_batch.size(0)
         
@@ -125,7 +125,7 @@ if __name__ == '__main__':
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = SiameseNetwork(config['transform_pred_dim']).to(device)
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters())
+        optimizer = optim.Adam(model.parameters(), lr=0.01)
         
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")
