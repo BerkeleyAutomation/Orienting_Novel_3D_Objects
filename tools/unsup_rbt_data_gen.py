@@ -33,13 +33,6 @@ def create_scene():
     scene.main_camera_node = next(iter(scene.get_nodes(name=cam.frame)))
     return scene, renderer
 
-def get_meshes(config):
-    def get_all_meshes(folder):
-    dataset_name_list = ['3dnet', 'thingiverse', 'kit']
-    mesh_dir = config['state_space']['heap']['objects']['mesh_dir']
-    mesh_dir_list = [os.path.join(mesh_dir, dataset_name) for dataset_name in dataset_name_list]
-    obj_config = config['state_space']['heap']['objects']
-    return [os.listdir(mesh_dir) for mesh_dir in mesh_dir_list]
     
 if __name__ == "__main__":
     # to adjust
@@ -61,19 +54,24 @@ if __name__ == "__main__":
     dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/" + name_gen_dataset + "/", tensor_config)
     datapoint = dataset.datapoint_template
     
-    camera, renderer = create_scene()
-    mesh_lists = get_meshes()
+    scene, renderer = create_scene()
+    dataset_name_list = ['3dnet', 'thingiverse', 'kit']
+    mesh_dir = config['state_space']['heap']['objects']['mesh_dir']
+    mesh_dir_list = [os.path.join(mesh_dir, dataset_name) for dataset_name in dataset_name_list]
+    obj_config = config['state_space']['heap']['objects']
+    mesh_lists = [os.listdir(mesh_dir) for mesh_dir in mesh_dir_list]
 
     obj_id = 0
     data_point_counter = 0
-    for mesh_list in mesh_lists:
+    
+    for i, mesh_list in enumerate(mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
             # log
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
             
             # load object mesh
-            mesh = trimesh.load_mesh(os.path.join(mesh_dir_list[mesh_dir_idx], mesh_filename))
+            mesh = trimesh.load_mesh(os.path.join(mesh_dir_list[i], mesh_filename))
             obj_mesh = Mesh.from_trimesh(mesh)
             object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
             scene.add_node(object_node)
@@ -125,10 +123,10 @@ if __name__ == "__main__":
                     #update_scene(scene, new_pose)
                     image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
                     
-                    # check if the images are too similar (only the ones that have a rotation)
+#                     check if the images are too similar (only the ones that have a rotation)
                     if transform_id != 0:
                         mse = np.linalg.norm(image1-image2)
-                        if mse < 10:
+                        if mse < 0.5:
                             print("skipped, too similar MSE:",mse)
                             continue
 

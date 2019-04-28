@@ -32,13 +32,18 @@ def test(dataset, batch_size):
             im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
             outputs.extend(model.resnet(im1_batch).item())
             outputs.extend(model.resnet(im2_batch).item())
-            labels.extend(batch['label'])
-            labels.extend(batch['label'])
+            labels.extend(batch['obj_id'])
+            labels.extend(batch['obj_id'])
 
     # tSNE
     tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
     tsne_results = tsne.fit_transform(outputs)
     fashion_scatter(tsne_results, labels)
+    
+    # KNN vis
+    # Pick 10 test images:
+    depth_image1
+    
 
 def fashion_scatter(x, colors):
     # choose a color palette with seaborn.

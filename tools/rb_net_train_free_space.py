@@ -32,9 +32,21 @@ def train(dataset, batch_size):
         depth_image1 = (batch["depth_image1"] * 255).astype(int)
         depth_image2 = (batch["depth_image2"] * 255).astype(int)
         
+#         depth_image_show1 = depth_image1[0][0]
+#         plt.imshow(depth_image_show1, cmap='gray')
+#         plt.show()
+        
+#         depth_image_show2 = depth_image2[0][0]
+#         plt.imshow(depth_image_show2, cmap='gray')
+#         plt.show()
+        
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
         transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
+        
+#         print("TRANSFORM")
+#         print(transform_batch[0])
+        
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch)
         # print("TRANSFORM BATCH")
@@ -110,6 +122,10 @@ if __name__ == '__main__':
         model = SiameseNetwork(config['transform_pred_dim']).to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters())
+        
+        if not os.path.exists(args.dataset + "/splits/train"):
+            print("Created Train Split")
+            dataset.make_split("train", train_pct=0.8)
 
         train_losses, test_losses, train_accs, test_accs = [], [], [], []
         for epoch in range(config['num_epochs']):
