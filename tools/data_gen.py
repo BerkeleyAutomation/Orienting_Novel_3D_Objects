@@ -1,6 +1,6 @@
 from autolab_core import YamlConfig, RigidTransform, TensorDataset
 import os
-os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
+#os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
 
 import numpy as np
 import trimesh
@@ -34,6 +34,21 @@ def create_scene():
     pose_m[:,1:3] *= -1.0
     scene.add(camera, pose=pose_m, name=cam.frame)
     scene.main_camera_node = next(iter(scene.get_nodes(name=cam.frame)))
+
+    # Add Table
+    table_mesh = trimesh.load_mesh(
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            '../data/objects/plane/plane.obj',
+        )
+    )
+    table_tf = RigidTransform.load(
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            '../data/objects/plane/pose.tf',
+        )
+    )
+    scene.add(Mesh.from_trimesh(table_mesh), pose=table_tf.matrix, name='table')
     return scene, renderer
 
 def parse_args():
@@ -42,7 +57,7 @@ def parse_args():
                                            '..',
                                            'cfg/tools/data_gen.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
-    parser.add_argument('-dataset', type=str)
+    parser.add_argument('-dataset', type=str, required=True)
     parser.add_argument('--objpred', action='store_true')
     args = parser.parse_args()
     return args
@@ -135,7 +150,7 @@ if __name__ == "__main__":
                     pose_matrix = rand_transform.matrix @ pose_matrix
                     # get image 1 which is the stable pose
                     scene.set_pose(object_node, pose=pose_matrix)
-                    image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                    image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
                     # iterate over all transforms
                     obj_datapoints = []             
@@ -145,9 +160,9 @@ if __name__ == "__main__":
                         new_pose, tr_str = transforms[transform_id].matrix @ pose_matrix, transform_strs[transform_id]
                         scene.set_pose(object_node, pose=new_pose)
                         #update_scene(scene, new_pose)
-                        image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                        image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
-                        if config['debug']:
+                        if config['debug'] and obj_id > 4:
                             plt.subplot(121)
                             plt.imshow(image1, cmap='gray')
                             plt.title('Stable pose')

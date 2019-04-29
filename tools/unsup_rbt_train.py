@@ -32,20 +32,19 @@ def train(dataset, batch_size):
         depth_image1 = (batch["depth_image1"] * 255).astype(int)
         depth_image2 = (batch["depth_image2"] * 255).astype(int)
         
-#         depth_image_show1 = depth_image1[0][0]
-#         plt.imshow(depth_image_show1, cmap='gray')
-#         plt.show()
-        
-#         depth_image_show2 = depth_image2[0][0]
-#         plt.imshow(depth_image_show2, cmap='gray')
-#         plt.show()
-        
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
         transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
         
-#         print("TRANSFORM")
-#         print(transform_batch[0])
+        if step > 20:
+            plt.subplot(121)
+            depth_image_show1 = depth_image1[0][0]
+            plt.imshow(depth_image_show1, cmap='gray')
+            plt.subplot(122)
+            depth_image_show2 = depth_image2[0][0]
+            plt.imshow(depth_image_show2, cmap='gray')
+            plt.title('Transform: {}'.format(transform_batch[0]))
+            plt.show()
         
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch)
@@ -111,7 +110,7 @@ def parse_args():
                                            '..',
                                            'cfg/tools/unsup_rbt_train.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
-    parser.add_argument('-dataset', type=str)
+    parser.add_argument('-dataset', type=str, required=True)
     args = parser.parse_args()
     args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
     return args
