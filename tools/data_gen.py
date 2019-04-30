@@ -1,6 +1,6 @@
 from autolab_core import YamlConfig, RigidTransform, TensorDataset
 import os
-#os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
+# os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
 
 import numpy as np
 import trimesh
@@ -48,7 +48,11 @@ def create_scene():
             '../data/objects/plane/pose.tf',
         )
     )
-    scene.add(Mesh.from_trimesh(table_mesh), pose=table_tf.matrix, name='table')
+    table_mesh = Mesh.from_trimesh(table_mesh)
+    table_node = Node(mesh=table_mesh, matrix=table_tf.matrix)
+    scene.add_node(table_node)
+
+    # scene.add(Mesh.from_trimesh(table_mesh), pose=table_tf.matrix, name='table')
     return scene, renderer
 
 def parse_args():
@@ -174,12 +178,12 @@ if __name__ == "__main__":
 
                         mse = np.linalg.norm(image1-image2)
                         if mse < 0.75:
-                            if config['debug']:
-                                print("Too similar MSE:", mse)
+                            # if config['debug']:
+                            print("Too similar MSE:", mse)
                             num_too_similar += 1
                         else:
-                            if config['debug']:
-                                print("MSE okay:", mse)
+                            # if config['debug']:
+                            print("MSE okay:", mse)
 
                         datapoint = dataset.datapoint_template
                         datapoint["depth_image1"] = np.expand_dims(image1, -1)
@@ -201,8 +205,8 @@ if __name__ == "__main__":
                     else:
                         print("Not ADDING STABLE POSE")
                     
-                    if data_point_counter % 1000 == 0:
-                        dataset.flush()
+                    # if data_point_counter % 1000 == 0:
+                    #     dataset.flush()
 
             # delete the object to make room for the next
             scene.remove_node(object_node)
