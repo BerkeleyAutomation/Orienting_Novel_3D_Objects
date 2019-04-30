@@ -166,15 +166,15 @@ if __name__ == "__main__":
                         #update_scene(scene, new_pose)
                         image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
-                        if config['debug'] and obj_id > 4:
-                            plt.subplot(121)
-                            plt.imshow(image1, cmap='gray')
-                            plt.title('Stable pose')
-                            plt.subplot(122)
-                            plt.imshow(image2, cmap='gray')
-                            plt.title('After Rigid Transformation: ' + tr_str)
-                            plt.show()
-                            print(transform_id)
+#                         if config['debug'] and obj_id > 4:
+#                             plt.subplot(121)
+#                             plt.imshow(image1, cmap='gray')
+#                             plt.title('Stable pose')
+#                             plt.subplot(122)
+#                             plt.imshow(image2, cmap='gray')
+#                             plt.title('After Rigid Transformation: ' + tr_str)
+#                             plt.show()
+#                             print(transform_id)
 
                         mse = np.linalg.norm(image1-image2)
                         if mse < 0.75:
@@ -200,8 +200,17 @@ if __name__ == "__main__":
                     if num_too_similar < 2 or num_second_dp_match < 3:
                         print("ADDING STABLE POSE")
                         for dp in obj_datapoints:
+                            if config['debug'] and obj_id > 4:
+                                plt.subplot(121)
+                                plt.imshow(dp["depth_image1"], cmap='gray')
+                                plt.title('Stable pose')
+                                plt.subplot(122)
+                                plt.imshow(dp["depth_image2"], cmap='gray')
+                                plt.title('After Rigid Transformation: ' + dp["transform_id"])
+                                plt.show()
+
+                                data_point_counter += 1
                             dataset.add(dp)
-                            data_point_counter += 1
                     else:
                         print("Not ADDING STABLE POSE")
                     
