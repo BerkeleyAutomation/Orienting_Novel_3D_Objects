@@ -24,8 +24,8 @@ def train(dataset, batch_size):
     model.train()
     train_loss, correct, total = 0, 0, 0
     
-    #train_indices = dataset.split('train')[0]
-    train_indices = range(dataset.num_datapoints)
+    train_indices = dataset.split('train')[0][:10000]
+#     train_indices = range(dataset.num_datapoints)[:100]
     N_train = len(train_indices)
     n_train_steps = N_train//batch_size
     for step in tqdm(range(n_train_steps)):
@@ -36,17 +36,20 @@ def train(dataset, batch_size):
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
         transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
-        print(batch['transform'])
         
-        if step > 20:
-            plt.subplot(121)
-            depth_image_show1 = depth_image1[0][0]
-            plt.imshow(depth_image_show1, cmap='gray')
-            plt.subplot(122)
-            depth_image_show2 = depth_image2[0][0]
-            plt.imshow(depth_image_show2, cmap='gray')
-            plt.title('Transform: {}'.format(transform_batch[0]))
-            plt.show()
+#         print(depth_image1.shape)
+#         print(depth_image2.shape)
+        
+#         if step > 20:
+#             for i in range(batch_size):
+#                 plt.subplot(121)
+#                 depth_image_show1 = depth_image1[i][0]
+#                 plt.imshow(depth_image_show1, cmap='gray')
+#                 plt.subplot(122)
+#                 depth_image_show2 = depth_image2[i][0]
+#                 plt.imshow(depth_image_show2, cmap='gray')
+#                 plt.title('Transform: {}'.format(transform_batch[i]))
+#                 plt.show()
         
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch)
@@ -70,7 +73,7 @@ def test(dataset, batch_size):
     model.eval()
     test_loss, correct, total = 0, 0, 0
 
-    test_indices = dataset.split('train')[1]
+    test_indices = dataset.split('train')[1][:1000]
     N_test = len(test_indices)
     n_test_steps = N_test // batch_size
     with torch.no_grad():
@@ -123,10 +126,11 @@ if __name__ == '__main__':
 
     if not args.test:
         dataset = TensorDataset.open(args.dataset)
+
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = SiameseNetwork(config['pred_dim']).to(device)
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        optimizer = optim.Adam(model.parameters())
         
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")

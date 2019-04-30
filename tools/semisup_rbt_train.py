@@ -116,7 +116,7 @@ if __name__ == '__main__':
         model = SiameseNetwork(config['pred_dim']).to(device)
         model.load_state_dict(torch.load(args.unsup_model))
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(get_params_to_train(model), lr=0.01)
+        optimizer = optim.Adam(get_params_to_train(model))
         
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")
