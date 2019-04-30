@@ -106,6 +106,8 @@ if __name__ == "__main__":
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
+            if obj_id < 45:
+                continue
             if args.objpred:
                 if obj_id == 50:
                     dataset.flush()
@@ -126,7 +128,7 @@ if __name__ == "__main__":
                 threshold=obj_config['stp_min_prob']
             )
             
-            for _ in range(num_samples_per_obj):             
+            for _ in range(num_samples_per_obj):
                 # iterate over all stable poses of the object
                 for j, pose_matrix in enumerate(stable_poses):
                     print("Stable Pose number:", j)
@@ -150,20 +152,19 @@ if __name__ == "__main__":
                     else:
                         assert(False)
 
-                    rand_transform = RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=2*np.pi*np.random.random())
-                    pose_matrix = rand_transform.matrix @ pose_matrix
-                    # get image 1 which is the stable pose
-                    scene.set_pose(object_node, pose=pose_matrix)
-                    image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-
                     # iterate over all transforms
                     obj_datapoints = []             
                     num_too_similar = 0
 
-                    for transform_id in range(len(transform_strs)):       
-                        new_pose, tr_str = transforms[transform_id].matrix @ pose_matrix, transform_strs[transform_id]
+                    for transform_id in range(len(transform_strs)):
+                        # Render image 1
+                        rand_transform = RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=2*np.pi*np.random.random()).matrix @ pose_matrix
+                        scene.set_pose(object_node, pose=rand_transform)
+                        image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                        
+                        # Render image 2
+                        new_pose, tr_str = transforms[transform_id].matrix @ rand_transform, transform_strs[transform_id]
                         scene.set_pose(object_node, pose=new_pose)
-                        #update_scene(scene, new_pose)
                         image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
 #                         if config['debug'] and obj_id > 4:
@@ -200,13 +201,13 @@ if __name__ == "__main__":
                     if num_too_similar < 2 or num_second_dp_match < 3:
                         print("ADDING STABLE POSE")
                         for dp in obj_datapoints:
-                            if config['debug'] and obj_id > 4:
+                            if config['debug']:
                                 plt.subplot(121)
-                                plt.imshow(dp["depth_image1"], cmap='gray')
+                                plt.imshow(dp["depth_image1"][:, :, 0], cmap='gray')
                                 plt.title('Stable pose')
                                 plt.subplot(122)
-                                plt.imshow(dp["depth_image2"], cmap='gray')
-                                plt.title('After Rigid Transformation: ' + dp["transform_id"])
+                                plt.imshow(dp["depth_image2"][:, :, 0], cmap='gray')
+                                plt.title('After Rigid Transformation: ' + str(dp["transform_id"]))
                                 plt.show()
 
                                 data_point_counter += 1
@@ -214,9 +215,6 @@ if __name__ == "__main__":
                     else:
                         print("Not ADDING STABLE POSE")
                     
-                    # if data_point_counter % 1000 == 0:
-                    #     dataset.flush()
-
             # delete the object to make room for the next
             scene.remove_node(object_node)
     dataset.flush()

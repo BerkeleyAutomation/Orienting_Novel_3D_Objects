@@ -24,7 +24,8 @@ def train(dataset, batch_size):
     model.train()
     train_loss, correct, total = 0, 0, 0
     
-    train_indices = dataset.split('train')[0]
+    #train_indices = dataset.split('train')[0]
+    train_indices = range(dataset.num_datapoints)
     N_train = len(train_indices)
     n_train_steps = N_train//batch_size
     for step in tqdm(range(n_train_steps)):
@@ -35,6 +36,7 @@ def train(dataset, batch_size):
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
         transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
+        print(batch['transform'])
         
         if step > 20:
             plt.subplot(121)
