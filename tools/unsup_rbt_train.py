@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import SiameseNetwork
+from unsupervised_rbt.models import SiameseNetwork, InceptionSiameseNetwork
 from perception import DepthImage, RgbdImage
 
 # TODO: Make this a real architecture, this is just a minimum working example for now
@@ -39,13 +39,13 @@ def train(dataset, batch_size):
 #         depth_image_show2 = depth_image2[0][0]
 #         plt.imshow(depth_image_show2, cmap='gray')
 #         plt.show()
+
+#         print("TRANSFORM")
+#         print(transform_batch[0])
         
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
         transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
-        
-#         print("TRANSFORM")
-#         print(transform_batch[0])
         
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch)
@@ -123,9 +123,10 @@ if __name__ == '__main__':
     if not args.test:
         dataset = TensorDataset.open(args.dataset)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = SiameseNetwork(config['pred_dim']).to(device)
+        # model = SiameseNetwork(config['pred_dim']).to(device)
+        model = InceptionSiameseNetwork(config['pred_dim']).to(device)
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters(), lr=0.01)
+        optimizer = optim.Adam(model.parameters())
         
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")

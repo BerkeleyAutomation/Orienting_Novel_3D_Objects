@@ -33,8 +33,8 @@ class BasicBlock(nn.Module):
             )
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
+        out = F.relu(self.conv1(self.bn1(x)))
+        out = self.conv2(self.bn2(out))
         out += self.shortcut(x)
         out = F.relu(out)
         return out
