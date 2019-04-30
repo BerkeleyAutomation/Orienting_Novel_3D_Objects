@@ -1,6 +1,6 @@
 from autolab_core import YamlConfig, RigidTransform, TensorDataset
 import os
-os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
+# os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
 
 import numpy as np
 import trimesh
@@ -34,6 +34,25 @@ def create_scene():
     pose_m[:,1:3] *= -1.0
     scene.add(camera, pose=pose_m, name=cam.frame)
     scene.main_camera_node = next(iter(scene.get_nodes(name=cam.frame)))
+
+    # Add Table
+    table_mesh = trimesh.load_mesh(
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            '../data/objects/plane/plane.obj',
+        )
+    )
+    table_tf = RigidTransform.load(
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)),
+            '../data/objects/plane/pose.tf',
+        )
+    )
+    table_mesh = Mesh.from_trimesh(table_mesh)
+    table_node = Node(mesh=table_mesh, matrix=table_tf.matrix)
+    scene.add_node(table_node)
+
+    # scene.add(Mesh.from_trimesh(table_mesh), pose=table_tf.matrix, name='table')
     return scene, renderer
 
 def parse_args():
@@ -42,7 +61,7 @@ def parse_args():
                                            '..',
                                            'cfg/tools/data_gen.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
-    parser.add_argument('-dataset', type=str)
+    parser.add_argument('-dataset', type=str, required=True)
     parser.add_argument('--objpred', action='store_true')
     args = parser.parse_args()
     return args
@@ -87,6 +106,8 @@ if __name__ == "__main__":
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
+            if obj_id < 45:
+                continue
             if args.objpred:
                 if obj_id == 50:
                     dataset.flush()
@@ -107,7 +128,7 @@ if __name__ == "__main__":
                 threshold=obj_config['stp_min_prob']
             )
             
-            for _ in range(num_samples_per_obj):             
+            for _ in range(num_samples_per_obj):
                 # iterate over all stable poses of the object
                 for j, pose_matrix in enumerate(stable_poses):
                     print("Stable Pose number:", j)
@@ -131,40 +152,39 @@ if __name__ == "__main__":
                     else:
                         assert(False)
 
-                    rand_transform = RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=2*np.pi*np.random.random())
-                    pose_matrix = rand_transform.matrix @ pose_matrix
-                    # get image 1 which is the stable pose
-                    scene.set_pose(object_node, pose=pose_matrix)
-                    image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-
                     # iterate over all transforms
                     obj_datapoints = []             
                     num_too_similar = 0
 
-                    for transform_id in range(len(transform_strs)):       
-                        new_pose, tr_str = transforms[transform_id].matrix @ pose_matrix, transform_strs[transform_id]
+                    for transform_id in range(len(transform_strs)):
+                        # Render image 1
+                        rand_transform = RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=2*np.pi*np.random.random()).matrix @ pose_matrix
+                        scene.set_pose(object_node, pose=rand_transform)
+                        image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                        
+                        # Render image 2
+                        new_pose, tr_str = transforms[transform_id].matrix @ rand_transform, transform_strs[transform_id]
                         scene.set_pose(object_node, pose=new_pose)
-                        #update_scene(scene, new_pose)
-                        image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                        image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
-                        if config['debug']:
-                            plt.subplot(121)
-                            plt.imshow(image1, cmap='gray')
-                            plt.title('Stable pose')
-                            plt.subplot(122)
-                            plt.imshow(image2, cmap='gray')
-                            plt.title('After Rigid Transformation: ' + tr_str)
-                            plt.show()
-                            print(transform_id)
+#                         if config['debug'] and obj_id > 4:
+#                             plt.subplot(121)
+#                             plt.imshow(image1, cmap='gray')
+#                             plt.title('Stable pose')
+#                             plt.subplot(122)
+#                             plt.imshow(image2, cmap='gray')
+#                             plt.title('After Rigid Transformation: ' + tr_str)
+#                             plt.show()
+#                             print(transform_id)
 
                         mse = np.linalg.norm(image1-image2)
                         if mse < 0.75:
-                            if config['debug']:
-                                print("Too similar MSE:", mse)
+                            # if config['debug']:
+                            print("Too similar MSE:", mse)
                             num_too_similar += 1
                         else:
-                            if config['debug']:
-                                print("MSE okay:", mse)
+                            # if config['debug']:
+                            print("MSE okay:", mse)
 
                         datapoint = dataset.datapoint_template
                         datapoint["depth_image1"] = np.expand_dims(image1, -1)
@@ -181,14 +201,20 @@ if __name__ == "__main__":
                     if num_too_similar < 2 or num_second_dp_match < 3:
                         print("ADDING STABLE POSE")
                         for dp in obj_datapoints:
+                            if config['debug']:
+                                plt.subplot(121)
+                                plt.imshow(dp["depth_image1"][:, :, 0], cmap='gray')
+                                plt.title('Stable pose')
+                                plt.subplot(122)
+                                plt.imshow(dp["depth_image2"][:, :, 0], cmap='gray')
+                                plt.title('After Rigid Transformation: ' + str(dp["transform_id"]))
+                                plt.show()
+
+                                data_point_counter += 1
                             dataset.add(dp)
-                            data_point_counter += 1
                     else:
                         print("Not ADDING STABLE POSE")
                     
-                    if data_point_counter % 1000 == 0:
-                        dataset.flush()
-
             # delete the object to make room for the next
             scene.remove_node(object_node)
     dataset.flush()

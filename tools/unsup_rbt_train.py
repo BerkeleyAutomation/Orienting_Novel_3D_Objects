@@ -24,7 +24,8 @@ def train(dataset, batch_size):
     model.train()
     train_loss, correct, total = 0, 0, 0
     
-    train_indices = dataset.split('train')[0]
+    train_indices = dataset.split('train')[0][:10000]
+#     train_indices = range(dataset.num_datapoints)[:100]
     N_train = len(train_indices)
     n_train_steps = N_train//batch_size
     for step in tqdm(range(n_train_steps)):
@@ -32,21 +33,24 @@ def train(dataset, batch_size):
         depth_image1 = (batch["depth_image1"] * 255).astype(int)
         depth_image2 = (batch["depth_image2"] * 255).astype(int)
         
-#         depth_image_show1 = depth_image1[0][0]
-#         plt.imshow(depth_image_show1, cmap='gray')
-#         plt.show()
-        
-#         depth_image_show2 = depth_image2[0][0]
-#         plt.imshow(depth_image_show2, cmap='gray')
-#         plt.show()
-
-#         print("TRANSFORM")
-#         print(transform_batch[0])
-        
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
         transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
+    
+#         print(depth_image1.shape)
+#         print(depth_image2.shape)
         
+#         if step > 20:
+#             for i in range(batch_size):
+#                 plt.subplot(121)
+#                 depth_image_show1 = depth_image1[i][0]
+#                 plt.imshow(depth_image_show1, cmap='gray')
+#                 plt.subplot(122)
+#                 depth_image_show2 = depth_image2[i][0]
+#                 plt.imshow(depth_image_show2, cmap='gray')
+#                 plt.title('Transform: {}'.format(transform_batch[i]))
+#                 plt.show()
+
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch)
 #         print("TRANSFORM BATCH")
@@ -69,7 +73,7 @@ def test(dataset, batch_size):
     model.eval()
     test_loss, correct, total = 0, 0, 0
 
-    test_indices = dataset.split('train')[1]
+    test_indices = dataset.split('train')[1][:1000]
     N_test = len(test_indices)
     n_test_steps = N_test // batch_size
     with torch.no_grad():
@@ -111,7 +115,7 @@ def parse_args():
                                            '..',
                                            'cfg/tools/unsup_rbt_train.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
-    parser.add_argument('-dataset', type=str)
+    parser.add_argument('-dataset', type=str, required=True)
     args = parser.parse_args()
     args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
     return args
@@ -122,6 +126,7 @@ if __name__ == '__main__':
 
     if not args.test:
         dataset = TensorDataset.open(args.dataset)
+
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         # model = SiameseNetwork(config['pred_dim']).to(device)
         model = InceptionSiameseNetwork(config['pred_dim']).to(device)

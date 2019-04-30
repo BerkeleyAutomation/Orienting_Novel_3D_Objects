@@ -17,6 +17,14 @@ from unsupervised_rbt import TensorDataset
 from unsupervised_rbt.models import SiameseNetwork
 from perception import DepthImage, RgbdImage
 
+def get_params_to_train(model):
+    params = []
+    r = model.resnet
+    layers = [r.layer3, r.layer4, r.linear, model.fc_1, model.final_fc]
+    for layer in layers:
+        params.extend(layer.parameters())
+    return params
+
 # TODO: Make this a real architecture, this is just a minimum working example for now
 # TODO: Improve batching speed/data loading, its still kind of slow rn
 
@@ -93,6 +101,7 @@ def parse_args():
                                            'cfg/tools/unsup_rbt_train.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str, required=True)
+    parser.add_argument('-unsup_model', type=str, required=True)
     args = parser.parse_args()
     args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
     return args
@@ -105,8 +114,9 @@ if __name__ == '__main__':
         dataset = TensorDataset.open(args.dataset)
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = SiameseNetwork(config['pred_dim']).to(device)
+        model.load_state_dict(torch.load(args.unsup_model))
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters())
+        optimizer = optim.Adam(get_params_to_train(model))
         
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")
