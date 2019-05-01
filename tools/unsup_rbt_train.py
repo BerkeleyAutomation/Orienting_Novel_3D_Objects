@@ -14,7 +14,7 @@ from tqdm import tqdm
 
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import SiameseNetwork
+from unsupervised_rbt.models import SiameseNetwork, InceptionSiameseNetwork
 from perception import DepthImage, RgbdImage
 
 # TODO: Make this a real architecture, this is just a minimum working example for now
@@ -36,7 +36,7 @@ def train(dataset, batch_size):
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
         transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
-        
+    
 #         print(depth_image1.shape)
 #         print(depth_image2.shape)
         
@@ -50,7 +50,7 @@ def train(dataset, batch_size):
 #                 plt.imshow(depth_image_show2, cmap='gray')
 #                 plt.title('Transform: {}'.format(transform_batch[i]))
 #                 plt.show()
-        
+
         optimizer.zero_grad()
         pred_transform = model(im1_batch, im2_batch)
 #         print("TRANSFORM BATCH")
@@ -129,6 +129,7 @@ if __name__ == '__main__':
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = SiameseNetwork(config['pred_dim']).to(device)
+#         model = InceptionSiameseNetwork(config['pred_dim']).to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters())
         

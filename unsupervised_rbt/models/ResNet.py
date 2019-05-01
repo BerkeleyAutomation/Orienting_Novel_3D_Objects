@@ -8,12 +8,13 @@ class SiameseNetwork(nn.Module):
         self.resnet = ResNet(BasicBlock, [1,1,1,1], 100)
         self.fc_1 = nn.Linear(100*2, 200)
         self.final_fc = nn.Linear(200, transform_pred_dim)
+        self.dropout = nn.Dropout()
 
     def forward(self, input1, input2):
         output1 = self.resnet(input1)
         output2 = self.resnet(input2)
         output_concat = torch.cat((output1, output2), 1)
-        return self.final_fc(self.fc_1(output_concat))
+        return self.final_fc(self.dropout(self.fc_1(output_concat)))
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -33,8 +34,8 @@ class BasicBlock(nn.Module):
             )
 
     def forward(self, x):
-        out = F.relu(self.bn1(self.conv1(x)))
-        out = self.bn2(self.conv2(out))
+        out = F.relu(self.conv1(self.bn1(x)))
+        out = self.conv2(self.bn2(out))
         out += self.shortcut(x)
         out = F.relu(out)
         return out
