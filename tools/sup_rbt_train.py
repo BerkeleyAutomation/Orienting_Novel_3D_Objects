@@ -11,6 +11,7 @@ from torch.autograd import Variable
 import pickle
 import matplotlib.pyplot as plt
 from tqdm import tqdm
+from random import shuffle
 
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
@@ -25,6 +26,7 @@ def train(dataset, batch_size):
     train_loss, correct, total = 0, 0, 0
     
     train_indices = dataset.split('train')[0]
+    shuffle(train_indices)
     N_train = len(train_indices)
     n_train_steps = N_train//batch_size
     for step in tqdm(range(n_train_steps)):
@@ -90,7 +92,7 @@ def parse_args():
     parser.add_argument('--test', action='store_true')
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
-                                           'cfg/tools/unsup_rbt_train.yaml')
+                                           'cfg/tools/sup_rbt_train.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str, required=True)
     args = parser.parse_args()
