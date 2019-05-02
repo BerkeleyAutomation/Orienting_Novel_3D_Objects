@@ -1,25 +1,17 @@
+# MAKE SURE NUM_SAMPLES_PER_OBJ IS THE SAME AS DEPTH_IMAGES.CHANNELS
+
 debug: 0
-num_samples_per_obj: 5
-num_samples_per_obj_objpred: 100
+num_samples_per_obj: 20
 # dataset params
 dataset:
   tensors:
     datapoints_per_file: 100
     fields:
-      obj_id:
-        dtype: uint32
-      depth_image1:
+      depth_images:
         dtype: float32
-        height: 128
+        height: 20 # 20 images
         width: 128
-        channels: 1
-      depth_image2:
-        dtype: float32
-        height: 128
-        width: 128
-        channels: 1
-      transform_id:
-        dtype: uint32
+        channels: 128 
 
 state_space:
   heap:
