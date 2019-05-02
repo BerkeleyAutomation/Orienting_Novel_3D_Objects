@@ -1,4 +1,4 @@
-pred_dim: 51
+pred_dim: 100
 batch_size: 64
 num_epochs: 100
 losses_f_name: results/sup_losses.p

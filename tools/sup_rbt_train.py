@@ -15,36 +15,63 @@ from random import shuffle
 
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import SiameseNetwork
+from unsupervised_rbt.models import ResNetDownstreamSiameseNetwork
+from unsupervised_rbt.losses import ContrastiveLoss
 from perception import DepthImage, RgbdImage
 
 # TODO: Make this a real architecture, this is just a minimum working example for now
 # TODO: Improve batching speed/data loading, its still kind of slow rn
 
-def train(dataset, batch_size):
+def generate_data(dataset):
+    im1s, im2s, labels = [], [], []
+    for _ in range(10000):
+        dp1_idx = np.random.randint(dataset.num_datapoints)
+        dp2_idx, label = dp1_idx, 1 # same object
+        
+        im1_idx = np.random.randint(20)
+        im2_idx = np.random.randint(20)
+        im1s.append((dataset[dp1_idx]['depth_images'][im1_idx] * 255).astype(int))
+
+        if np.random.random() < 0.5: # different object
+            while dp2_idx == dp1_idx:
+                dp2_idx = np.random.randint(dataset.num_datapoints)
+            label = 0
+
+        im2s.append((dataset[dp2_idx]['depth_images'][im2_idx] * 255).astype(int))
+        labels.append(label)
+    im1s, im2s, labels = np.array(im1s), np.array(im2s), np.array(labels)
+    return np.expand_dims(im1s, 1), np.expand_dims(im2s, 1), labels
+
+def train(im1s, im2s, labels, batch_size):
     model.train()
     train_loss, correct, total = 0, 0, 0
     
-    train_indices = dataset.split('train')[0]
-    shuffle(train_indices)
-    N_train = len(train_indices)
+    N_train = int(0.8 * im1s.shape[0])
     n_train_steps = N_train//batch_size
     for step in tqdm(range(n_train_steps)):
-        batch = dataset.get_item_list(train_indices[step*batch_size : (step+1)*batch_size])
-        depth_image1 = (batch["depth_image1"] * 255).astype(int)
-        depth_image2 = (batch["depth_image2"] * 255).astype(int)
-               
-        im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
-        im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
-        label_batch = Variable(torch.from_numpy(batch["obj_id"].astype(int))).to(device)
+        im1_batch   = Variable(torch.from_numpy(im1s[step*batch_size : (step+1)*batch_size]).float()).to(device)
+        im2_batch   = Variable(torch.from_numpy(im2s[step*batch_size : (step+1)*batch_size]).float()).to(device)
+        label_batch = Variable(torch.from_numpy(labels[step*batch_size : (step+1)*batch_size]).float()).to(device)
+
+
+        for i in range(batch_size):
+                plt.subplot(121)
+                depth_image_show1 = im1s[step*batch_size + i][0]
+                plt.imshow(depth_image_show1, cmap='gray')
+                plt.subplot(122)
+                depth_image_show2 = im2s[step*batch_size + i][0]
+                plt.imshow(depth_image_show2, cmap='gray')
+                plt.title('Transform: {}'.format(labels[step*batch_size + i]))
+                plt.show()
        
         optimizer.zero_grad()
-        pred_label = model(im1_batch, im2_batch)
-        _, predicted = torch.max(pred_label, 1)
+        prob = model(im1_batch, im2_batch)
+        loss = criterion(prob, label_batch)
+        
+        predicted = (prob > 0.5).float().flatten()
         correct += (predicted == label_batch).sum().item()
         total += label_batch.size(0)
         
-        loss = criterion(pred_label, label_batch)
         loss.backward()
         train_loss += loss.item()
         optimizer.step()
@@ -52,27 +79,27 @@ def train(dataset, batch_size):
     class_acc = 100 * correct/total
     return train_loss/n_train_steps, class_acc
 
-def test(dataset, batch_size):
+def test(im1s, im2s, labels, batch_size):
     model.eval()
     test_loss, correct, total = 0, 0, 0
 
-    test_indices = dataset.split('train')[1]
-    N_test = len(test_indices)
+    N_test = int(0.2 * im1s.shape[0])
+    N_train = int(0.8 * im1s.shape[0])
     n_test_steps = N_test // batch_size
+    im1s, im2s, labels = im1s[N_train:], im2s[N_train:], labels[N_train:]
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
-            batch = dataset.get_item_list(test_indices[step*batch_size : (step+1)*batch_size])
-            depth_image1 = (batch["depth_image1"] * 255).astype(int)
-            depth_image2 = (batch["depth_image2"] * 255).astype(int)
-            im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
-            im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
-            label_batch = Variable(torch.from_numpy(batch["obj_id"].astype(int))).to(device)
-            pred_label = model(im1_batch, im2_batch)
-            _, predicted = torch.max(pred_label, 1)
+            im1_batch   = Variable(torch.from_numpy(im1s[step*batch_size   : (step+1)*batch_size]).float()).to(device)
+            im2_batch   = Variable(torch.from_numpy(im2s[step*batch_size   : (step+1)*batch_size]).float()).to(device)
+            label_batch = Variable(torch.from_numpy(labels[step*batch_size : (step+1)*batch_size]).float()).to(device)
+       
+            optimizer.zero_grad()
+            prob = model(im1_batch, im2_batch)
+            predicted = (prob > 0.5).float().flatten()
             correct += (predicted == label_batch).sum().item()
             total += label_batch.size(0)
             
-            loss = criterion(pred_label, label_batch)
+            loss = criterion(prob, label_batch)
             test_loss += loss.item()
             
     class_acc = 100 * correct/total
@@ -105,10 +132,12 @@ if __name__ == '__main__':
 
     if not args.test:
         dataset = TensorDataset.open(args.dataset)
+        im1s, im2s, labels = generate_data(dataset)
+        
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = SiameseNetwork(config['pred_dim']).to(device)
-        criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters())
+        model = ResNetDownstreamSiameseNetwork(config['pred_dim']).to(device)
+        criterion = ContrastiveLoss()
+        optimizer = optim.Adam(model.parameters(), lr=1e-3)
         
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")
@@ -116,8 +145,8 @@ if __name__ == '__main__':
 
         train_losses, test_losses, train_accs, test_accs = [], [], [], []
         for epoch in range(config['num_epochs']):
-            train_loss, train_acc = train(dataset, config['batch_size'])
-            test_loss, test_acc = test(dataset, config['batch_size'])
+            train_loss, train_acc = train(im1s, im2s, labels, config['batch_size'])
+            test_loss, test_acc = test(im1s, im2s, labels, config['batch_size'])
             train_losses.append(train_loss)
             test_losses.append(test_loss)
             train_accs.append(train_acc)
@@ -127,9 +156,7 @@ if __name__ == '__main__':
             torch.save(model.state_dict(), config['model_save_dir'])
             
     else:
-        model = SiameseNetwork(config['pred_dim'])
-        model.load_state_dict(torch.load(config['model_save_dir']))
-        display_conv_layers(model)
+        model = ResNetDownstreamSiameseNetwork(config['pred_dim'])
 
         losses = pickle.load( open( config['losses_f_name'], "rb" ) )
         train_returns = np.array(losses["train_loss"])
