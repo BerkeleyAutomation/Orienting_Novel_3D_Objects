@@ -106,8 +106,8 @@ if __name__ == "__main__":
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
-            if obj_id < 45:
-                continue
+            # if obj_id < 45:
+                # continue
             if args.objpred:
                 if obj_id == 50:
                     dataset.flush()
@@ -167,15 +167,16 @@ if __name__ == "__main__":
                         scene.set_pose(object_node, pose=new_pose)
                         image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
-#                         if config['debug'] and obj_id > 4:
-#                             plt.subplot(121)
-#                             plt.imshow(image1, cmap='gray')
-#                             plt.title('Stable pose')
-#                             plt.subplot(122)
-#                             plt.imshow(image2, cmap='gray')
-#                             plt.title('After Rigid Transformation: ' + tr_str)
-#                             plt.show()
-#                             print(transform_id)
+                        if config['debug']:
+                            plt.subplot(121)
+                            plt.imshow(image1, cmap='gray')
+                            plt.title('Stable pose')
+                            plt.subplot(122)
+                            plt.imshow(image2, cmap='gray')
+                            plt.title('After Rigid Transformation: ' + tr_str)
+                            plt.show()
+                            print(transform_id)
+
 
                         mse = np.linalg.norm(image1-image2)
                         if mse < 0.75:
