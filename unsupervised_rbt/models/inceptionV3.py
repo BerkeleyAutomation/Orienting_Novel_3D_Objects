@@ -10,24 +10,32 @@ _InceptionOuputs = namedtuple('InceptionOuputs', ['logits', 'aux_logits'])
 
 # TODO: modify
 class InceptionSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim):
+    def __init__(self, transform_pred_dim, dropout=False):
         super(InceptionSiameseNetwork, self).__init__()
-        self.inception = Inception3_mod(num_out=100)
-        self.fc_1 = nn.Linear(100*2, 200)
-        self.final_fc = nn.Linear(200, transform_pred_dim)
+        self.inception = Inception3_mod(dropout, num_out=200)
+        self.fc_1 = nn.Linear(200*2, 4000)
+        self.fc_2 = nn.Linear(4000, 4000)
+        self.final_fc = nn.Linear(4000, transform_pred_dim)            
         
     def forward(self, input1, input2):
         output1 = self.inception(input1)
         output2 = self.inception(input2)
         output_concat = torch.cat((output1, output2), 1)
-        return self.final_fc(self.fc_1(output_concat))
+        return self.final_fc(F.relu(self.fc_2(F.relu(self.fc_1(output_concat)))))
 
 
 # TODO: modify
 class Inception3_mod(nn.Module):
 
-    def __init__(self, num_out=100):
+    def __init__(self, dropout, num_out=100):
         super(Inception3_mod, self).__init__()
+        # dropout
+        if dropout:
+            self.p = 0.1
+        else:
+            self.p = 0
+            
+        self.dropout2d = torch.nn.Dropout2d(p=self.p)
         # two conv layers
         self.Conv2d_1a_3x3 = BasicConv2d(1, 32, kernel_size=3, padding=1) # no downsampling
         self.Conv2d_2a_3x3 = BasicConv2d(32, 64, kernel_size=3)
@@ -60,16 +68,22 @@ class Inception3_mod(nn.Module):
         x = self.Conv2d_2a_3x3(x)
         # New: N x 64 x 126 x 126
         x = F.max_pool2d(x, kernel_size=3, stride=2, padding=1)
+        x = self.dropout2d(x)
         # New: N x 64 x 63 x 63
         x = self.Mixed_5a(x)
+        x = self.dropout2d(x)
         # N x 256 x 63 x 63
         x = self.Mixed_6a(x)
+        x = self.dropout2d(x)
         # N x 736 x 31 x 31
         x = self.Mixed_6b(x)
+        x = self.dropout2d(x)
         # N x 768 x 31 x 31
         x = self.Mixed_7a(x)
+        x = self.dropout2d(x)
         # N x 1280 x 15 x 15
         x = self.Mixed_7b(x)
+        x = self.dropout2d(x)
         # N x 2048 x 15 x 15
         # Adaptive average pooling
         x = F.adaptive_avg_pool2d(x, (1, 1))

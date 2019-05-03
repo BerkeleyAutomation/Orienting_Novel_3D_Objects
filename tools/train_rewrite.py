@@ -25,9 +25,9 @@ os.system("echo \"backend: Agg\" > ~/.config/matplotlib/matplotlibrc")
 def main(args):
     # initialize model
     if args.model == 'ResNet':
-        model = SiameseNetwork(transform_pred_dim=4).to(device)
+        model = SiameseNetwork(transform_pred_dim=4, dropout= args.dropout).to(device)
     elif args.model == 'Inception':
-        model = InceptionSiameseNetwork(transform_pred_dim=4).to(device)
+        model = InceptionSiameseNetwork(transform_pred_dim=4, dropout= args.dropout).to(device)
     elif args.model == 'ContextPred':
         model = ContextSiameseNetwork(transform_pred_dim=4).to(device)
     
@@ -39,6 +39,10 @@ def main(args):
     
     # load dataset
     dataset = TensorDataset.open(args.dataset_full)
+    if not os.path.exists(args.dataset_full + "/splits/train"):
+        print("Created Train Split")
+        dataset.make_split("train", train_pct=0.8)
+    
     print(colored('------------- Start Training with datasize ' + str(len(dataset.split('train')[0]) + len(dataset.split('train')[1])) + ' -------------', 'green'))
 
     # Train and evaluate
@@ -63,10 +67,10 @@ def main(args):
                     'test_accs': test_accs
                 }
             # safe losses
-            with open('training_metadata/'+args.model+'_'+args.dataset+'.pkl', 'wb') as handle:
+            with open('training_metadata/'+args.model+'_'+args.dataset+str(args.dropout)+'.pkl', 'wb') as handle:
                     pickle.dump(to_pickle, handle)
             # save model
-            torch.save(model.state_dict(), './trained_models/'+args.model+'_'+args.dataset+'.pkl')
+            torch.save(model.state_dict(), './trained_models/'+args.model+'_'+args.dataset+str(args.dropout)+'.pkl')
             print('Model save to ./trained_models/'+args.model+'_'+args.dataset+'.pkl')
             # safe loss plots
             save_plots(train_losses, test_losses, train_accs, test_accs)
@@ -77,7 +81,12 @@ def train_model(model, criterion, optimizer, dataset, batch_size):
     for phase in ['train','val']:
         running_loss, correct, total = 0, 0, 0
         
-        indices = dataset.split('train')[phase=='val']
+        if phase == 'train':
+            indices = dataset.split('train')[phase=='val']
+        else:
+            indices = dataset.split('train')[phase=='val']
+            
+        #indices = dataset.split('train')[phase=='val']
         N_train = len(indices)
         minibatches = np.full(N_train//batch_size, batch_size, dtype=np.int)
         minibatches[:N_train % batch_size] += 1 # correct if the folds can't be even sized
@@ -154,7 +163,7 @@ def save_plots(train_losses, test_losses, train_accs, test_accs):
     mpl.pyplot.ylabel("Classification Accuracy")
     mpl.pyplot.title("Training Curve")
     mpl.pyplot.legend(loc='best')
-    mpl.pyplot.savefig('./plots/'+'Train_'+args.model+'_'+args.dataset)
+    mpl.pyplot.savefig('./plots/'+'Train_'+args.model+'_'+args.dataset + str(args.dropout))
     mpl.pyplot.close()
 #     mpl.pyplot.savefig('./plots/'+'Acc_'+args.model+'_'+args.dataset)
 #     mpl.pyplot.close()
@@ -162,13 +171,14 @@ def save_plots(train_losses, test_losses, train_accs, test_accs):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-dataset', type=str, required=True, choices=['z-axis-only','z-axis-only-obj-pred'])
+    parser.add_argument('-dataset', type=str, required=True, choices=['z-axis-only','z-axis-only-obj-pred', 'xyz-axis-obj-pred', 'xyz-axis'])
     parser.add_argument('-batch_size', type=int, default=128)
     parser.add_argument('-lr', type=float, default=1e-3)
     parser.add_argument('-model', type=str, default='ResNet', choices=['ResNet','Inception','ContextPred'])
-    parser.add_argument('-epochs', type=int, default=100)
+    parser.add_argument('-epochs', type=int, default=101)
+    parser.add_argument('-dropout', type=bool, default=True)
     args = parser.parse_args()
-    parser.add_argument('-dataset_full', type=str, required=False)
+    parser.add_argument('-dataset_full', type=str, required=False) # never enter it, it's just to fill the whole path
     args.dataset_full = os.path.join('/raid/mariuswiggert', args.dataset)
     return args
 

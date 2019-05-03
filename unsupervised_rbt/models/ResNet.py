@@ -3,17 +3,18 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 class SiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim):
+    def __init__(self, transform_pred_dim, dropout=False):
         super(SiameseNetwork, self).__init__()
-        self.resnet = ResNet(BasicBlock, [1,1,1,1], 100)
-        self.fc_1 = nn.Linear(100*2, 200)
-        self.final_fc = nn.Linear(200, transform_pred_dim)
+        self.resnet = ResNet(BasicBlock, [1,1,1,1], 200, dropout=False)
+        self.fc_1 = nn.Linear(200*2, 4000)
+        self.fc_2 = nn.Linear(4000, 4000)
+        self.final_fc = nn.Linear(4000, transform_pred_dim)  
 
     def forward(self, input1, input2):
         output1 = self.resnet(input1)
         output2 = self.resnet(input2)
         output_concat = torch.cat((output1, output2), 1)
-        return self.final_fc(self.fc_1(output_concat))
+        return self.final_fc(F.relu(self.fc_2(F.relu(self.fc_1(output_concat)))))
 
 class BasicBlock(nn.Module):
     expansion = 1
@@ -40,9 +41,16 @@ class BasicBlock(nn.Module):
         return out
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_output=10):
+    def __init__(self, block, num_blocks, num_output=10, dropout=False):
         super(ResNet, self).__init__()
         self.in_planes = 64
+        
+        # dropout
+        if dropout:
+            self.p = 0.1
+        else:
+            self.p = 0
+        self.dropout2d = torch.nn.Dropout2d(p=self.p)
 
         self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
@@ -63,8 +71,11 @@ class ResNet(nn.Module):
     def forward_no_linear(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
+        out = self.dropout2d(out)
         out = self.layer2(out)
+        out = self.dropout2d(out)
         out = self.layer3(out)
+        out = self.dropout2d(out)
         return self.layer4(out)
 
     def forward(self, x):
