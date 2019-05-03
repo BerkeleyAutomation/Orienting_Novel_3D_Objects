@@ -24,12 +24,13 @@ from perception import DepthImage, RgbdImage
 
 def generate_data(dataset):
     im1s, im2s, labels = [], [], []
-    for _ in range(10000):
+    for _ in range(100000):
         dp1_idx = np.random.randint(dataset.num_datapoints)
         dp2_idx, label = dp1_idx, 1 # same object
         
         im1_idx = np.random.randint(20)
         im2_idx = np.random.randint(20)
+        
         im1s.append((dataset[dp1_idx]['depth_images'][im1_idx] * 255).astype(int))
 
         if np.random.random() < 0.5: # different object
@@ -53,23 +54,30 @@ def train(im1s, im2s, labels, batch_size):
         im2_batch   = Variable(torch.from_numpy(im2s[step*batch_size : (step+1)*batch_size]).float()).to(device)
         label_batch = Variable(torch.from_numpy(labels[step*batch_size : (step+1)*batch_size]).float()).to(device)
 
-
-        for i in range(batch_size):
-                plt.subplot(121)
-                depth_image_show1 = im1s[step*batch_size + i][0]
-                plt.imshow(depth_image_show1, cmap='gray')
-                plt.subplot(122)
-                depth_image_show2 = im2s[step*batch_size + i][0]
-                plt.imshow(depth_image_show2, cmap='gray')
-                plt.title('Transform: {}'.format(labels[step*batch_size + i]))
-                plt.show()
+#         for i in range(batch_size):
+#             plt.subplot(121)
+#             depth_image_show1 = im1s[step*batch_size + i][0]
+#             plt.imshow(depth_image_show1, cmap='gray')
+#             plt.subplot(122)
+#             depth_image_show2 = im2s[step*batch_size + i][0]
+#             plt.imshow(depth_image_show2, cmap='gray')
+#             plt.title('Transform: {}'.format(labels[step*batch_size + i]))
+#             plt.show()
        
         optimizer.zero_grad()
         prob = model(im1_batch, im2_batch)
-        loss = criterion(prob, label_batch)
+#         print(label_batch)
+#         print(prob)
+        loss = criterion(prob, label_batch.long())
+        _, predicted = torch.max(prob, 1)
+#         output1, output2 = model(im1_batch, im2_batch)
+#         loss = criterion(output1, output2, label_batch)
         
-        predicted = (prob > 0.5).float().flatten()
-        correct += (predicted == label_batch).sum().item()
+#         predicted = (prob > 0.5).float().flatten()
+#         correct += (predicted == label_batch).sum().item()
+#         total += label_batch.size(0)
+
+        correct += (predicted == label_batch.long()).sum().item()
         total += label_batch.size(0)
         
         loss.backward()
@@ -95,14 +103,24 @@ def test(im1s, im2s, labels, batch_size):
        
             optimizer.zero_grad()
             prob = model(im1_batch, im2_batch)
-            predicted = (prob > 0.5).float().flatten()
-            correct += (predicted == label_batch).sum().item()
+            loss = criterion(prob, label_batch.long())
+            _, predicted = torch.max(prob, 1)
+#             output1, output2 = model(im1_batch, im2_batch)
+#             loss = criterion(output1, output2, label_batch)
+#             print("LABELS")
+#             print(label_batch)
+#             print("PREDICTED")
+#             print(prob)
+#             predicted = (prob > 0.5).float().flatten()
+#             correct += (predicted == label_batch).sum().item()
+#             total += label_batch.size(0)
+            correct += (predicted == label_batch.long()).sum().item()
             total += label_batch.size(0)
             
-            loss = criterion(prob, label_batch)
             test_loss += loss.item()
             
     class_acc = 100 * correct/total
+#     class_acc = 0
     return test_loss/n_test_steps, class_acc
 
 def display_conv_layers(model):
@@ -136,8 +154,9 @@ if __name__ == '__main__':
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = ResNetDownstreamSiameseNetwork(config['pred_dim']).to(device)
-        criterion = ContrastiveLoss()
-        optimizer = optim.Adam(model.parameters(), lr=1e-3)
+#         criterion = ContrastiveLoss()
+        criterion = nn.CrossEntropyLoss()
+        optimizer = optim.Adam(model.parameters())
         
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")
@@ -156,7 +175,7 @@ if __name__ == '__main__':
             torch.save(model.state_dict(), config['model_save_dir'])
             
     else:
-        model = ResNetDownstreamSiameseNetwork(config['pred_dim'])
+#         model = ResNetDownstreamSiameseNetwork(config['pred_dim'])
 
         losses = pickle.load( open( config['losses_f_name'], "rb" ) )
         train_returns = np.array(losses["train_loss"])
@@ -179,5 +198,5 @@ if __name__ == '__main__':
         plt.ylabel("Classification Accuracy")
         plt.title("Training Curve")
         plt.legend(loc='best')
-        plt.savefig(config['losses_plot_f_name'])
+        plt.savefig(config['accs_plot_f_name'])
         plt.close()

@@ -1,6 +1,7 @@
 pred_dim: 100
 batch_size: 64
 num_epochs: 100
-losses_f_name: results/sup_losses.p
-loss_plot_f_name: plots/sup_losses.png
-model_save_dir: models/sup_rbt.pt
+losses_f_name: results/sup_losses_full.p
+losses_plot_f_name: plots/sup_losses_full.png
+accs_plot_f_name: plots/sup_accs_full.png
+model_save_dir: models/sup_rbt_full.pt
