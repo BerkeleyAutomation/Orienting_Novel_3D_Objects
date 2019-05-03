@@ -522,6 +522,7 @@ class TensorDataset(object):
     def get_item_list(self, indices):
         rbt_to_euler = lambda rbt: transformations.euler_from_quaternion(transformations.quaternion_from_matrix(rbt))
         return {
+            # should be batch_size x n_channels x 128 x 128 (n_channels should be 1 for depth images)
             "depth_image1" : np.expand_dims(np.array([self.datapoint(i)["depth_image1"][:, :, -1] for i in indices]), axis=1), 
             "depth_image2" : np.expand_dims(np.array([self.datapoint(i)["depth_image2"][:, :, -1] for i in indices]), axis=1), 
             "transform"    : np.array([self.datapoint(i)["transform_id"] for i in indices]),

@@ -128,8 +128,8 @@ if __name__ == '__main__':
         dataset = TensorDataset.open(args.dataset)
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # model = SiameseNetwork(config['pred_dim']).to(device)
-        model = InceptionSiameseNetwork(config['pred_dim']).to(device)
+        model = SiameseNetwork(config['pred_dim']).to(device)
+#         model = InceptionSiameseNetwork(config['pred_dim']).to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters())
         

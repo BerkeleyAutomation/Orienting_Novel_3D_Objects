@@ -5,6 +5,7 @@ unsupervised_rbt.egg-info/
 *.pyc
 *.pt
 *ipynb_checkpoints
+*.png
 *.ipynb
 build/*
 dist/*
