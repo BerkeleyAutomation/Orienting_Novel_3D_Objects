@@ -15,7 +15,7 @@ from termcolor import colored
 
 import torch.utils.data as data_utils
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import SiameseNetwork, InceptionSiameseNetwork, ContextSiameseNetwork
+from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork, ContextSiameseNetwork
 
 # determine cuda
 device = torch.device('cuda')
@@ -25,7 +25,7 @@ os.system("echo \"backend: Agg\" > ~/.config/matplotlib/matplotlibrc")
 def main(args):
     # initialize model
     if args.model == 'ResNet':
-        model = SiameseNetwork(transform_pred_dim=4, dropout= args.dropout).to(device)
+        model = ResNetSiameseNetwork(transform_pred_dim=4, dropout= args.dropout).to(device)
     elif args.model == 'Inception':
         model = InceptionSiameseNetwork(transform_pred_dim=4, dropout= args.dropout).to(device)
     elif args.model == 'ContextPred':

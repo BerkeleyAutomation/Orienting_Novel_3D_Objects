@@ -3,9 +3,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
-class SiameseNetwork(nn.Module):
+class ResNetSiameseNetwork(nn.Module):
     def __init__(self, transform_pred_dim, dropout=False):
-        super(SiameseNetwork, self).__init__()
+        super(ResNetSiameseNetwork, self).__init__()
         self.resnet = ResNet(BasicBlock, [1,1,1,1], 200, dropout=False)
         self.fc_1 = nn.Linear(200*2, 4000)
         self.fc_2 = nn.Linear(4000, 4000)
