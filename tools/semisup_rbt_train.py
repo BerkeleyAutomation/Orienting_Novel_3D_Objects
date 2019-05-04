@@ -38,14 +38,14 @@ def generate_data(dataset):
         im1_idx = np.random.randint(20)
         im2_idx = np.random.randint(20)
         
-        im1s.append((dataset[dp1_idx]['depth_images'][im1_idx] * 255).astype(int))
+        im1s.append(255 * dataset[dp1_idx]['depth_images'][im1_idx])
 
         if np.random.random() < 0.5: # different object
             while dp2_idx == dp1_idx:
                 dp2_idx = np.random.randint(dataset.num_datapoints)
             label = 0
 
-        im2s.append((dataset[dp2_idx]['depth_images'][im2_idx] * 255).astype(int))
+        im2s.append(255 * dataset[dp2_idx]['depth_images'][im2_idx])
         labels.append(label)
     im1s, im2s, labels = np.array(im1s), np.array(im2s), np.array(labels)
     return np.expand_dims(im1s, 1), np.expand_dims(im2s, 1), labels
