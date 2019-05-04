@@ -15,7 +15,7 @@ from random import shuffle
 
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import ResNetDownstreamSiameseNetwork
+from unsupervised_rbt.models import ResNetSiameseNetwork
 from unsupervised_rbt.losses import ContrastiveLoss
 from perception import DepthImage, RgbdImage
 
@@ -24,7 +24,7 @@ from perception import DepthImage, RgbdImage
 
 def generate_data(dataset):
     im1s, im2s, labels = [], [], []
-    for _ in range(100000):
+    for _ in range(1000):
         dp1_idx = np.random.randint(dataset.num_datapoints)
         dp2_idx, label = dp1_idx, 1 # same object
         
@@ -151,7 +151,7 @@ if __name__ == '__main__':
         im1s, im2s, labels = generate_data(dataset)
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = ResNetDownstreamSiameseNetwork(config['pred_dim']).to(device)
+        model = ResNetSiameseNetwork(config['pred_dim']).to(device)
 #         criterion = ContrastiveLoss()
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters())

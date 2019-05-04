@@ -21,9 +21,11 @@ from perception import DepthImage, RgbdImage
 # TODO: Improve batching speed/data loading, its still kind of slow rn
 
 def get_params_to_train(model):
+    return model.parameters()
     params = []
     r = model.resnet
     layers = [r.layer3, r.layer4, r.linear, model.fc_1, model.fc_2, model.final_fc]
+#     layers = [model.fc_1, model.fc_2, model.final_fc]
     for layer in layers:
         params.extend(layer.parameters())
     return params
@@ -31,7 +33,7 @@ def get_params_to_train(model):
 
 def generate_data(dataset):
     im1s, im2s, labels = [], [], []
-    for _ in range(100000):
+    for _ in range(1000):
         dp1_idx = np.random.randint(dataset.num_datapoints)
         dp2_idx, label = dp1_idx, 1 # same object
         
@@ -126,10 +128,10 @@ def parse_args():
     parser.add_argument('--test', action='store_true')
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
-                                           'cfg/tools/unsup_rbt_train.yaml')
+                                           'cfg/tools/semisup_rbt_train.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str, required=True)
-    parser.add_argument('-unsup_model', type=str, required=True)
+#     parser.add_argument('-unsup_model', type=str, required=True)
     args = parser.parse_args()
     args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
     return args
@@ -144,7 +146,18 @@ if __name__ == '__main__':
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         model = ResNetSiameseNetwork(config['pred_dim']).to(device)
-        model.load_state_dict(torch.load(args.unsup_model))
+        new_state_dict = model.state_dict()
+        
+        layers_to_keep = ('resnet.layer1', 'resnet.layer2')
+        load_params = torch.load(config['unsup_model_path'])
+        
+        for layer_name in load_params:
+            if not layer_name.startswith(layers_to_keep):
+                del load_params[layer_name]
+                
+        new_state_dict.update(load_params)
+        model.load_state_dict(new_state_dict)
+        
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(get_params_to_train(model))
         
@@ -165,9 +178,9 @@ if __name__ == '__main__':
             torch.save(model.state_dict(), config['model_save_dir'])
             
     else:
-        model = SiameseNetwork(config['pred_dim'])
-        model.load_state_dict(torch.load(config['model_save_dir']))
-        display_conv_layers(model)
+#         model = ResNetSiameseNetwork(config['pred_dim']).to(device)
+#         model.load_state_dict(torch.load(config['model_save_dir']))
+#         display_conv_layers(model)
 
         losses = pickle.load( open( config['losses_f_name'], "rb" ) )
         train_returns = np.array(losses["train_loss"])
@@ -190,5 +203,5 @@ if __name__ == '__main__':
         plt.ylabel("Classification Accuracy")
         plt.title("Training Curve")
         plt.legend(loc='best')
-        plt.savefig(config['losses_plot_f_name'])
+        plt.savefig(config['accs_plot_f_name'])
         plt.close()

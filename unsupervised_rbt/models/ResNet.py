@@ -10,45 +10,15 @@ class ResNetSiameseNetwork(nn.Module):
         self.fc_1 = nn.Linear(200*2, 4000)
         self.fc_2 = nn.Linear(4000, 4000)
         self.final_fc = nn.Linear(4000, transform_pred_dim)  
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, input1, input2):
         output1 = self.resnet(input1)
         output2 = self.resnet(input2)
         output_concat = torch.cat((output1, output2), 1)
-        return self.final_fc(F.relu(self.fc_2(F.relu(self.fc_1(output_concat)))))
-
-class ResNetDownstreamSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim):
-        super(ResNetDownstreamSiameseNetwork, self).__init__()
-        self.resnet = ResNet(BasicBlock, [1,1,1,1], 100)
-        self.sigmoid = nn.Sigmoid()
-        self.final_fc_layer = nn.Linear(200, 200)
-        self.final_fc_layer_2 = nn.Linear(200, 200)
-        self.two_class = nn.Linear(200, 2)
-        self.dropout = nn.Dropout()
-
-    def forward(self, input1, input2):
-        output1 = self.resnet(input1)
-        output2 = self.resnet(input2)
-        output = torch.cat((output1, output2), 1)
-        output = F.relu(self.dropout(self.final_fc_layer(output)))
-        output = F.relu(self.dropout(self.final_fc_layer_2(output)))
-        return self.two_class(output)
-        
-#         output1 = F.relu(self.linear1_1(output1))
-#         output2 = F.relu(self.linear2_1(output2))
-        euclidean_distance = F.pairwise_distance(output1, output2, keepdim = True)
-        return self.sigmoid(euclidean_distance)
-
-# class ResNetDownstreamSiameseNetwork(nn.Module):
-#     def __init__(self, transform_pred_dim):
-#         super(ResNetDownstreamSiameseNetwork, self).__init__()
-#         self.resnet = ResNet(BasicBlock, [1,1,1,1], 100)
-
-#     def forward(self, input1, input2):
-#         output1 = self.resnet(input1)
-#         output2 = self.resnet(input2)
-#         return output1, output2
+        output = self.dropout(F.relu(self.fc_1(output_concat)))
+        output = self.dropout(F.relu(self.fc_2(output)))
+        return self.final_fc(output)
         
 class BasicBlock(nn.Module):
     expansion = 1
