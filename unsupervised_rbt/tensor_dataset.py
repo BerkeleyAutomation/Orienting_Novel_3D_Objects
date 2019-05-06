@@ -513,6 +513,9 @@ class TensorDataset(object):
             logging.info('Dataset %s: Writing tensor %d to disk' %(self.filename, tensor_ind))
             self.write()
 
+    # increment num_datapoints
+    self._num_datapoints += 1
+
     def __getitem__(self, inds):
         if isinstance(inds, slice):
             return self.get_item_list(range(inds.start, inds.stop))

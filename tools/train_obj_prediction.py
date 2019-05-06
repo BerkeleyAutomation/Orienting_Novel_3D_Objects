@@ -15,27 +15,19 @@ from termcolor import colored
 
 import torch.utils.data as data_utils
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork, ContextSiameseNetwork
+from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork, ContextSiameseNetwork, ResNetObjIdPred
 
 # determine cuda
 device = torch.device('cuda')
 # turn of X-backend for matplotlib
 os.system("echo \"backend: Agg\" > ~/.config/matplotlib/matplotlibrc")  
 
-plot_lable = '_2_blocks'
-
 def main(args):
     # initialize model
-    if args.model == 'ResNet':
-        model = ResNetSiameseNetwork(transform_pred_dim=4, dropout= args.dropout, embed_dim=args.embed_dim).to(device)
-    elif args.model == 'Inception':
-        model = InceptionSiameseNetwork(transform_pred_dim=4, dropout= args.dropout).to(device)
-    elif args.model == 'ContextPred':
-        model = ContextSiameseNetwork(transform_pred_dim=4).to(device)
+    model = ResNetObjIdPred(transform_pred_dim=50, dropout= args.dropout).to(device)
     
     # setup optimizer and loss
-    optimizer_ft = torch.optim.Adam(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
-    lr_scheduler = torch.optim.lr_scheduler.LambdaLR(optimizer_ft, lr_lambda=lambda epoch: 0.95**(epoch/2))
+    optimizer_ft = torch.optim.Adam(model.parameters(), lr=args.lr)
     
     # Setup the loss fxn
     criterion = nn.CrossEntropyLoss()
@@ -53,7 +45,6 @@ def main(args):
     for epoch in range(args.epochs):
         print(colored('------------- epoch ' + str(epoch) + ' -------------', 'red'))
         train_loss, train_acc, test_loss, test_acc = train_model(model, criterion, optimizer_ft, dataset, args.batch_size)
-        lr_scheduler.step()
         
         # Log 
         print("Train Loss = %f, Train Acc = %f %%, Test Loss = %f, Test Acc = %f %%" % (train_loss, train_acc, test_loss, test_acc))
@@ -71,11 +62,11 @@ def main(args):
                     'test_accs': test_accs
                 }
             # safe losses
-            with open('training_metadata/'+args.model+'_'+args.dataset+plot_lable+'.pkl', 'wb') as handle:
+            with open('training_metadata/obj-pred_'+args.model + '.pkl', 'wb') as handle:
                     pickle.dump(to_pickle, handle)
             # save model
-            torch.save(model.state_dict(), './trained_models/'+args.model+'_'+args.dataset+plot_lable+'.pkl')
-            print('Model save to ./trained_models/'+args.model+'_'+args.dataset+plot_lable+'.pkl')
+            torch.save(model.state_dict(), './trained_models/obj-pred_'+args.model+'.pkl')
+            print('Model save to ./trained_models/'+args.model+'_'+args.dataset+'.pkl')
             # safe loss plots
             save_plots(train_losses, test_losses, train_accs, test_accs)
             
@@ -89,6 +80,7 @@ def train_model(model, criterion, optimizer, dataset, batch_size):
             indices = dataset.split('train')[phase=='val']
         else:
             indices = dataset.split('train')[phase=='val']
+            
         #indices = dataset.split('train')[phase=='val']
         N_train = len(indices)
         minibatches = np.full(N_train//batch_size, batch_size, dtype=np.int)
@@ -114,16 +106,21 @@ def train_model(model, criterion, optimizer, dataset, batch_size):
     #             depth_image2 = (batch["depth_image2"] * 255).astype(int)
                 im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
                 im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
-                transform_batch = Variable(torch.from_numpy(batch["transform"].astype(int))).to(device)
+                id_batch = Variable(torch.from_numpy(batch["obj_id"].astype(int))).to(device)
+                
 
                 # feed through model
-                pred_transform = model(im1_batch, im2_batch)
+                pred_id_1 = model(im1_batch)
+                pred_id_2 = model(im2_batch)
 
+                pred_id = torch.cat((pred_id_1, pred_id_2), 0)
+                id_batch_full = torch.cat((id_batch, id_batch), 0)
+                
                 # evaluate
-                _, predicted = torch.max(pred_transform, 1)
-                correct += (predicted == transform_batch).sum().item()
-                total += transform_batch.size(0)
-                loss = criterion(pred_transform, transform_batch)
+                _, predicted = torch.max(pred_id, 1)
+                correct += (predicted == id_batch_full).sum().item()
+                total += id_batch_full.size(0)
+                loss = criterion(pred_id, id_batch_full)
                 running_loss += loss.item()
 
                 # gradient step
@@ -166,7 +163,7 @@ def save_plots(train_losses, test_losses, train_accs, test_accs):
     mpl.pyplot.ylabel("Classification Accuracy")
     mpl.pyplot.title("Training Curve")
     mpl.pyplot.legend(loc='best')
-    mpl.pyplot.savefig('./plots/'+'Train_'+args.model+'_'+args.dataset + plot_lable)
+    mpl.pyplot.savefig('./plots/'+'Train_'+args.model+'_'+args.dataset + str(args.dropout))
     mpl.pyplot.close()
 
 def parse_args():
@@ -177,8 +174,6 @@ def parse_args():
     parser.add_argument('-model', type=str, default='ResNet', choices=['ResNet','Inception','ContextPred'])
     parser.add_argument('-epochs', type=int, default=101)
     parser.add_argument('-dropout', type=bool, default=True)
-    parser.add_argument('-weight_decay', type=float, default=0)
-    parser.add_argument('-embed_dim', type=int, default=200)
     args = parser.parse_args()
     parser.add_argument('-dataset_full', type=str, required=False) # never enter it, it's just to fill the whole path
     args.dataset_full = os.path.join('/raid/mariuswiggert', args.dataset)

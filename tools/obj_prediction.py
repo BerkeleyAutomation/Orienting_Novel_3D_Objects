@@ -1,6 +1,8 @@
 import numpy as np
 import argparse
 import os
+# turn of X-backend for matplotlib
+os.system("echo \"backend: Agg\" > ~/.config/matplotlib/matplotlibrc")  
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as PathEffects
 import itertools
@@ -12,10 +14,10 @@ from tqdm import tqdm
 from sklearn.manifold import TSNE
 import seaborn as sns
 
-from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import SiameseNetwork
-from perception import DepthImage, RgbdImage
+from unsupervised_rbt.models import ResNetSiameseNetwork
+
+# RUN ON 50 object dataset (otherwise to crazy)
 
 def test(dataset, batch_size):
     model.eval()
@@ -28,15 +30,17 @@ def test(dataset, batch_size):
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
             batch = dataset.get_item_list(test_indices[step*batch_size : (step+1)*batch_size])
-            depth_image1 = (batch["depth_image1"] * 255).astype(int)
-            depth_image2 = (batch["depth_image2"] * 255).astype(int)
+            depth_image1 = (batch["depth_image1"] * 255)
+            depth_image2 = (batch["depth_image2"] * 255)
             im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
             im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
             
-            outputs.extend(model.resnet(im1_batch).cpu().data.numpy())
-            outputs.extend(model.resnet(im2_batch).cpu().data.numpy())
-            labels.extend(list(batch['obj_id']))
-            labels.extend(list(batch['obj_id']))
+            obj_id_logical = np.in1d(batch['obj_id'], np.array([1, 2, 3]))
+            
+            outputs.extend(model.resnet(im1_batch).cpu().data.numpy()[obj_id_logical])
+            outputs.extend(model.resnet(im2_batch).cpu().data.numpy()[obj_id_logical])
+            labels.extend(list(batch['obj_id'][obj_id_logical]))
+            labels.extend(list(batch['obj_id'][obj_id_logical]))
     
     labels = np.array(labels)
     # tSNE
@@ -51,6 +55,7 @@ def test(dataset, batch_size):
 
 def fashion_scatter(x, colors):
     # choose a color palette with seaborn.
+    # Pass in the embeddings (x) and the lables (colors) => plots 
     num_classes = 51
     palette = np.array(sns.color_palette("hls", num_classes))
 
@@ -77,25 +82,21 @@ def fashion_scatter(x, colors):
             PathEffects.Normal()])
         txts.append(txt)
     
-    plt.savefig('plots/tsne_vis')
+    plt.savefig('../plots/tsne_vis')
 
     return f, ax, sc, txts
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
-                                           '..',
-                                           'cfg/tools/rb_net_train.yaml')
-    parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str)
+    parser.add_argument('-batch_size', type=int, default=128)
     args = parser.parse_args()
-    args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
+    args.dataset = os.path.join('/raid/mariuswiggert', args.dataset)
     return args
 
 if __name__ == '__main__':
     args = parse_args()
-    config = YamlConfig(args.config)
-
+    
     dataset = TensorDataset.open(args.dataset)
     
     if not os.path.exists(args.dataset + "/splits/train"):
@@ -103,6 +104,6 @@ if __name__ == '__main__':
         dataset.make_split("train", train_pct=0.8)
         
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = SiameseNetwork(config['transform_pred_dim']).to(device)
-    model.load_state_dict(torch.load(config['model_save_dir']))
-    test(dataset, config['batch_size'])
+    model = ResNetSiameseNetwork(transform_pred_dim=4, dropout= False).to(device)
+    model.load_state_dict(torch.load('../trained_models/1_ResNet_z-axis-only_best.pkl'))
+    test(dataset, args.batch_size)
