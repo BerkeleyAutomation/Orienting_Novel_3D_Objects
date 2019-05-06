@@ -10,6 +10,7 @@ class ResNetSiameseNetwork(nn.Module):
         self.fc_1 = nn.Linear(embed_dim*2, 4000) # was 200 before (but 50 achieves same result)
         self.fc_2 = nn.Linear(4000, 4000)
         self.final_fc = nn.Linear(4000, transform_pred_dim)  
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, input1, input2):
         output1 = self.resnet(input1)

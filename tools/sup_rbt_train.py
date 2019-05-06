@@ -15,7 +15,7 @@ from random import shuffle
 
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import ResNetDownstreamSiameseNetwork
+from unsupervised_rbt.models import ResNetSiameseNetwork
 from unsupervised_rbt.losses import ContrastiveLoss
 from perception import DepthImage, RgbdImage
 
@@ -24,21 +24,21 @@ from perception import DepthImage, RgbdImage
 
 def generate_data(dataset):
     im1s, im2s, labels = [], [], []
-    for _ in range(100000):
+    for _ in range(1000):
         dp1_idx = np.random.randint(dataset.num_datapoints)
         dp2_idx, label = dp1_idx, 1 # same object
         
         im1_idx = np.random.randint(20)
         im2_idx = np.random.randint(20)
         
-        im1s.append((dataset[dp1_idx]['depth_images'][im1_idx] * 255).astype(int))
+        im1s.append(255 * dataset[dp1_idx]['depth_images'][im1_idx])
 
         if np.random.random() < 0.5: # different object
             while dp2_idx == dp1_idx:
                 dp2_idx = np.random.randint(dataset.num_datapoints)
             label = 0
 
-        im2s.append((dataset[dp2_idx]['depth_images'][im2_idx] * 255).astype(int))
+        im2s.append(255 * dataset[dp2_idx]['depth_images'][im2_idx])
         labels.append(label)
     im1s, im2s, labels = np.array(im1s), np.array(im2s), np.array(labels)
     return np.expand_dims(im1s, 1), np.expand_dims(im2s, 1), labels
@@ -66,8 +66,6 @@ def train(im1s, im2s, labels, batch_size):
        
         optimizer.zero_grad()
         prob = model(im1_batch, im2_batch)
-#         print(label_batch)
-#         print(prob)
         loss = criterion(prob, label_batch.long())
         _, predicted = torch.max(prob, 1)
 #         output1, output2 = model(im1_batch, im2_batch)
@@ -153,7 +151,7 @@ if __name__ == '__main__':
         im1s, im2s, labels = generate_data(dataset)
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = ResNetDownstreamSiameseNetwork(config['pred_dim']).to(device)
+        model = ResNetSiameseNetwork(config['pred_dim']).to(device)
 #         criterion = ContrastiveLoss()
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters())

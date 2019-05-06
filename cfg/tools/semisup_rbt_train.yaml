@@ -1,0 +1,9 @@
+pred_dim: 4
+batch_size: 64
+num_epochs: 100
+losses_f_name: results/semisup_losses.p
+losses_plot_f_name: plots/semisup_losses.png
+accs_plot_f_name: plots/semisup_accs.png
+model_save_dir: models/semisup_rbt.pt
+unsup_model_path: /nfs/diskstation/projects/unsupervised_rbt/models/0_ResNet_xyz-axis-obj-pred_best.pkl
+# /nfs/diskstation/projects/unsupervised_rbt/models/1_ResNet_z-axis-only_best.pkl

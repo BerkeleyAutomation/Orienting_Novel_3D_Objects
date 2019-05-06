@@ -1,4 +1,4 @@
-debug: 0
+debug: 1
 num_samples_per_obj: 5
 num_samples_per_obj_objpred: 100
 # dataset params
@@ -68,7 +68,7 @@ state_space:
       train_pct: 0.8
       stp_com_sigma: .0025
       stp_num_samples: 10
-      stp_min_prob: .05
+      stp_min_prob: .1
       object_keys:
         thingiverse: all
         3dnet: all
