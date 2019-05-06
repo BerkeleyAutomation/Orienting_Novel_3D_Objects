@@ -19,6 +19,20 @@ class ResNetSiameseNetwork(nn.Module):
         output = self.dropout(F.relu(self.fc_1(output_concat)))
         output = self.dropout(F.relu(self.fc_2(output)))
         return self.final_fc(output)
+
+class LinearEmbeddingClassifier(nn.Module):
+    def __init__(self, config, num_classes, dropout=False):
+        super(LinearEmbeddingClassifier, self).__init__()
+        siamese = ResNetSiameseNetwork(config['pred_dim'], dropout)
+        siamese.load_state_dict(torch.load(config['unsup_model_save_dir']))
+        self.resnet = siamese.resnet
+        self.fc = nn.Linear(200, num_classes)
+        self.dropout = nn.Dropout(0.2)
+
+    def forward(self, input1):
+        output = self.resnet(input1)
+        output = self.dropout(output)
+        return self.fc(output)
         
 class BasicBlock(nn.Module):
     expansion = 1
