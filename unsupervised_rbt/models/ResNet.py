@@ -4,10 +4,10 @@ import torch.nn.functional as F
 
 
 class ResNetSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim, dropout=False):
+    def __init__(self, transform_pred_dim, dropout=False, embed_dim=200):
         super(ResNetSiameseNetwork, self).__init__()
-        self.resnet = ResNet(BasicBlock, [1,1,1,1], 200, dropout=False)
-        self.fc_1 = nn.Linear(200*2, 4000)
+        self.resnet = ResNet(BasicBlock, [1,1,1,1], embed_dim, dropout=False)
+        self.fc_1 = nn.Linear(embed_dim*2, 4000) # was 200 before (but 50 achieves same result)
         self.fc_2 = nn.Linear(4000, 4000)
         self.final_fc = nn.Linear(4000, transform_pred_dim)  
 
@@ -16,6 +16,18 @@ class ResNetSiameseNetwork(nn.Module):
         output2 = self.resnet(input2)
         output_concat = torch.cat((output1, output2), 1)
         return self.final_fc(F.relu(self.fc_2(F.relu(self.fc_1(output_concat)))))
+    
+class ResNetObjIdPred(nn.Module):
+    def __init__(self, transform_pred_dim, dropout=False):
+        super(ResNetObjIdPred, self).__init__()
+        self.resnet = ResNet(BasicBlock, [1,1,1,1], 200, dropout=False)
+        self.fc_1 = nn.Linear(200, 4000) # I test 50 embedding dimensions right now
+        self.fc_2 = nn.Linear(4000, 4000)
+        self.final_fc = nn.Linear(4000, transform_pred_dim)
+
+    def forward(self, input1):
+        output1 = self.resnet(input1)
+        return self.final_fc(F.relu(self.fc_2(F.relu(self.fc_1(output1)))))
 
 class ResNetDownstreamSiameseNetwork(nn.Module):
     def __init__(self, transform_pred_dim):
@@ -110,7 +122,8 @@ class ResNet(nn.Module):
         out = self.dropout2d(out)
         out = self.layer3(out)
         out = self.dropout2d(out)
-        return self.layer4(out)
+        out = self.layer4(out)
+        return out
 
     def forward(self, x):
         out = self.forward_no_linear(x)
