@@ -22,6 +22,8 @@ from unsupervised_rbt.models import ResNetSiameseNetwork
 def test(dataset, batch_size):
     model.eval()
     test_loss, correct, total = 0, 0, 0
+    
+    obj_ids_to_viz = [50, 100, 2]
 
     test_indices = dataset.split('train')[1]
     N_test = len(test_indices)
@@ -35,7 +37,7 @@ def test(dataset, batch_size):
             im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
             im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
             
-            obj_id_logical = np.in1d(batch['obj_id'], np.array([1, 2, 3]))
+            obj_id_logical = np.in1d(batch['obj_id'], np.array(obj_ids_to_viz))
             
             outputs.extend(model.resnet(im1_batch).cpu().data.numpy()[obj_id_logical])
             outputs.extend(model.resnet(im2_batch).cpu().data.numpy()[obj_id_logical])

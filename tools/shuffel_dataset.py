@@ -1,5 +1,5 @@
 from autolab_core import YamlConfig, RigidTransform
-from unsupervised_rbt import TensorDataset
+from autolab_core import TensorDataset
 import os
 
 import numpy as np
@@ -38,17 +38,16 @@ if __name__ == "__main__":
     idx = np.arange(old_dataset.num_datapoints)
     np.random.shuffle(idx)
     
-    batch_size = 100
-    
-    for step in tqdm(range(old_dataset.num_datapoints//batch_size)):
-        batch = old_dataset.get_item_list(idx[step*batch_size : (step+1)*batch_size])
+    for i in tqdm(idx):
+        old_datapoint = old_dataset[i]
         
-        for i in range(batch_size):
-            datapoint = dataset.datapoint_template
-            datapoint["depth_image1"] = batch["depth_image1"][i].reshape((128, 128, 1))
-            datapoint["depth_image2"] = batch["depth_image2"][i].reshape((128, 128, 1))
-            datapoint["transform_id"] = batch["transform"][i]
-            datapoint["obj_id"] = batch["obj_id"][i]
-            dataset.add(datapoint)
-            print("\n num datapoints in set: ", dataset.num_datapoints)
+        datapoint = dataset.datapoint_template
+        datapoint["depth_image1"] = old_datapoint["depth_image1"]
+        datapoint["depth_image2"] = old_datapoint["depth_image2"]
+        datapoint["transform_id"] = old_datapoint["transform_id"]
+        datapoint["obj_id"] = old_datapoint["obj_id"]
+        dataset.add(datapoint)
+#         print("\n num datapoints in set: ", dataset.num_datapoints)
+        
+    dataset.flush()
 
