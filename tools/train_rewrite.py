@@ -22,12 +22,12 @@ device = torch.device('cuda')
 # turn of X-backend for matplotlib
 os.system("echo \"backend: Agg\" > ~/.config/matplotlib/matplotlibrc")  
 
-plot_lable = '_2_blocks'
+plot_lable = '1_block_20_embed'
 
 def main(args):
     # initialize model
     if args.model == 'ResNet':
-        model = ResNetSiameseNetwork(transform_pred_dim=4, dropout= args.dropout, embed_dim=args.embed_dim).to(device)
+        model = ResNetSiameseNetwork(transform_pred_dim=4, dropout= args.dropout, embed_dim=args.embed_dim, n_blocks= args.n_blocks).to(device)
     elif args.model == 'Inception':
         model = InceptionSiameseNetwork(transform_pred_dim=4, dropout= args.dropout).to(device)
     elif args.model == 'ContextPred':
@@ -171,14 +171,16 @@ def save_plots(train_losses, test_losses, train_accs, test_accs):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-dataset', type=str, required=True, choices=['z-axis-only','z-axis-only-obj-pred', 'xyz-axis-obj-pred', 'xyz-axis', 'xyz-axis-obj-pred-tilted', 'xyz-axis-tilted'])
-    parser.add_argument('-batch_size', type=int, default=128)
+    parser.add_argument('-dataset', type=str, required=True)
+    #choices=['z-axis-only','z-axis-only-obj-pred', 'xyz-axis-obj-pred', 'xyz-axis', 'xyz-axis-obj-pred-tilted', 'xyz-axis-tilted']
+    parser.add_argument('-batch_size', type=int, default=256)
     parser.add_argument('-lr', type=float, default=1e-3)
     parser.add_argument('-model', type=str, default='ResNet', choices=['ResNet','Inception','ContextPred'])
     parser.add_argument('-epochs', type=int, default=101)
     parser.add_argument('-dropout', type=bool, default=True)
     parser.add_argument('-weight_decay', type=float, default=0)
-    parser.add_argument('-embed_dim', type=int, default=200)
+    parser.add_argument('-embed_dim', type=int, default=20)
+    parser.add_argument('-n_blocks', type=int, default=4)
     args = parser.parse_args()
     parser.add_argument('-dataset_full', type=str, required=False) # never enter it, it's just to fill the whole path
     args.dataset_full = os.path.join('/raid/mariuswiggert', args.dataset)

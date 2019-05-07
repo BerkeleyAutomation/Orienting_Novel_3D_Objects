@@ -168,7 +168,7 @@ def save_plots(train_losses, test_losses, train_accs, test_accs):
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-dataset', type=str, required=True, choices=['z-axis-only','z-axis-only-obj-pred', 'xyz-axis-obj-pred', 'xyz-axis', 'xyz-axis-obj-pred-tilted', 'xyz-axis-tilted'])
+    parser.add_argument('-dataset', type=str, required=True)
     parser.add_argument('-batch_size', type=int, default=128)
     parser.add_argument('-lr', type=float, default=1e-3)
     parser.add_argument('-model', type=str, default='ResNet', choices=['ResNet','Inception','ContextPred'])
