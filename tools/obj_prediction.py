@@ -13,9 +13,13 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from sklearn.manifold import TSNE
 import seaborn as sns
+import random
+from random import shuffle
 
 from unsupervised_rbt import TensorDataset
 from unsupervised_rbt.models import ResNetSiameseNetwork
+
+SEED = 107
 
 # RUN ON 50 object dataset (otherwise to crazy)
 
@@ -23,7 +27,9 @@ def test(dataset, batch_size):
     model.eval()
     test_loss, correct, total = 0, 0, 0
     
-    obj_ids_to_viz = [50, 100, 2]
+    obj_ids_to_viz = range(50)# [50, 100, 2]
+    shuffle(obj_ids_to_viz)
+    obj_ids_to_viz = obj_ids_to_viz[:10]
 
     test_indices = dataset.split('train')[1]
     N_test = len(test_indices)
@@ -46,7 +52,7 @@ def test(dataset, batch_size):
     
     labels = np.array(labels)
     # tSNE
-    tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=300)
+    tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=500)
     tsne_results = tsne.fit_transform(outputs)
     fashion_scatter(tsne_results, labels)
     
@@ -84,19 +90,22 @@ def fashion_scatter(x, colors):
             PathEffects.Normal()])
         txts.append(txt)
     
-    plt.savefig('../plots/tsne_vis')
+    plt.savefig('plots/tsne_vis')
 
     return f, ax, sc, txts
 
 def parse_args():
     parser = argparse.ArgumentParser()
-    parser.add_argument('-dataset', type=str)
+    parser.add_argument('-dataset', type=str, required=True)
     parser.add_argument('-batch_size', type=int, default=128)
+    parser.add_argument('-model', type=str, required=True)
     args = parser.parse_args()
-    args.dataset = os.path.join('/raid/mariuswiggert', args.dataset)
+    # args.dataset = os.path.join('/raid/mariuswiggert', args.dataset)
+    args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
     return args
 
 if __name__ == '__main__':
+    random.seed(SEED)
     args = parse_args()
     
     dataset = TensorDataset.open(args.dataset)
@@ -107,5 +116,6 @@ if __name__ == '__main__':
         
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = ResNetSiameseNetwork(transform_pred_dim=4, dropout= False).to(device)
-    model.load_state_dict(torch.load('../trained_models/1_ResNet_z-axis-only_best.pkl'))
+    # model.load_state_dict(torch.load('../trained_models/1_ResNet_z-axis-only_best.pkl'))
+    model.load_state_dict(torch.load(args.model))
     test(dataset, args.batch_size)
