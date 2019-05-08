@@ -4,12 +4,13 @@ import torch.nn.functional as F
 
 
 class ResNetSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim, dropout=False, embed_dim=200):
+    def __init__(self, transform_pred_dim, dropout=False, embed_dim=200, n_blocks = 4):
         super(ResNetSiameseNetwork, self).__init__()
-        self.resnet = ResNet(BasicBlock, [1,1,1,1], embed_dim, dropout=False)
-        self.fc_1 = nn.Linear(embed_dim*2, 4000) # was 200 before (but 50 achieves same result)
-        self.fc_2 = nn.Linear(4000, 4000)
-        self.final_fc = nn.Linear(4000, transform_pred_dim)  
+        blocks = [item for item in [1] for i in range(n_blocks)]
+        self.resnet = ResNet(BasicBlock, blocks, embed_dim, dropout=False)   # [1,1,1,1]
+        self.fc_1 = nn.Linear(embed_dim*2, 1000) # was 200 before (but 50 achieves same result)
+        self.fc_2 = nn.Linear(1000, 1000)
+        self.final_fc = nn.Linear(1000, transform_pred_dim)  
         self.dropout = nn.Dropout(0.2)
 
     def forward(self, input1, input2):
@@ -46,16 +47,30 @@ class ResNetObjIdPred(nn.Module):
         output1 = self.resnet(input1)
         return self.final_fc(F.relu(self.fc_2(F.relu(self.fc_1(output1)))))
 
-# class ResNetDownstreamSiameseNetwork(nn.Module):
-#     def __init__(self, transform_pred_dim):
-#         super(ResNetDownstreamSiameseNetwork, self).__init__()
-#         self.resnet = ResNet(BasicBlock, [1,1,1,1], 100)
+class ResNetDownstreamSiameseNetwork(nn.Module):
+    def __init__(self, transform_pred_dim):
+        super(ResNetDownstreamSiameseNetwork, self).__init__()
+        self.resnet = ResNet(BasicBlock, [1,1,1,1], 100)
+        self.sigmoid = nn.Sigmoid()
+        self.final_fc_layer = nn.Linear(200, 200)
+        self.final_fc_layer_2 = nn.Linear(200, 200)
+        self.two_class = nn.Linear(200, 2)
+        self.dropout = nn.Dropout()
 
-#     def forward(self, input1, input2):
-#         output1 = self.resnet(input1)
-#         output2 = self.resnet(input2)
-#         return output1, output2
+    def forward(self, input1, input2):
+        output1 = self.resnet(input1)
+        output2 = self.resnet(input2)
+        output = torch.cat((output1, output2), 1)
+        output = F.relu(self.dropout(self.final_fc_layer(output)))
+        output = F.relu(self.dropout(self.final_fc_layer_2(output)))
+        return self.two_class(output)
+        
+#         output1 = F.relu(self.linear1_1(output1))
+#         output2 = F.relu(self.linear2_1(output2))
+        euclidean_distance = F.pairwise_distance(output1, output2, keepdim = True)
+        return self.sigmoid(euclidean_distance)
 
+        
 class BasicBlock(nn.Module):
     expansion = 1
 
@@ -84,6 +99,7 @@ class ResNet(nn.Module):
     def __init__(self, block, num_blocks, num_output=10, dropout=False):
         super(ResNet, self).__init__()
         self.in_planes = 64
+        self.n_blocks = len(num_blocks)
         
         # dropout
         if dropout:
@@ -94,11 +110,23 @@ class ResNet(nn.Module):
 
         self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
-        self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
-        self.layer2 = self._make_layer(block, 64, num_blocks[1], stride=2)
-        self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2)
-        self.layer4 = self._make_layer(block, 64, num_blocks[3], stride=2)
-        self.linear = nn.Linear(1024, num_output)
+        
+        if self.n_blocks == 1:
+            self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=4)
+            self.linear = nn.Linear(4096, num_output)
+        elif self.n_blocks == 2:
+            self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=2)
+            self.layer2 = self._make_layer(block, 64, num_blocks[1], stride=4)
+            self.linear = nn.Linear(1024, num_output)
+        elif self.n_blocks== 4:
+            self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
+            self.layer2 = self._make_layer(block, 64, num_blocks[1], stride=2)
+            self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2)
+            self.layer4 = self._make_layer(block, 64, num_blocks[3], stride=2)
+            self.linear = nn.Linear(4096, num_output)
+        else:
+            print("Error: number of blocks not in ResNet specification")
+            assert False
 
     def _make_layer(self, block, planes, num_blocks, stride):
         strides = [stride] + [1]*(num_blocks-1)
@@ -112,11 +140,17 @@ class ResNet(nn.Module):
         out = F.relu(self.bn1(self.conv1(x)))
         out = self.layer1(out)
         out = self.dropout2d(out)
-        out = self.layer2(out)
-        out = self.dropout2d(out)
-        out = self.layer3(out)
-        out = self.dropout2d(out)
-        out = self.layer4(out)
+        if self.n_blocks ==1:
+            return out
+        elif self.n_blocks ==2:  
+            out = self.layer2(out)
+            out = self.dropout2d(out)
+            return out
+        elif self.n_blocks ==4:
+            out = self.layer3(out)
+            out = self.dropout2d(out)
+            out = self.layer4(out)
+            return out
         return out
 
     def forward(self, x):
