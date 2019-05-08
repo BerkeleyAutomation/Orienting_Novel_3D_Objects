@@ -11,27 +11,10 @@ import argparse
 from pyrender import (Scene, PerspectiveCamera, Mesh, 
                       Viewer, OffscreenRenderer, RenderFlags, Node)   
 from sd_maskrcnn.envs import CameraStateSpace
-from ambidex.utils.visualization import Visualizer3D as vis3d
 
 import matplotlib.pyplot as plt
 import random
 from termcolor import colored
-
-# def get_dae_mesh(mesh_filename):
-#     scene = trimesh.load_mesh(mesh_filename)
-#     meshes = list(scene.geometry.values())
-#     mesh = meshes[0]
-#     for i in range(1, len(meshes)):
-#         mesh += meshes[i]
-#     vol = mesh.extents
-#     print('before')
-#     vis3d.figure()
-#     vis3d.mesh(mesh)
-#     vis3d.show()
-#     # vis3d.figure()
-#     # vis3d._scene.geometry = scene.geometry
-#     # vis3d.show()
-#     return mesh
 
 def normalize(z):
     return z / np.linalg.norm(z)
@@ -104,8 +87,7 @@ if __name__ == "__main__":
     datapoint = dataset.datapoint_template
     
     scene, renderer = create_scene()
-    # dataset_name_list = ['3dnet', 'thingiverse', 'kit']
-    dataset_name_list = ['ten_class_stl']
+    dataset_name_list = ['3dnet', 'thingiverse', 'kit']
     mesh_dir = config['state_space']['heap']['objects']['mesh_dir']
     mesh_dir_list = [os.path.join(mesh_dir, dataset_name) for dataset_name in dataset_name_list]
     obj_config = config['state_space']['heap']['objects']
@@ -123,10 +105,9 @@ if __name__ == "__main__":
     
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
-            shown = False
             obj_id += 1
-            if obj_id < 12:
-                continue
+            # if obj_id < 45:
+                # continue
             if args.objpred:
                 if obj_id == 50:
                     dataset.flush()
@@ -135,50 +116,17 @@ if __name__ == "__main__":
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
             
             # load object mesh
-            print(mesh_filename)
-            # get_dae_mesh(os.path.join(mesh_dir, mesh_filename))
             mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
-            center_tf = np.eye(4)
-            center_tf[:3,3] = -mesh.center_mass
-            mesh.apply_transform(center_tf)
-            # table_mesh = trimesh.load_mesh(
-                    # os.path.join(
-                        # os.path.dirname(os.path.realpath(__file__)),
-                        # '../data/objects/plane/plane.obj',
-                    # )
-                # )
-            # table_tf = RigidTransform.load(
-                # os.path.join(
-                # os.path.dirname(os.path.realpath(__file__)),
-                # '../data/objects/plane/pose.tf',
-                # )
-            # )
-            # vis3d.figure()
-            # vis3d.mesh(mesh)
-            # vis3d.mesh(table_mesh, table_tf)
-            # vis3d.show()
-            # print(np.prod(mesh.extents) / 18.)
-            mesh.vertices = mesh.vertices * 20 / np.prod(mesh.extents)
-            mesh.process()
-            print(mesh.extents)
-            # vis3d.figure()
-            # vis3d.mesh(mesh)
-            # vis3d.mesh(table_mesh, table_tf)
-            # vis3d.show()
-
-            # assert False
             obj_mesh = Mesh.from_trimesh(mesh)
             object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
             scene.add_node(object_node)
             
             # calculate stable poses
-            print('stp')
             stable_poses, _ = mesh.compute_stable_poses(
                 sigma=obj_config['stp_com_sigma'],
                 n_samples=obj_config['stp_num_samples'],
                 threshold=obj_config['stp_min_prob']
             )
-            print('end')
             
             for _ in range(num_samples_per_obj):
                 # iterate over all stable poses of the object
@@ -212,19 +160,14 @@ if __name__ == "__main__":
                         # Render image 1
                         rand_transform = RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=2*np.pi*np.random.random()).matrix @ pose_matrix
                         scene.set_pose(object_node, pose=rand_transform)
-                        print('before')
                         image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                        print('after')
                         
                         # Render image 2
                         new_pose, tr_str = transforms[transform_id].matrix @ rand_transform, transform_strs[transform_id]
                         scene.set_pose(object_node, pose=new_pose)
-                        print ('before')
                         image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                        print ('after')
 
-                        if config['debug'] and not shown:
-                            shown = True
+                        if config['debug']:
                             plt.subplot(121)
                             plt.imshow(image1, cmap='gray')
                             plt.title('Stable pose')
@@ -259,16 +202,16 @@ if __name__ == "__main__":
                     if num_too_similar < 2 or num_second_dp_match < 3:
                         print("ADDING STABLE POSE")
                         for dp in obj_datapoints:
-                            # if config['debug']:
-                                # plt.subplot(121)
-                                # plt.imshow(dp["depth_image1"][:, :, 0], cmap='gray')
-                                # plt.title('Stable pose')
-                                # plt.subplot(122)
-                                # plt.imshow(dp["depth_image2"][:, :, 0], cmap='gray')
-                                # plt.title('After Rigid Transformation: ' + str(dp["transform_id"]))
-                                # plt.show()
+                            if config['debug']:
+                                plt.subplot(121)
+                                plt.imshow(dp["depth_image1"][:, :, 0], cmap='gray')
+                                plt.title('Stable pose')
+                                plt.subplot(122)
+                                plt.imshow(dp["depth_image2"][:, :, 0], cmap='gray')
+                                plt.title('After Rigid Transformation: ' + str(dp["transform_id"]))
+                                plt.show()
 
-                                # data_point_counter += 1
+                                data_point_counter += 1
                             dataset.add(dp)
                     else:
                         print("Not ADDING STABLE POSE")
