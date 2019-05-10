@@ -148,8 +148,11 @@ if __name__ == '__main__':
         model = ResNetSiameseNetwork(config['pred_dim']).to(device)
         new_state_dict = model.state_dict()
         
-        layers_to_keep = ('resnet.layer1', 'resnet.layer2')
+#         layers_to_keep = tuple(['resnet.layer1', 'resnet.layer2'])
         load_params = torch.load(config['unsup_model_path'])
+        layers_to_keep = tuple(load_params.keys())
+#         print(load_params.keys())
+#         assert(False)
         
         for layer_name in load_params:
             if not layer_name.startswith(layers_to_keep):
