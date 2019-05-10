@@ -52,7 +52,7 @@ def test(dataset, batch_size):
     
     labels = np.array(labels)
     # tSNE
-    tsne = TSNE(n_components=2, verbose=1, perplexity=40, n_iter=500)
+    tsne = TSNE(n_components=2, verbose=1, perplexity=20, n_iter=500)
     tsne_results = tsne.fit_transform(outputs)
     fashion_scatter(tsne_results, labels)
     
@@ -115,7 +115,7 @@ if __name__ == '__main__':
         dataset.make_split("train", train_pct=0.8)
         
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ResNetSiameseNetwork(transform_pred_dim=4, dropout= False).to(device)
+    model = ResNetSiameseNetwork(transform_pred_dim=4, embed_dim=20, dropout=False, n_blocks=1).to(device)
     # model.load_state_dict(torch.load('../trained_models/1_ResNet_z-axis-only_best.pkl'))
     model.load_state_dict(torch.load(args.model))
     test(dataset, args.batch_size)

@@ -104,8 +104,8 @@ if __name__ == "__main__":
     datapoint = dataset.datapoint_template
     
     scene, renderer = create_scene()
-    # dataset_name_list = ['3dnet', 'thingiverse', 'kit']
-    dataset_name_list = ['ten_class_stl']
+    dataset_name_list = ['3dnet', 'thingiverse', 'kit']
+    #dataset_name_list = ['ten_class_stl']
     mesh_dir = config['state_space']['heap']['objects']['mesh_dir']
     mesh_dir_list = [os.path.join(mesh_dir, dataset_name) for dataset_name in dataset_name_list]
     obj_config = config['state_space']['heap']['objects']
@@ -125,7 +125,7 @@ if __name__ == "__main__":
         for mesh_filename in mesh_list:
             shown = False
             obj_id += 1
-            if obj_id < 12:
+            if obj_id < 1:
                 continue
             if args.objpred:
                 if obj_id == 50:
@@ -212,16 +212,12 @@ if __name__ == "__main__":
                         # Render image 1
                         rand_transform = RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=2*np.pi*np.random.random()).matrix @ pose_matrix
                         scene.set_pose(object_node, pose=rand_transform)
-                        print('before')
                         image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                        print('after')
                         
                         # Render image 2
                         new_pose, tr_str = transforms[transform_id].matrix @ rand_transform, transform_strs[transform_id]
                         scene.set_pose(object_node, pose=new_pose)
-                        print ('before')
                         image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                        print ('after')
 
                         if config['debug'] and not shown:
                             shown = True
@@ -256,17 +252,18 @@ if __name__ == "__main__":
                         if np.linalg.norm(dp1['depth_image2'] - dp2['depth_image2']) < 0.75:
                             num_second_dp_match += 1
           
-                    if num_too_similar < 2 or num_second_dp_match < 3:
+                    if num_too_similar < 2 or num_second_dp_match < 3 or True:
                         print("ADDING STABLE POSE")
                         for dp in obj_datapoints:
                             # if config['debug']:
-                                # plt.subplot(121)
-                                # plt.imshow(dp["depth_image1"][:, :, 0], cmap='gray')
-                                # plt.title('Stable pose')
-                                # plt.subplot(122)
-                                # plt.imshow(dp["depth_image2"][:, :, 0], cmap='gray')
-                                # plt.title('After Rigid Transformation: ' + str(dp["transform_id"]))
-                                # plt.show()
+                            print('abc123')
+                            plt.subplot(121)
+                            plt.imshow(dp["depth_image1"][:, :, 0], cmap='gray')
+                            plt.title('Stable pose')
+                            plt.subplot(122)
+                            plt.imshow(dp["depth_image2"][:, :, 0], cmap='gray')
+                            plt.title('After Rigid Transformation: ' + str(dp["transform_id"]))
+                            plt.show()
 
                                 # data_point_counter += 1
                             dataset.add(dp)

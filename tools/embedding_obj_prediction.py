@@ -24,12 +24,13 @@ def train(dataset, batch_size):
     model.train()
     train_loss, correct, total = 0, 0, 0
     
-    train_indices = dataset.split('train')[0]
-    N_train = len(train_indices)
-    shuffle(train_indices)
+    # train_indices = dataset.split('train')[0]
+    # N_train = len(train_indices)
+    # shuffle(train_indices)
+    N_train = int(0.8 * dataset.num_datapoints)
     n_train_steps = N_train//batch_size
     for step in tqdm(range(n_train_steps)):
-        batch = dataset.get_item_list(train_indices[step*batch_size : (step+1)*batch_size])
+        batch = dataset[step*batch_size : (step+1)*batch_size]
         depth_image1 = (batch["depth_image1"] * 255).astype(int)
         depth_image2 = (batch["depth_image2"] * 255).astype(int)
         
@@ -40,10 +41,15 @@ def train(dataset, batch_size):
         optimizer.zero_grad()
         output1 = model(im1_batch)
         output2 = model(im2_batch)
+        print output1.shape, output2.shape
+        print criterion(output1, label_batch.long()).item()
+        print criterion(output2, label_batch.long()).item()
         loss = criterion(output1, label_batch.long()) + criterion(output2, label_batch.long())
         _, predicted1 = torch.max(output1, 1)
         _, predicted2 = torch.max(output2, 1)
-
+        
+        print predicted1.shape, label_batch.shape
+        print predicted1.cpu().numpy()
         correct += (predicted1 == label_batch.long()).sum().item()
         correct += (predicted2 == label_batch.long()).sum().item()
         total += label_batch.size(0)
@@ -60,12 +66,12 @@ def test(dataset, batch_size):
     model.eval()
     test_loss, correct, total = 0, 0, 0
 
-    test_indices = dataset.split('train')[1]
-    N_test = len(test_indices)
+    N_train = int(0.8 * dataset.num_datapoints)
+    N_test = int(0.2 * dataset.num_datapoints)
     n_test_steps = N_test//batch_size
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
-            batch = dataset.get_item_list(test_indices[step*batch_size : (step+1)*batch_size])
+            batch = dataset[N_train + step*batch_size : N_train + (step+1)*batch_size]
             depth_image1 = (batch["depth_image1"] * 255).astype(int)
             depth_image2 = (batch["depth_image2"] * 255).astype(int)
             
@@ -109,9 +115,9 @@ if __name__ == '__main__':
         dataset = TensorDataset.open(args.dataset)
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        # device = 'cpu'
         use_dropout = True
         model = LinearEmbeddingClassifier(config, 50, use_dropout).to(device)
-#         criterion = ContrastiveLoss()
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.fc.parameters()) # only train fc layer
         
