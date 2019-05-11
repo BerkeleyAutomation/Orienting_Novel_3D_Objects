@@ -15,8 +15,8 @@ def parse_args():
                                            '..',
                                            'cfg/tools/data_gen.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
-    parser.add_argument('-dataset', type=str, required=True)
-    parser.add_argument('--objpred', action='store_true')
+    parser.add_argument('-input_dataset', type=str, required=True)
+    parser.add_argument('-output_dataset', type=str, required=True)
     args = parser.parse_args()
     return args
     
@@ -24,11 +24,11 @@ if __name__ == "__main__":
     args = parse_args()
     config = YamlConfig(args.config)
     # to adjust
-    name_gen_dataset = args.dataset
+    name_gen_dataset = args.input_dataset
     
     # dataset configuration
     tensor_config = config['dataset']['tensors']
-    dataset = TensorDataset("/raid/mariuswiggert/" + name_gen_dataset + "_shuffled/", tensor_config)
+    dataset = TensorDataset(args.output_dataset, tensor_config)
     
     # load the old dataset
     old_dataset = TensorDataset.open("/raid/mariuswiggert/" + name_gen_dataset)

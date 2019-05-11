@@ -476,7 +476,6 @@ class TensorDataset(object):
 
         # read tensor datapoint ind
         tensor_ind = self._num_datapoints // self._datapoints_per_file
-        print("tensor ind: ", tensor_ind)
         # check datapoint fields
         for field_name in datapoint.keys():
             if field_name not in self.field_names:
@@ -512,10 +511,9 @@ class TensorDataset(object):
             # save next tensors to file
             logging.info('Dataset %s: Writing tensor %d to disk' %(self.filename, tensor_ind))
             self.write()
-#             print('Dataset %s: Writing tensor %d to disk' %(self.filename, tensor_ind))
 
-    # increment num_datapoints
-    self._num_datapoints += 1
+        # increment num_datapoints
+        self._num_datapoints += 1
 
     def __getitem__(self, inds):
         if isinstance(inds, slice):

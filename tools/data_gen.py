@@ -106,8 +106,8 @@ if __name__ == "__main__":
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
-            # if obj_id < 45:
-                # continue
+            if obj_id < 1:
+                continue
             if args.objpred:
                 if obj_id == 50:
                     dataset.flush()
@@ -199,7 +199,7 @@ if __name__ == "__main__":
                         if np.linalg.norm(dp1['depth_image2'] - dp2['depth_image2']) < 0.75:
                             num_second_dp_match += 1
           
-                    if num_too_similar < 2 or num_second_dp_match < 3:
+                    if num_too_similar < 2 or num_second_dp_match < 3 or True:
                         print("ADDING STABLE POSE")
                         for dp in obj_datapoints:
                             if config['debug']:
