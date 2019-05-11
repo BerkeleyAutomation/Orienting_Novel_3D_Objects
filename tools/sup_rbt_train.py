@@ -54,15 +54,18 @@ def train(im1s, im2s, labels, batch_size):
         im2_batch   = Variable(torch.from_numpy(im2s[step*batch_size : (step+1)*batch_size]).float()).to(device)
         label_batch = Variable(torch.from_numpy(labels[step*batch_size : (step+1)*batch_size]).float()).to(device)
 
-#         for i in range(batch_size):
-#             plt.subplot(121)
-#             depth_image_show1 = im1s[step*batch_size + i][0]
-#             plt.imshow(depth_image_show1, cmap='gray')
-#             plt.subplot(122)
-#             depth_image_show2 = im2s[step*batch_size + i][0]
-#             plt.imshow(depth_image_show2, cmap='gray')
-#             plt.title('Transform: {}'.format(labels[step*batch_size + i]))
-#             plt.show()
+        for i in range(batch_size):
+            title = 'Same Object' if labels[step*batch_size + i] else 'Different Object'
+            plt.title(title)
+            plt.subplot(121)
+            depth_image_show1 = im1s[step*batch_size + i][0]
+            plt.axis('off')
+            plt.imshow(depth_image_show1, cmap='gray')
+            plt.subplot(122)
+            depth_image_show2 = im2s[step*batch_size + i][0]
+            plt.axis('off')
+            plt.imshow(depth_image_show2, cmap='gray')
+            plt.show()
        
         optimizer.zero_grad()
         prob = model(im1_batch, im2_batch)
