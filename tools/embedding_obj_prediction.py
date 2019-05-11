@@ -41,15 +41,10 @@ def train(dataset, batch_size):
         optimizer.zero_grad()
         output1 = model(im1_batch)
         output2 = model(im2_batch)
-        print output1.shape, output2.shape
-        print criterion(output1, label_batch.long()).item()
-        print criterion(output2, label_batch.long()).item()
         loss = criterion(output1, label_batch.long()) + criterion(output2, label_batch.long())
         _, predicted1 = torch.max(output1, 1)
         _, predicted2 = torch.max(output2, 1)
         
-        print predicted1.shape, label_batch.shape
-        print predicted1.cpu().numpy()
         correct += (predicted1 == label_batch.long()).sum().item()
         correct += (predicted2 == label_batch.long()).sum().item()
         total += label_batch.size(0)
@@ -114,8 +109,8 @@ if __name__ == '__main__':
     if not args.test:
         dataset = TensorDataset.open(args.dataset)
         
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        # device = 'cpu'
+        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        device = 'cpu'
         use_dropout = True
         model = LinearEmbeddingClassifier(config, 50, use_dropout).to(device)
         criterion = nn.CrossEntropyLoss()

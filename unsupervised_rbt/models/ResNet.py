@@ -26,8 +26,7 @@ class LinearEmbeddingClassifier(nn.Module):
         super(LinearEmbeddingClassifier, self).__init__()
         embed_dim = 20
         siamese = ResNetSiameseNetwork(config['pred_dim'], dropout, embed_dim=embed_dim, n_blocks=1)
-        print torch.load(config['unsup_model_save_dir'])
-        siamese.load_state_dict(torch.load(config['unsup_model_save_dir']))
+        siamese.load_state_dict(torch.load(config['unsup_model_save_dir'], map_location='cpu'))
         self.resnet = siamese.resnet
         self.fc = nn.Linear(embed_dim, num_classes)
         self.dropout = nn.Dropout(0.2)
