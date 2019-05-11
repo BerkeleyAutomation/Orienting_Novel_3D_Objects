@@ -28,15 +28,17 @@ class LinearEmbeddingClassifier(nn.Module):
         siamese = ResNetSiameseNetwork(config['pred_dim'], dropout, embed_dim=embed_dim, n_blocks=1)
         siamese.load_state_dict(torch.load(config['unsup_model_save_dir'], map_location='cpu'))
         self.resnet = siamese.resnet
-        self.fc = nn.Linear(embed_dim, num_classes)
+        self.fc_1 = nn.Linear(embed_dim, 1000) # was 200 before (but 50 achieves same result)
+        self.fc_2 = nn.Linear(1000, 1000)
+        self.final_fc = nn.Linear(1000, num_classes)
         self.dropout = nn.Dropout(0.2)
 
     def forward(self, input1):
         output = self.resnet(input1)
         output = self.dropout(output)
-        #a = torch.max(self.fc(output), 1)#.cpu().numpy()
-        #print a.data
-        return self.fc(output)
+        output = self.dropout(F.relu(self.fc_1(output_concat)))
+        output = self.dropout(F.relu(self.fc_2(output)))
+        return self.final_fc(output)
     
 class ResNetObjIdPred(nn.Module):
     def __init__(self, transform_pred_dim, dropout=False):
