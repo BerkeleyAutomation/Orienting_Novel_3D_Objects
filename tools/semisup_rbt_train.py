@@ -145,12 +145,13 @@ if __name__ == '__main__':
         im1s, im2s, labels = generate_data(dataset)
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = ResNetSiameseNetwork(config['pred_dim']).to(device)
+        model = ResNetSiameseNetwork(config['pred_dim'], n_blocks=1, embed_dim=20).to(device)
+#         model.load_state_dict(torch.load(config['unsup_model_path']))
         new_state_dict = model.state_dict()
         
-#         layers_to_keep = tuple(['resnet.layer1', 'resnet.layer2'])
+        layers_to_keep = tuple(['resnet.layer1', 'resnet.layer2'])
         load_params = torch.load(config['unsup_model_path'])
-        layers_to_keep = tuple(load_params.keys())
+#         layers_to_keep = tuple(load_params.keys())
 #         print(load_params.keys())
 #         assert(False)
         
