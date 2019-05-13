@@ -17,13 +17,13 @@ import random
 from random import shuffle
 
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import ResNetSiameseNetwork
+from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork
 
 SEED = 107
 
 # RUN ON 50 object dataset (otherwise to crazy)
 
-def test(dataset, batch_size):
+def test(dataset, embeddings, batch_size):
     model.eval()
     test_loss, correct, total = 0, 0, 0
     
@@ -34,10 +34,13 @@ def test(dataset, batch_size):
     test_indices = dataset.split('train')[1]
     N_test = len(test_indices)
     n_test_steps = N_test // batch_size
+    # n_test_steps = dataset.num_datapoints
+    # n_test_steps = dataset.num_datapoints // batch_size
     outputs, labels = [], []
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
             batch = dataset.get_item_list(test_indices[step*batch_size : (step+1)*batch_size])
+            # batch = dataset[step*batch_size : (step+1)*batch_size]
             depth_image1 = (batch["depth_image1"] * 255)
             depth_image2 = (batch["depth_image2"] * 255)
             im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
@@ -45,10 +48,13 @@ def test(dataset, batch_size):
             
             obj_id_logical = np.in1d(batch['obj_id'], np.array(obj_ids_to_viz))
             
-            outputs.extend(model.resnet(im1_batch).cpu().data.numpy()[obj_id_logical])
-            outputs.extend(model.resnet(im2_batch).cpu().data.numpy()[obj_id_logical])
+            outputs.extend(embeddings(im1_batch).cpu().data.numpy()[obj_id_logical])
+            outputs.extend(embeddings(im2_batch).cpu().data.numpy()[obj_id_logical])
             labels.extend(list(batch['obj_id'][obj_id_logical]))
             labels.extend(list(batch['obj_id'][obj_id_logical]))
+            # concat = torch.cat((model.resnet(im1_batch), model.resnet(im2_batch)), 1)
+            # outputs.extend(concat.cpu().data.numpy())
+            # labels.extend(list(batch['transform']))
     
     labels = np.array(labels)
     # tSNE
@@ -111,11 +117,13 @@ if __name__ == '__main__':
     dataset = TensorDataset.open(args.dataset)
     
     if not os.path.exists(args.dataset + "/splits/train"):
+    # if True:
         print("Created Train Split")
         dataset.make_split("train", train_pct=0.8)
         
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ResNetSiameseNetwork(transform_pred_dim=4, embed_dim=20, dropout=False, n_blocks=1).to(device)
-    # model.load_state_dict(torch.load('../trained_models/1_ResNet_z-axis-only_best.pkl'))
+    # model = ResNetSiameseNetwork(transform_pred_dim=4, embed_dim=20, dropout=False, n_blocks=1).to(device)
+    model = InceptionSiameseNetwork(transform_pred_dim=4)
+    embeddings = model.inception
     model.load_state_dict(torch.load(args.model))
-    test(dataset, args.batch_size)
+    test(dataset, embeddings, args.batch_size)
