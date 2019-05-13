@@ -13,21 +13,40 @@ import matplotlib as mpl
 from tqdm import tqdm
 from termcolor import colored
 
+from autolab_core import YamlConfig
 import torch.utils.data as data_utils
 from unsupervised_rbt import TensorDataset
 from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork, ContextSiameseNetwork, ResNetObjIdPred
+from unsupervised_rbt.models import LinearEmbeddingClassifier, Inc_LinearEmbeddingClassifier
 
 # determine cuda
 device = torch.device('cuda')
 # turn of X-backend for matplotlib
 os.system("echo \"backend: Agg\" > ~/.config/matplotlib/matplotlibrc")  
 
+plot_lable = '_50obj_rand-init_1000'
+
 def main(args):
-    # initialize model
-    model = ResNetObjIdPred(transform_pred_dim=50, dropout= args.dropout).to(device)
+    config = YamlConfig(args.config)
     
-    # setup optimizer and loss
-    optimizer_ft = torch.optim.Adam(model.parameters(), lr=args.lr)
+    # initialize model
+    if args.model == 'ResNet':
+        print(colored('------------- ResNet -------------', 'red'))
+        model = LinearEmbeddingClassifier(config, num_classes=args.num_obj, dropout= args.dropout, init=args.init).to(device)
+    else:
+        print(colored('------------- Inception -------------', 'red'))
+        model = Inc_LinearEmbeddingClassifier(config, num_classes=args.num_obj, dropout= args.dropout, init=args.init).to(device)
+        
+    if args.last_layers:
+        print(colored('------------- Only last layers -------------', 'red'))
+        # only train the fc layers on top
+        optimizer_ft = optim.Adam([
+                {'params': model.fc_1.parameters()},
+                {'params': model.fc_2.parameters()},
+                {'params': model.final_fc.parameters()},
+            ], lr=args.lr)
+    else: # train all
+        optimizer_ft = torch.optim.Adam(model.parameters(), lr=args.lr)
     
     # Setup the loss fxn
     criterion = nn.CrossEntropyLoss()
@@ -65,8 +84,8 @@ def main(args):
             with open('training_metadata/obj-pred_'+args.model + '.pkl', 'wb') as handle:
                     pickle.dump(to_pickle, handle)
             # save model
-            torch.save(model.state_dict(), './trained_models/obj-pred_'+args.model+'.pkl')
-            print('Model save to ./trained_models/'+args.model+'_'+args.dataset+'.pkl')
+            torch.save(model.state_dict(), './trained_models/obj-pred_'+args.model+plot_lable+'.pkl')
+            print('Model save to ./trained_models/'+args.model+'_'+args.dataset+plot_lable+'.pkl')
             # safe loss plots
             save_plots(train_losses, test_losses, train_accs, test_accs)
             
@@ -77,11 +96,12 @@ def train_model(model, criterion, optimizer, dataset, batch_size):
         running_loss, correct, total = 0, 0, 0
         
         if phase == 'train':
-            indices = dataset.split('train')[phase=='val']
+            indices = dataset.split('train')[phase=='val'][:1000]
+#             print("train with: ",len(indices))
         else:
-            indices = dataset.split('train')[phase=='val']
+            indices = dataset.split('train')[phase=='val'][:1000]
+#             print("test with: ",len(indices))
             
-        #indices = dataset.split('train')[phase=='val']
         N_train = len(indices)
         minibatches = np.full(N_train//batch_size, batch_size, dtype=np.int)
         minibatches[:N_train % batch_size] += 1 # correct if the folds can't be even sized
@@ -108,7 +128,6 @@ def train_model(model, criterion, optimizer, dataset, batch_size):
                 im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
                 id_batch = Variable(torch.from_numpy(batch["obj_id"].astype(int))).to(device)
                 
-
                 # feed through model
                 pred_id_1 = model(im1_batch)
                 pred_id_2 = model(im2_batch)
@@ -163,17 +182,25 @@ def save_plots(train_losses, test_losses, train_accs, test_accs):
     mpl.pyplot.ylabel("Classification Accuracy")
     mpl.pyplot.title("Training Curve")
     mpl.pyplot.legend(loc='best')
-    mpl.pyplot.savefig('./plots/'+'Train_'+args.model+'_'+args.dataset + str(args.dropout))
+    mpl.pyplot.savefig('./plots/'+'obj_pred'+args.model+'_'+args.dataset +'_'+ plot_lable)
     mpl.pyplot.close()
 
 def parse_args():
     parser = argparse.ArgumentParser()
+    
+    default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                           '..',
+                                           'cfg/tools/embedding_obj_prediction.yaml')
+    parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str, required=True)
-    parser.add_argument('-batch_size', type=int, default=128)
+    parser.add_argument('-batch_size', type=int, default=256)
     parser.add_argument('-lr', type=float, default=1e-3)
     parser.add_argument('-model', type=str, default='ResNet', choices=['ResNet','Inception','ContextPred'])
     parser.add_argument('-epochs', type=int, default=101)
     parser.add_argument('-dropout', type=bool, default=True)
+    parser.add_argument('-init', type=bool, default=False)
+    parser.add_argument('-num_obj', type=int, default=50)
+    parser.add_argument('-last_layers', type=bool, default=False)
     args = parser.parse_args()
     parser.add_argument('-dataset_full', type=str, required=False) # never enter it, it's just to fill the whole path
     args.dataset_full = os.path.join('/raid/mariuswiggert', args.dataset)

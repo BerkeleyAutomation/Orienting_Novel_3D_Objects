@@ -10,10 +10,10 @@ _InceptionOuputs = namedtuple('InceptionOuputs', ['logits', 'aux_logits'])
 
 # TODO: modify
 class InceptionSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim, dropout=False):
+    def __init__(self, transform_pred_dim, embed_dim, dropout=False):
         super(InceptionSiameseNetwork, self).__init__()
-        self.inception = Inception3_mod(dropout, num_out=200)
-        self.fc_1 = nn.Linear(200*2, 4000)
+        self.inception = Inception3_mod(dropout, num_out=embed_dim)
+        self.fc_1 = nn.Linear(embed_dim*2, 4000)
         self.fc_2 = nn.Linear(4000, 4000)
         self.final_fc = nn.Linear(4000, transform_pred_dim)            
         
@@ -22,6 +22,27 @@ class InceptionSiameseNetwork(nn.Module):
         output2 = self.inception(input2)
         output_concat = torch.cat((output1, output2), 1)
         return self.final_fc(F.relu(self.fc_2(F.relu(self.fc_1(output_concat)))))
+    
+class Inc_LinearEmbeddingClassifier(nn.Module):
+    def __init__(self, config, num_classes, dropout=False, init=False):
+        super(Inc_LinearEmbeddingClassifier, self).__init__()
+        embed_dim = 100
+        siamese = InceptionSiameseNetwork(config['pred_dim'], embed_dim , dropout)
+        if init:
+            print('------------- Loaded self-supervised model -------------')
+            siamese.load_state_dict(torch.load(config['Inc_unsup_model_save_dir']))
+        self.resnet = siamese.inception
+        self.fc_1 = nn.Linear(embed_dim, 1000) # was 200 before (but 50 achieves same result)
+        self.fc_2 = nn.Linear(1000, 1000)
+        self.final_fc = nn.Linear(1000, num_classes)
+        self.dropout = nn.Dropout(0.2)
+
+    def forward(self, input1):
+        output = self.resnet(input1)
+        output = self.dropout(output)
+        output = self.dropout(F.relu(self.fc_1(output)))
+        output = self.dropout(F.relu(self.fc_2(output)))
+        return self.final_fc(output)
 
 
 # TODO: modify
@@ -42,10 +63,10 @@ class Inception3_mod(nn.Module):
         # one of each of the inception layers
         self.Mixed_5a = InceptionA(64, pool_features=32)
         self.Mixed_6a = InceptionB(256)
-        self.Mixed_6b = InceptionC(736, channels_7x7=128)
-        self.Mixed_7a = InceptionD(768)
-        self.Mixed_7b = InceptionE(1280)
-        self.fc = nn.Linear(2048, num_out)
+#         self.Mixed_6b = InceptionC(736, channels_7x7=128)
+#         self.Mixed_7a = InceptionD(768)
+#         self.Mixed_7b = InceptionE(1280)
+        self.fc = nn.Linear(736, num_out) #736 or 256
 
         # initialization of the weights
         for m in self.modules():
@@ -76,14 +97,14 @@ class Inception3_mod(nn.Module):
         x = self.Mixed_6a(x)
         x = self.dropout2d(x)
         # N x 736 x 31 x 31
-        x = self.Mixed_6b(x)
-        x = self.dropout2d(x)
-        # N x 768 x 31 x 31
-        x = self.Mixed_7a(x)
-        x = self.dropout2d(x)
-        # N x 1280 x 15 x 15
-        x = self.Mixed_7b(x)
-        x = self.dropout2d(x)
+#         x = self.Mixed_6b(x)
+#         x = self.dropout2d(x)
+#         # N x 768 x 31 x 31
+#         x = self.Mixed_7a(x)
+#         x = self.dropout2d(x)
+#         # N x 1280 x 15 x 15
+#         x = self.Mixed_7b(x)
+#         x = self.dropout2d(x)
         # N x 2048 x 15 x 15
         # Adaptive average pooling
         x = F.adaptive_avg_pool2d(x, (1, 1))

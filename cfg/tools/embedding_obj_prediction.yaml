@@ -1,6 +1,7 @@
 pred_dim: 4
-batch_size: 64
+batch_size: 256
 num_epochs: 100
-losses_f_name: results/losses_free_space_axis_pred.p
+losses_f_name: results/losses_free_space_axis_pred.png
 loss_plot_f_name: plots/losses_free_space_axis_pred.png
-unsup_model_save_dir: /nfs/diskstation/projects/unsupervised_rbt/models/ResNet_xyz-axis1_block_20_embed.pkl
+unsup_model_save_dir: /home/mariuswiggert/unsupervised_rbt/trained_models/ResNet_xyz-axis1_block_20_embed.pkl
+Inc_unsup_model_save_dir: /home/mariuswiggert/unsupervised_rbt/trained_models/Inception_xyz-axis_shuffled1_b_Incept_100_embed.pkl
