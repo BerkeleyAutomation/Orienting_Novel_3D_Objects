@@ -1,3 +1,3 @@
 from ResNet import ResNetSiameseNetwork, ResNet, LinearEmbeddingClassifier, ResNetObjIdPred
-from inceptionV3 import InceptionSiameseNetwork, Inception3_mod
+from inceptionV3 import InceptionSiameseNetwork, Inception3_mod, Inc_LinearEmbeddingClassifier
 from ContextNet import ContextSiameseNetwork

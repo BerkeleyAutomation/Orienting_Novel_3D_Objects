@@ -22,14 +22,14 @@ device = torch.device('cuda')
 # turn of X-backend for matplotlib
 os.system("echo \"backend: Agg\" > ~/.config/matplotlib/matplotlibrc")  
 
-plot_lable = '1_block_20_embed'
+plot_lable = '1_A_Incept_50_embed'
 
 def main(args):
     # initialize model
     if args.model == 'ResNet':
         model = ResNetSiameseNetwork(transform_pred_dim=4, dropout= args.dropout, embed_dim=args.embed_dim, n_blocks= args.n_blocks).to(device)
     elif args.model == 'Inception':
-        model = InceptionSiameseNetwork(transform_pred_dim=4, dropout= args.dropout).to(device)
+        model = InceptionSiameseNetwork(transform_pred_dim=4, dropout= args.dropout, embed_dim=args.embed_dim).to(device)
     elif args.model == 'ContextPred':
         model = ContextSiameseNetwork(transform_pred_dim=4).to(device)
     
