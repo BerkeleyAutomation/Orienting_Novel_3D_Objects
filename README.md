@@ -27,11 +27,11 @@ Data Generation: See tools/data_gen_downstream.py for generating data for the ta
 
 Example usage: python tools/data_gen_downstream.py
 
-Training: Make sure to either generate data or use pre-generated data. For training see tools/semisup_rbt_train.py for
-training with initialization from self supervised rotation prediction task and tools/sup_rbt_train.py for training with
+Training: Make sure to either generate data or use pre-generated data. For training see tools/semisup_obj_matching.py for
+training with initialization from self supervised rotation prediction task and tools/sup_obj_matching.py for training with
 random initialization
 
-Example usage: python tools/semisup_rbt_train.py {dataset_name} or python tools/sup_rbt_train.py {dataset_name}. For now can use
+Example usage: python tools/semisup_obj_matching.py {dataset_name} or python tools/sup_obj_matching.py {dataset_name}. For now can use
 the dataset called downstream
 
 **Downstream Task: Pose Agnostic Object Classification**:
@@ -44,5 +44,5 @@ Training: Make sure to either generate data or use pre-generated data. For train
 training with initialization from self supervised rotation prediction task and tools/train_obj_prediction.py for training with
 random initialization
 
-Example usage: python tools/semisup_obj_prediction.py {dataset_name} or python tools/train_obj_prediction.py {dataset_name}. For now can use
+Example usage: python tools/semisup_obj_prediction.py {dataset_name} or python tools/sup_obj_prediction.py {dataset_name}. For now can use
 the dataset called xyz-axis-obj-pred_shuffled.
