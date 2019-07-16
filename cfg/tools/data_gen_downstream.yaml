@@ -1,6 +1,5 @@
 # MAKE SURE NUM_SAMPLES_PER_OBJ IS THE SAME AS DEPTH_IMAGES.CHANNELS
-
-debug: 0
+debug: 1
 num_samples_per_obj: 20
 # dataset params
 dataset:

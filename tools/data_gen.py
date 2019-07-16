@@ -1,3 +1,7 @@
+'''
+This script generates data for the self-supervised rotation prediction task
+'''
+
 from autolab_core import YamlConfig, RigidTransform, TensorDataset
 import os
 # os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
@@ -106,10 +110,10 @@ if __name__ == "__main__":
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
-            if obj_id < 1:
+            if obj_id < 10:
                 continue
             if args.objpred:
-                if obj_id == 50:
+                if obj_id == 10:
                     dataset.flush()
                     sys.exit(0)
             # log
@@ -169,10 +173,14 @@ if __name__ == "__main__":
 
                         if config['debug']:
                             plt.subplot(121)
-                            plt.imshow(image1, cmap='gray')
+                            fig1 = plt.imshow(image1, cmap='gray')
                             plt.title('Stable pose')
                             plt.subplot(122)
-                            plt.imshow(image2, cmap='gray')
+                            fig2 = plt.imshow(image2, cmap='gray')
+                            fig1.axes.get_xaxis().set_visible(False)
+                            fig1.axes.get_yaxis().set_visible(False)
+                            fig2.axes.get_xaxis().set_visible(False)
+                            fig2.axes.get_yaxis().set_visible(False)
                             plt.title('After Rigid Transformation: ' + tr_str)
                             plt.show()
                             print(transform_id)

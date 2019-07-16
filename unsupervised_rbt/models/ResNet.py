@@ -26,7 +26,7 @@ class LinearEmbeddingClassifier(nn.Module):
         super(LinearEmbeddingClassifier, self).__init__()
         embed_dim = 20
         siamese = ResNetSiameseNetwork(config['pred_dim'], dropout, embed_dim=embed_dim, n_blocks=1)
-        siamese.load_state_dict(torch.load(config['unsup_model_save_dir'], map_location='cpu'))
+        siamese.load_state_dict(torch.load(config['unsup_model_save_dir']))
         self.resnet = siamese.resnet
         self.fc_1 = nn.Linear(embed_dim, 1000) # was 200 before (but 50 achieves same result)
         self.fc_2 = nn.Linear(1000, 1000)
@@ -36,7 +36,7 @@ class LinearEmbeddingClassifier(nn.Module):
     def forward(self, input1):
         output = self.resnet(input1)
         output = self.dropout(output)
-        output = self.dropout(F.relu(self.fc_1(output_concat)))
+        output = self.dropout(F.relu(self.fc_1(output)))
         output = self.dropout(F.relu(self.fc_2(output)))
         return self.final_fc(output)
     

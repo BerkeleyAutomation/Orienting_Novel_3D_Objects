@@ -1,3 +1,7 @@
+'''
+This script generates data which is used to create pairs for pose-agnostic object matching
+'''
+
 from autolab_core import YamlConfig, RigidTransform, TensorDataset
 import os
 # os.environ["PYOPENGL_PLATFORM"] = 'osmesa'

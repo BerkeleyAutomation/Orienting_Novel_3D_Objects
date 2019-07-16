@@ -1,3 +1,11 @@
+'''
+Train supervised object matching task with initialization from rotation prediction task;
+again use dataset downstream for now. This script also creates
+pairs that are half the same object paired with itself (w/random rigid body transform) and half 
+object paired with different object and then trains a CNN to determine whether the objects
+are the same object or not.
+'''
+
 import numpy as np
 import argparse
 import os
@@ -11,16 +19,22 @@ from torch.autograd import Variable
 import pickle
 import matplotlib.pyplot as plt
 from tqdm import tqdm
-from random import shuffle
 
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
 from unsupervised_rbt.models import ResNetSiameseNetwork
-from unsupervised_rbt.losses import ContrastiveLoss
 from perception import DepthImage, RgbdImage
 
-# TODO: Make this a real architecture, this is just a minimum working example for now
-# TODO: Improve batching speed/data loading, its still kind of slow rn
+def get_params_to_train(model):
+    return model.parameters()
+    params = []
+    r = model.resnet
+    layers = [r.layer3, r.layer4, r.linear, model.fc_1, model.fc_2, model.final_fc]
+#     layers = [model.fc_1, model.fc_2, model.final_fc]
+    for layer in layers:
+        params.extend(layer.parameters())
+    return params
+
 
 def generate_data(dataset):
     im1s, im2s, labels = [], [], []
@@ -54,29 +68,20 @@ def train(im1s, im2s, labels, batch_size):
         im2_batch   = Variable(torch.from_numpy(im2s[step*batch_size : (step+1)*batch_size]).float()).to(device)
         label_batch = Variable(torch.from_numpy(labels[step*batch_size : (step+1)*batch_size]).float()).to(device)
 
-        for i in range(batch_size):
-            title = 'Same Object' if labels[step*batch_size + i] else 'Different Object'
-            plt.title(title)
-            plt.subplot(121)
-            depth_image_show1 = im1s[step*batch_size + i][0]
-            plt.axis('off')
-            plt.imshow(depth_image_show1, cmap='gray')
-            plt.subplot(122)
-            depth_image_show2 = im2s[step*batch_size + i][0]
-            plt.axis('off')
-            plt.imshow(depth_image_show2, cmap='gray')
-            plt.show()
+#         for i in range(batch_size):
+#             plt.subplot(121)
+#             depth_image_show1 = im1s[step*batch_size + i][0]
+#             plt.imshow(depth_image_show1, cmap='gray')
+#             plt.subplot(122)
+#             depth_image_show2 = im2s[step*batch_size + i][0]
+#             plt.imshow(depth_image_show2, cmap='gray')
+#             plt.title('Transform: {}'.format(labels[step*batch_size + i]))
+#             plt.show()
        
         optimizer.zero_grad()
         prob = model(im1_batch, im2_batch)
         loss = criterion(prob, label_batch.long())
         _, predicted = torch.max(prob, 1)
-#         output1, output2 = model(im1_batch, im2_batch)
-#         loss = criterion(output1, output2, label_batch)
-        
-#         predicted = (prob > 0.5).float().flatten()
-#         correct += (predicted == label_batch).sum().item()
-#         total += label_batch.size(0)
 
         correct += (predicted == label_batch.long()).sum().item()
         total += label_batch.size(0)
@@ -106,22 +111,12 @@ def test(im1s, im2s, labels, batch_size):
             prob = model(im1_batch, im2_batch)
             loss = criterion(prob, label_batch.long())
             _, predicted = torch.max(prob, 1)
-#             output1, output2 = model(im1_batch, im2_batch)
-#             loss = criterion(output1, output2, label_batch)
-#             print("LABELS")
-#             print(label_batch)
-#             print("PREDICTED")
-#             print(prob)
-#             predicted = (prob > 0.5).float().flatten()
-#             correct += (predicted == label_batch).sum().item()
-#             total += label_batch.size(0)
             correct += (predicted == label_batch.long()).sum().item()
             total += label_batch.size(0)
             
             test_loss += loss.item()
             
     class_acc = 100 * correct/total
-#     class_acc = 0
     return test_loss/n_test_steps, class_acc
 
 def display_conv_layers(model):
@@ -138,9 +133,10 @@ def parse_args():
     parser.add_argument('--test', action='store_true')
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
-                                           'cfg/tools/sup_rbt_train.yaml')
+                                           'cfg/tools/semisup_obj_matching.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str, required=True)
+#     parser.add_argument('-unsup_model', type=str, required=True)
     args = parser.parse_args()
     args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
     return args
@@ -152,12 +148,28 @@ if __name__ == '__main__':
     if not args.test:
         dataset = TensorDataset.open(args.dataset)
         im1s, im2s, labels = generate_data(dataset)
-        
+
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = ResNetSiameseNetwork(config['pred_dim']).to(device)
-#         criterion = ContrastiveLoss()
+        model = ResNetSiameseNetwork(config['pred_dim'], n_blocks=1, embed_dim=20).to(device)
+#         model.load_state_dict(torch.load(config['unsup_model_path']))
+        new_state_dict = model.state_dict()
+        
+        layers_to_keep = tuple(['resnet.layer1', 'resnet.layer2'])
+        load_params = torch.load(config['unsup_model_path'])
+#         layers_to_keep = tuple(load_params.keys())
+#         print(load_params.keys())
+#         assert(False)
+        
+        load_params_new = load_params.copy()
+        for layer_name in load_params:
+            if not layer_name.startswith(layers_to_keep):
+                del load_params_new[layer_name]
+                
+        new_state_dict.update(load_params_new)
+        model.load_state_dict(new_state_dict)
+        
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters())
+        optimizer = optim.Adam(get_params_to_train(model))
         
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")
@@ -176,7 +188,9 @@ if __name__ == '__main__':
             torch.save(model.state_dict(), config['model_save_dir'])
             
     else:
-#         model = ResNetDownstreamSiameseNetwork(config['pred_dim'])
+#         model = ResNetSiameseNetwork(config['pred_dim']).to(device)
+#         model.load_state_dict(torch.load(config['model_save_dir']))
+#         display_conv_layers(model)
 
         losses = pickle.load( open( config['losses_f_name'], "rb" ) )
         train_returns = np.array(losses["train_loss"])

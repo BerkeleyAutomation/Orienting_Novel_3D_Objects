@@ -1,3 +1,8 @@
+'''
+Train self-supervised task (rotation prediction) task; current good dataset to use is xyz-axis_shuffled; 
+Currently have a pre-trained model for this, which is referenced in semi_sup script
+'''
+
 import numpy as np
 import argparse
 import os
@@ -14,18 +19,14 @@ from tqdm import tqdm
 
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import SiameseNetwork, InceptionSiameseNetwork
+from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork
 from perception import DepthImage, RgbdImage
-
-# TODO: Make this a real architecture, this is just a minimum working example for now
-# TODO: Improve batching speed/data loading, its still kind of slow rn
 
 def train(dataset, batch_size):
     model.train()
     train_loss, correct, total = 0, 0, 0
     
     train_indices = dataset.split('train')[0][:10000]
-#     train_indices = range(dataset.num_datapoints)[:100]
     N_train = len(train_indices)
     n_train_steps = N_train//batch_size
     for step in tqdm(range(n_train_steps)):
@@ -128,7 +129,7 @@ if __name__ == '__main__':
         dataset = TensorDataset.open(args.dataset)
 
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = SiameseNetwork(config['pred_dim']).to(device)
+        model = ResNetSiameseNetwork(config['pred_dim'], n_blocks=1, embed_dim=20).to(device)
 #         model = InceptionSiameseNetwork(config['pred_dim']).to(device)
         criterion = nn.CrossEntropyLoss()
         optimizer = optim.Adam(model.parameters())
@@ -150,7 +151,7 @@ if __name__ == '__main__':
             torch.save(model.state_dict(), config['model_save_dir'])
             
     else:
-        model = SiameseNetwork(config['pred_dim'])
+        model = ResNetSiameseNetwork(config['pred_dim'])
         model.load_state_dict(torch.load(config['model_save_dir']))
         display_conv_layers(model)
 

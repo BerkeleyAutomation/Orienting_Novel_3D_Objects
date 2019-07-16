@@ -25,13 +25,14 @@ if __name__ == "__main__":
     config = YamlConfig(args.config)
     # to adjust
     name_gen_dataset = args.input_dataset
+    dataset_root_path = "/raid/mariuswiggert/" # TODO change this
     
     # dataset configuration
     tensor_config = config['dataset']['tensors']
     dataset = TensorDataset(args.output_dataset, tensor_config)
     
     # load the old dataset
-    old_dataset = TensorDataset.open("/raid/mariuswiggert/" + name_gen_dataset)
+    old_dataset = TensorDataset.open(dataset_root_path + name_gen_dataset)
     
     # iterate over it and mix stuff up
     print("old dataset has datapoints: ", old_dataset.num_datapoints)

@@ -1,7 +1,7 @@
 import numpy as np
 import argparse
 import os
-# turn of X-backend for matplotlib
+# turn off X-backend for matplotlib
 os.system("echo \"backend: Agg\" > ~/.config/matplotlib/matplotlibrc")  
 import matplotlib.pyplot as plt
 import matplotlib.patheffects as PathEffects

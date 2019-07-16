@@ -27,7 +27,8 @@ def train(dataset, batch_size):
     # train_indices = dataset.split('train')[0]
     # N_train = len(train_indices)
     # shuffle(train_indices)
-    N_train = int(0.8 * dataset.num_datapoints)
+    # N_train = int(0.8 * dataset.num_datapoints)
+    N_train = 10000
     n_train_steps = N_train//batch_size
     for step in tqdm(range(n_train_steps)):
         batch = dataset[step*batch_size : (step+1)*batch_size]
@@ -61,8 +62,10 @@ def test(dataset, batch_size):
     model.eval()
     test_loss, correct, total = 0, 0, 0
 
-    N_train = int(0.8 * dataset.num_datapoints)
-    N_test = int(0.2 * dataset.num_datapoints)
+    # N_train = int(0.8 * dataset.num_datapoints)[:1000]
+    # N_test = int(0.2 * dataset.num_datapoints)[1000:2000]
+    N_train = 10000
+    N_test = 10000
     n_test_steps = N_test//batch_size
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
@@ -95,7 +98,7 @@ def parse_args():
     parser.add_argument('--test', action='store_true')
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
-                                           'cfg/tools/embedding_obj_prediction.yaml')
+                                           'cfg/tools/semisup_obj_prediction.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str, required=True)
     args = parser.parse_args()
@@ -109,12 +112,11 @@ if __name__ == '__main__':
     if not args.test:
         dataset = TensorDataset.open(args.dataset)
         
-        # device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        device = 'cpu'
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         use_dropout = True
         model = LinearEmbeddingClassifier(config, 50, use_dropout).to(device)
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.fc.parameters()) # only train fc layer
+        optimizer = optim.Adam(model.parameters()) # only train fc layer
         
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")
