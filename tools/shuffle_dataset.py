@@ -29,7 +29,7 @@ if __name__ == "__main__":
     
     # dataset configuration
     tensor_config = config['dataset']['tensors']
-    dataset = TensorDataset(args.output_dataset, tensor_config)
+    dataset = TensorDataset("/raid/mariuswiggert/" + args.output_dataset, tensor_config)
     
     # load the old dataset
     old_dataset = TensorDataset.open(dataset_root_path + name_gen_dataset)

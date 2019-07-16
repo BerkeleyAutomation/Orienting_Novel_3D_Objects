@@ -32,8 +32,8 @@ def train(dataset, batch_size):
     n_train_steps = N_train//batch_size
     for step in tqdm(range(n_train_steps)):
         batch = dataset[step*batch_size : (step+1)*batch_size]
-        depth_image1 = (batch["depth_image1"] * 255).astype(int)
-        depth_image2 = (batch["depth_image2"] * 255).astype(int)
+        depth_image1 = (batch["depth_image1"] * 255)
+        depth_image2 = (batch["depth_image2"] * 255)
         
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
@@ -102,7 +102,7 @@ def parse_args():
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str, required=True)
     args = parser.parse_args()
-    args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
+    args.dataset = os.path.join('/raid/mariuswiggert', args.dataset)
     return args
 
 if __name__ == '__main__':
@@ -114,9 +114,9 @@ if __name__ == '__main__':
         
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         use_dropout = True
-        model = LinearEmbeddingClassifier(config, 50, use_dropout).to(device)
+        model = LinearEmbeddingClassifier(config, 10, use_dropout).to(device)
         criterion = nn.CrossEntropyLoss()
-        optimizer = optim.Adam(model.parameters()) # only train fc layer
+        optimizer = optim.Adam([model.fc_1.parameters(), model.fc_2.parameters(), model.final_fc.parameters()]) # only train fc layer
         
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")

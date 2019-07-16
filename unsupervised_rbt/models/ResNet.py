@@ -22,11 +22,14 @@ class ResNetSiameseNetwork(nn.Module):
         return self.final_fc(output)
 
 class LinearEmbeddingClassifier(nn.Module):
-    def __init__(self, config, num_classes, dropout=False):
+    def __init__(self, config, num_classes, dropout=False, init=False):
         super(LinearEmbeddingClassifier, self).__init__()
         embed_dim = 20
+#         print(init)
         siamese = ResNetSiameseNetwork(config['pred_dim'], dropout, embed_dim=embed_dim, n_blocks=1)
-        siamese.load_state_dict(torch.load(config['unsup_model_save_dir']))
+        if init:
+            print('------------- Loaded self-supervised model -------------')
+            siamese.load_state_dict(torch.load(config['unsup_model_save_dir']))
         self.resnet = siamese.resnet
         self.fc_1 = nn.Linear(embed_dim, 1000) # was 200 before (but 50 achieves same result)
         self.fc_2 = nn.Linear(1000, 1000)
@@ -41,16 +44,20 @@ class LinearEmbeddingClassifier(nn.Module):
         return self.final_fc(output)
     
 class ResNetObjIdPred(nn.Module):
-    def __init__(self, transform_pred_dim, dropout=False):
+    def __init__(self, transform_pred_dim, dropout=False, embed_dim=200, n_blocks = 1):
         super(ResNetObjIdPred, self).__init__()
-        self.resnet = ResNet(BasicBlock, [1,1,1,1], 200, dropout=False)
-        self.fc_1 = nn.Linear(200, 4000) # I test 50 embedding dimensions right now
-        self.fc_2 = nn.Linear(4000, 4000)
-        self.final_fc = nn.Linear(4000, transform_pred_dim)
+        blocks = [item for item in [1] for i in range(n_blocks)]
+        self.resnet = ResNet(BasicBlock, blocks, embed_dim, dropout=False)   # [1,1,1,1]
+        self.fc_1 = nn.Linear(embed_dim, 1000) # was 200 before (but 50 achieves same result)
+        self.fc_2 = nn.Linear(1000, 1000)
+        self.final_fc = nn.Linear(1000, transform_pred_dim)  
+        self.dropout = nn.Dropout(0.2)
 
     def forward(self, input1):
-        output1 = self.resnet(input1)
-        return self.final_fc(F.relu(self.fc_2(F.relu(self.fc_1(output1)))))
+        output = self.resnet(input1)
+        output = self.dropout(F.relu(self.fc_1(output)))
+        output = self.dropout(F.relu(self.fc_2(output)))
+        return self.final_fc(output)
 
 class BasicBlock(nn.Module):
     expansion = 1
