@@ -23,12 +23,15 @@ from random import shuffle
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
 from unsupervised_rbt.models import ResNetSiameseNetwork
-from unsupervised_rbt.losses import ContrastiveLoss
 from perception import DepthImage, RgbdImage
 
-def generate_data(dataset):
+def generate_data(dataset, num_pairs = 10000):
+    """
+    Generates a pair of depth images. Half will be from the same object, half will be from different objects.
+    Chooses a random orientation from 20 different orientations. Binary Labels for if same object or not.
+    """
     im1s, im2s, labels = [], [], []
-    for _ in range(10000):
+    for _ in range(num_pairs):
         dp1_idx = np.random.randint(dataset.num_datapoints)
         dp2_idx, label = dp1_idx, 1 # same object
         
@@ -37,7 +40,7 @@ def generate_data(dataset):
         
         im1s.append(255 * dataset[dp1_idx]['depth_images'][im1_idx])
 
-        if np.random.random() < 0.5: # different object
+        if np.random.random() < 0.5: # Makes half of the training data to be different objects
             while dp2_idx == dp1_idx:
                 dp2_idx = np.random.randint(dataset.num_datapoints)
             label = 0
@@ -48,7 +51,11 @@ def generate_data(dataset):
     return np.expand_dims(im1s, 1), np.expand_dims(im2s, 1), labels
 
 def train(im1s, im2s, labels, batch_size):
-    model.train()
+    """
+    Train the model specified in main, then return the loss and classification accuracy on
+    80% of the training data. Uses tqdm to visualize progress.
+    """
+    model.train() 
     train_loss, correct, total = 0, 0, 0
     
     N_train = int(0.8 * im1s.shape[0])

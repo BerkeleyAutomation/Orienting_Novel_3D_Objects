@@ -9,3 +9,4 @@ unsupervised_rbt.egg-info/
 *.ipynb
 build/*
 dist/*
+.vscode/

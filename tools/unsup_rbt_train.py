@@ -23,6 +23,7 @@ from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwor
 from perception import DepthImage, RgbdImage
 
 def train(dataset, batch_size):
+    '''Train model specified in main and return training loss and classification accuracy'''
     model.train()
     train_loss, correct, total = 0, 0, 0
     
@@ -71,6 +72,9 @@ def train(dataset, batch_size):
     return train_loss/n_train_steps, class_acc
 
 def test(dataset, batch_size):
+    """
+    Return loss and classification accuracy of the model on the test data
+    """
     model.eval()
     test_loss, correct, total = 0, 0, 0
 
