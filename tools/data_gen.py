@@ -4,7 +4,10 @@ This script generates data for the self-supervised rotation prediction task
 
 from autolab_core import YamlConfig, RigidTransform, TensorDataset
 import os
-# os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
+
+# Use this if you are SSH
+# os.environ["PYOPENGL_PLATFORM"] = 'egl'
+# os.environ["PYOPENGL_PLATFORM"] = 'openmesa'
 
 import numpy as np
 import trimesh
@@ -12,7 +15,7 @@ import itertools
 import sys
 import argparse
 
-from pyrender import (Scene, PerspectiveCamera, Mesh, 
+from pyrender import (Scene, IntrinsicsCamera, Mesh, 
                       Viewer, OffscreenRenderer, RenderFlags, Node)   
 from sd_maskrcnn.envs import CameraStateSpace
 
@@ -23,14 +26,55 @@ from termcolor import colored
 def normalize(z):
     return z / np.linalg.norm(z)
 
+def Generate_Quaternion():
+    """Generate a random quaternion with conditions.
+    To avoid double coverage, we make sure the real component is positive.
+    We also try to limit our rotation space by making the real component 
+    have the greatest magnitude.
+    """
+    quat = np.random.rand(4)
+    quat = normalize(quat)
+    max_i = np.argmax(np.abs(quat))
+    quat[0], quat[max_i] = quat[max_i], quat[0]
+    if quat[0] < 0:
+        quat = -1 * quat
+    return quat
+
+def Generate_Random_Transform(center_of_mass):
+    """Create a matrix that will randomly rotate an object about the z-axis by a random angle.
+    """
+    return RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=center_of_mass, angle=2*np.pi*np.random.random()).matrix
+
+def Plot_Rotated_Images(image1, image2, transform_id, transform_string):
+    """Takes the two images we feed into our CNN and plots them for visualizing their rotation
+    """
+    plt.subplot(121)
+    fig1 = plt.imshow(image1, cmap='gray')
+    plt.title('Stable pose')
+    plt.subplot(122)
+    fig2 = plt.imshow(image2, cmap='gray')
+    fig1.axes.get_xaxis().set_visible(False)
+    fig1.axes.get_yaxis().set_visible(False)
+    fig2.axes.get_xaxis().set_visible(False)
+    fig2.axes.get_yaxis().set_visible(False)
+    plt.title('After Rigid Transformation: ' + transform_string)
+    plt.show()
+    print(transform_id)
+
 def create_scene():
+    """Create scene for taking depth images.
+    """
     scene = Scene()
     renderer = OffscreenRenderer(viewport_width=1, viewport_height=1)
     
     # initialize camera and renderer
     cam = CameraStateSpace(config['state_space']['camera']).sample()
-    camera = PerspectiveCamera(cam.yfov, znear=0.05, zfar=3.0,
-                                   aspectRatio=cam.aspect_ratio)
+
+    # If using older version of sd-maskrcnn
+    # camera = PerspectiveCamera(cam.yfov, znear=0.05, zfar=3.0,
+    #                                aspectRatio=cam.aspect_ratio)
+    camera = IntrinsicsCamera(cam.intrinsics.fx, cam.intrinsics.fy, 
+                            cam.intrinsics.cx, cam.intrinsics.cy)
     renderer.viewport_width = cam.width
     renderer.viewport_height = cam.height
     
@@ -60,6 +104,11 @@ def create_scene():
     return scene, renderer
 
 def parse_args():
+    """Parse arguments from the command line.
+    -config to input your own config file.
+    -dataset to input a name for your dataset. For now, should start with xyz-axis
+    --objpred to generate data for pose agnostic object classification.
+    """
     parser = argparse.ArgumentParser()
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
@@ -83,7 +132,7 @@ if __name__ == "__main__":
     elif name_gen_dataset.startswith('xyz-axis'):
         transform_strs = ["0 Z", "90 X", "90 Y", "90 Z"]
     else:
-        assert(False)
+        assert(False, "Dataset does not have correct labels")
     
     # dataset configuration
     tensor_config = config['dataset']['tensors']
@@ -153,6 +202,14 @@ if __name__ == "__main__":
                             RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=np.pi), 
                             RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=3*np.pi/2)
                             ]
+                    elif name_gen_dataset.startswith('quaternion'):
+                        transforms = [
+                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=0), 
+                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=np.pi/2), 
+                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=np.pi), 
+                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=3*np.pi/2)
+                            ]
+
                     else:
                         assert(False)
 
@@ -161,30 +218,18 @@ if __name__ == "__main__":
                     num_too_similar = 0
 
                     for transform_id in range(len(transform_strs)):
-                        # Render image 1
-                        rand_transform = RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=2*np.pi*np.random.random()).matrix @ pose_matrix
+                        # Render image 1, which will be our original image with a random initial pose
+                        rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
                         scene.set_pose(object_node, pose=rand_transform)
                         image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
                         
-                        # Render image 2
+                        # Render image 2, which will be image 1 rotated according to our specification
                         new_pose, tr_str = transforms[transform_id].matrix @ rand_transform, transform_strs[transform_id]
                         scene.set_pose(object_node, pose=new_pose)
                         image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
                         if config['debug']:
-                            plt.subplot(121)
-                            fig1 = plt.imshow(image1, cmap='gray')
-                            plt.title('Stable pose')
-                            plt.subplot(122)
-                            fig2 = plt.imshow(image2, cmap='gray')
-                            fig1.axes.get_xaxis().set_visible(False)
-                            fig1.axes.get_yaxis().set_visible(False)
-                            fig2.axes.get_xaxis().set_visible(False)
-                            fig2.axes.get_yaxis().set_visible(False)
-                            plt.title('After Rigid Transformation: ' + tr_str)
-                            plt.show()
-                            print(transform_id)
-
+                            Plot_Rotated_Images(image1, image2, transform_id, tr_str)
 
                         mse = np.linalg.norm(image1-image2)
                         if mse < 0.75:
