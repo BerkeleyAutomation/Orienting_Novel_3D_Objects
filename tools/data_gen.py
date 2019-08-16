@@ -45,21 +45,22 @@ def Generate_Random_Transform(center_of_mass):
     """
     return RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=center_of_mass, angle=2*np.pi*np.random.random()).matrix
 
-def Plot_Rotated_Images(image1, image2, transform_id, transform_string):
-    """Takes the two images we feed into our CNN and plots them for visualizing their rotation
+def Plot_Datapoint(datapoint):
+    """Takes in a datapoint of our Tensor Dataset, and plots its two images for visualizing their 
+    iniitial pose and rotation.
     """
     plt.subplot(121)
-    fig1 = plt.imshow(image1, cmap='gray')
+    fig1 = plt.imshow(datapoint["depth_image1"][:,:,0], cmap='gray')
     plt.title('Stable pose')
     plt.subplot(122)
-    fig2 = plt.imshow(image2, cmap='gray')
+    fig2 = plt.imshow(datapoint["depth_image2"][:,:,0], cmap='gray')
     fig1.axes.get_xaxis().set_visible(False)
     fig1.axes.get_yaxis().set_visible(False)
     fig2.axes.get_xaxis().set_visible(False)
     fig2.axes.get_yaxis().set_visible(False)
-    plt.title('After Rigid Transformation: ' + transform_string)
+    plt.title('After Rigid Transformation: ' + transform_strs[datapoint["transform_id"]])
     plt.show()
-    print(transform_id)
+    # print(transform_id)
 
 def create_scene():
     """Create scene for taking depth images.
@@ -228,9 +229,6 @@ if __name__ == "__main__":
                         scene.set_pose(object_node, pose=new_pose)
                         image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
-                        if config['debug']:
-                            Plot_Rotated_Images(image1, image2, transform_id, tr_str)
-
                         mse = np.linalg.norm(image1-image2)
                         if mse < 0.75:
                             # if config['debug']:
@@ -246,6 +244,9 @@ if __name__ == "__main__":
                         datapoint["transform_id"] = transform_id
                         datapoint["obj_id"] = obj_id
                         obj_datapoints.append(datapoint)
+
+                        if config['debug']:
+                            Plot_Datapoint(datapoint)
 
                     num_second_dp_match = 0
                     for dp1, dp2 in itertools.combinations(obj_datapoints, 2):

@@ -41,32 +41,45 @@ def Generate_Quaternion():
     quat[0], quat[max_i] = quat[max_i], quat[0]
     if quat[0] < 0:
         quat = -1 * quat
-    rotation_object = Rotation.from_quat(quat)
-    return rotation_object.as_dcm()
+    return quat
 
+def Quaternion_String(quat):
+    """Converts a 4 element quaternion to a string for printing
+    """
+    quat = np.round(quat, 3)
+    return str(quat[0]) + " + " + str(quat[1]) + "i + " + str(quat[2]) + "j + " + str(quat[3]) + "k"
+
+def Quaternion_to_Rotation(quaternion, center_of_mass):
+    """Take in an object's center of mass and a quaternion, and
+    return a rotation matrix.
+    """
+    rotation_vector = Rotation.from_quat(quaternion).as_rotvec()
+    angle = np.linalg.norm(rotation_vector)
+    axis = rotation_vector / angle
+    return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
 
 def Generate_Random_Transform(center_of_mass):
     """Create a matrix that will randomly rotate an object about the z-axis by a random angle.
     """
     return RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=center_of_mass, angle=2*np.pi*np.random.random()).matrix
 
-
-def Plot_Rotated_Images(image1, image2, transform_id, transform_string):
-    """Takes the two images we feed into our CNN and plots them for visualizing their rotation
+def Plot_Datapoint(datapoint):
+    """Takes in a datapoint of our Tensor Dataset, and plots its two images for visualizing their 
+    iniitial pose and rotation.
     """
+    plt.figure(figsize=(14,7))
     plt.subplot(121)
-    fig1 = plt.imshow(image1, cmap='gray')
+    fig1 = plt.imshow(datapoint["depth_image1"][:, :, 0], cmap='gray')
     plt.title('Stable pose')
     plt.subplot(122)
-    fig2 = plt.imshow(image2, cmap='gray')
+    fig2 = plt.imshow(datapoint["depth_image2"][:, :, 0], cmap='gray')
     fig1.axes.get_xaxis().set_visible(False)
     fig1.axes.get_yaxis().set_visible(False)
     fig2.axes.get_xaxis().set_visible(False)
     fig2.axes.get_yaxis().set_visible(False)
-    plt.title('After Rigid Transformation: ' + transform_string)
+    plt.title('After Rigid Transformation: ' + Quaternion_String(datapoint["quaternion"]))
     plt.show()
-    print(transform_id)
-
+    # print(transform_id)
 
 def create_scene():
     """Create scene for taking depth images.
@@ -120,7 +133,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
-                                           'cfg/tools/data_gen.yaml')
+                                           'cfg/tools/data_gen_quat.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str, required=True)
     parser.add_argument('--objpred', action='store_true')
@@ -196,32 +209,6 @@ if __name__ == "__main__":
                     print("Stable Pose number:", j)
                     ctr_of_mass = pose_matrix[0:3, 3]
 
-                    # set up the transformations of which one is chosen at random per stable pose
-                    if name_gen_dataset.startswith('xyz-axis'):
-                        transforms = [
-                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=0),
-                            RigidTransform.rotation_from_axis_and_origin(axis=[1, 0, 0], origin=ctr_of_mass, angle=np.pi/2),
-                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 1, 0], origin=ctr_of_mass, angle=np.pi/2),
-                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=np.pi/2)
-                        ]
-                    elif name_gen_dataset.startswith('z-axis-only'):
-                        transforms = [
-                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=0),
-                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=np.pi/2),
-                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=np.pi),
-                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=3*np.pi/2)
-                        ]
-                    elif name_gen_dataset.startswith('quaternion'):
-                        transforms = [
-                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=0),
-                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=np.pi/2),
-                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=np.pi),
-                            RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=ctr_of_mass, angle=3*np.pi/2)
-                        ]
-
-                    else:
-                        assert(False)
-
                     # iterate over all transforms
                     obj_datapoints = []
                     num_too_similar = 0
@@ -234,12 +221,16 @@ if __name__ == "__main__":
                         image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
                         # Render image 2, which will be image 1 rotated according to our specification
-                        new_pose, tr_str = transforms[transform_num].matrix @ rand_transform, transform_strs[transform_num]
+                        random_quat = Generate_Quaternion()
+                        quat_str = Quaternion_String(random_quat)
+                        print("Quaternion: ", quat_str)
+                        print("Rotation Matrix: ", Rotation.from_quat(random_quat).as_dcm())
+                        print("Random Rotation Matrix: ", Generate_Random_Transform(ctr_of_mass))
+                        print("Image 1: ", rand_transform)
+                        new_pose = Quaternion_to_Rotation(random_quat, ctr_of_mass) @ rand_transform
+
                         scene.set_pose(object_node, pose=new_pose)
                         image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-
-                        if config['debug']:
-                            Plot_Rotated_Images(image1, image2, transform_num, tr_str)
 
                         mse = np.linalg.norm(image1-image2)
                         if mse < 0.75:
@@ -253,9 +244,13 @@ if __name__ == "__main__":
                         datapoint = dataset.datapoint_template
                         datapoint["depth_image1"] = np.expand_dims(image1, -1)
                         datapoint["depth_image2"] = np.expand_dims(image2, -1)
-                        datapoint["transform_num"] = transform_num
+                        datapoint["quaternion"] = random_quat
                         datapoint["obj_id"] = obj_id
                         obj_datapoints.append(datapoint)
+
+                        if config['debug']:
+                            Plot_Datapoint(datapoint)
+
 
                     num_second_dp_match = 0
                     for dp1, dp2 in itertools.combinations(obj_datapoints, 2):
@@ -266,13 +261,7 @@ if __name__ == "__main__":
                         print("ADDING STABLE POSE")
                         for dp in obj_datapoints:
                             if config['debug']:
-                                plt.subplot(121)
-                                plt.imshow(dp["depth_image1"][:, :, 0], cmap='gray')
-                                plt.title('Stable pose')
-                                plt.subplot(122)
-                                plt.imshow(dp["depth_image2"][:, :, 0], cmap='gray')
-                                plt.title('After Rigid Transformation: ' + str(dp["transform_id"]))
-                                plt.show()
+                                Plot_Datapoint(dp)
 
                                 data_point_counter += 1
                             dataset.add(dp)
