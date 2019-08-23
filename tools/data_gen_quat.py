@@ -8,7 +8,7 @@ import os
 
 # Use this if you are SSH
 # os.environ["PYOPENGL_PLATFORM"] = 'egl'
-# os.environ["PYOPENGL_PLATFORM"] = 'openmesa'
+# os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
 
 import numpy as np
 import trimesh
@@ -35,7 +35,7 @@ def Generate_Quaternion():
     We also try to limit our rotation space by making the real component 
     have the greatest magnitude.
     """
-    quat = np.random.rand(4)
+    quat = np.random.uniform(-1, 1, 4)
     quat = normalize(quat)
     max_i = np.argmax(np.abs(quat))
     quat[0], quat[max_i] = quat[max_i], quat[0]
@@ -181,12 +181,12 @@ if __name__ == "__main__":
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
-            if obj_id < 10:
+            if obj_id != 4:
                 continue
-            if args.objpred:
-                if obj_id == 10:
-                    dataset.flush()
-                    sys.exit(0)
+            # if args.objpred:
+            #     if obj_id == 10:
+            #         dataset.flush()
+            #         sys.exit(0)
             # log
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
 
@@ -224,9 +224,9 @@ if __name__ == "__main__":
                         random_quat = Generate_Quaternion()
                         quat_str = Quaternion_String(random_quat)
                         print("Quaternion: ", quat_str)
-                        print("Rotation Matrix: ", Rotation.from_quat(random_quat).as_dcm())
-                        print("Random Rotation Matrix: ", Generate_Random_Transform(ctr_of_mass))
-                        print("Image 1: ", rand_transform)
+                        # print("Rotation Matrix: ", Rotation.from_quat(random_quat).as_dcm())
+                        # print("Random Rotation Matrix: ", Generate_Random_Transform(ctr_of_mass))
+                        # print("Image 1: ", rand_transform)
                         new_pose = Quaternion_to_Rotation(random_quat, ctr_of_mass) @ rand_transform
 
                         scene.set_pose(object_node, pose=new_pose)
@@ -270,4 +270,5 @@ if __name__ == "__main__":
 
             # delete the object to make room for the next
             scene.remove_node(object_node)
+    print("Added ", data_point_counter, " datapoints to dataset")
     dataset.flush()

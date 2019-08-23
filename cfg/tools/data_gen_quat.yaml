@@ -1,4 +1,4 @@
-debug: 1
+debug: 0
 num_samples_per_obj: 1 #5
 num_samples_per_obj_objpred: 500
 # dataset params

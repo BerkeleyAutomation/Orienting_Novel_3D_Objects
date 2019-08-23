@@ -10,7 +10,7 @@ class ResNetSiameseNetwork(nn.Module):
         self.resnet = ResNet(BasicBlock, blocks, embed_dim, dropout=False)   # [1,1,1,1]
         self.fc_1 = nn.Linear(embed_dim*2, 1000) # was 200 before (but 50 achieves same result)
         self.fc_2 = nn.Linear(1000, 1000)
-        self.final_fc = nn.Linear(1000, transform_pred_dim)  
+        self.final_fc = nn.Linear(1000, transform_pred_dim)
         self.dropout = nn.Dropout(0.2)
 
     def forward(self, input1, input2):
@@ -19,7 +19,8 @@ class ResNetSiameseNetwork(nn.Module):
         output_concat = torch.cat((output1, output2), 1)
         output = self.dropout(F.relu(self.fc_1(output_concat)))
         output = self.dropout(F.relu(self.fc_2(output)))
-        return self.final_fc(output)
+        output = self.final_fc(output)
+        return F.normalize(output) #Normalize for Quaternion Regression
 
 class LinearEmbeddingClassifier(nn.Module):
     def __init__(self, config, num_classes, dropout=False, init=False):
