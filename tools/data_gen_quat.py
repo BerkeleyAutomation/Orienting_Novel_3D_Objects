@@ -79,7 +79,6 @@ def Plot_Datapoint(datapoint):
     fig2.axes.get_yaxis().set_visible(False)
     plt.title('After Rigid Transformation: ' + Quaternion_String(datapoint["quaternion"]))
     plt.show()
-    # print(transform_id)
 
 def create_scene():
     """Create scene for taking depth images.
@@ -126,9 +125,9 @@ def create_scene():
 
 def parse_args():
     """Parse arguments from the command line.
-    -config to input your own config file.
-    -dataset to input a name for your dataset. For now, should start with xyz-axis
-    --objpred to generate data for pose agnostic object classification.
+    -config to input your own yaml config file. Default is data_gen_quat.yaml
+    -dataset to input a name for your dataset. Should start with quaternion
+    --objpred to use the num_samples_per_obj_objpred option of your config
     """
     parser = argparse.ArgumentParser()
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -181,8 +180,8 @@ if __name__ == "__main__":
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
-            if obj_id != 4:
-                continue
+            # if obj_id != 4:
+            #     continue
             # if args.objpred:
             #     if obj_id == 10:
             #         dataset.flush()
@@ -212,7 +211,7 @@ if __name__ == "__main__":
                     # iterate over all transforms
                     obj_datapoints = []
                     num_too_similar = 0
-                    num_rotations = 4
+                    num_rotations = 4 # Total rotations= this * config rotations
 
                     for transform_num in range(num_rotations):
                         # Render image 1, which will be our original image with a random initial pose
@@ -263,7 +262,7 @@ if __name__ == "__main__":
                             if config['debug']:
                                 Plot_Datapoint(dp)
 
-                                data_point_counter += 1
+                            data_point_counter += 1
                             dataset.add(dp)
                     else:
                         print("Not ADDING STABLE POSE")

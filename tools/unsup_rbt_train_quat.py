@@ -6,7 +6,6 @@ Currently have a pre-trained model for this, which is referenced in semi_sup scr
 import numpy as np
 import argparse
 import os
-import matplotlib.pyplot as plt
 import itertools
 import torch
 import torch.nn as nn
@@ -22,6 +21,18 @@ from unsupervised_rbt import TensorDataset
 from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork
 from perception import DepthImage, RgbdImage
 
+from scipy.spatial.transform import Rotation
+
+from tools.data_gen_quat import Quaternion_String
+
+# class CosineLoss(nn.Module):
+#     def __init__(self):
+#         super(CosineLoss,self).__init__()
+        
+#     def forward(self,x,y):
+#         print("X is: ", x, "Y is: ", y)
+#         return 1 - x.dot(y)
+
 
 def train(dataset, batch_size):
     '''Train model specified in main and return training loss and classification accuracy'''
@@ -31,6 +42,9 @@ def train(dataset, batch_size):
     train_indices = dataset.split('train')[0][:10000]
     N_train = len(train_indices)
     n_train_steps = N_train//batch_size
+    
+    ones = torch.Tensor(np.ones(batch_size)).to(device)
+
     for step in tqdm(range(n_train_steps)):
         batch = dataset.get_item_list(train_indices[step*batch_size: (step+1)*batch_size])
         depth_image1 = (batch["depth_image1"] * 255).astype(int)
@@ -64,7 +78,7 @@ def train(dataset, batch_size):
         # correct += (predicted == transform_batch).sum().item()
         total += transform_batch.size(0)
         # print(transform_batch)
-        loss = loss_func(pred_transform, transform_batch, one)
+        loss = loss_func(pred_transform, transform_batch, ones)
         loss.backward()
         train_loss += loss.item()
         optimizer.step()
@@ -81,8 +95,11 @@ def test(dataset, batch_size):
     test_loss, total = 0, 0
 
     test_indices = dataset.split('train')[1][:1000]
-    N_test = len(test_indices)
-    n_test_steps = N_test // batch_size
+    n_test = len(test_indices)
+    n_test_steps = n_test // batch_size
+
+    ones = torch.Tensor(np.ones(batch_size)).to(device)
+
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
             batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
@@ -100,12 +117,64 @@ def test(dataset, batch_size):
             # correct += (pred_transform == transform_batch).sum().item()
             total += transform_batch.size(0)
 
-            loss = loss_func(pred_transform, transform_batch, one)
+            loss = loss_func(pred_transform, transform_batch, ones)
             test_loss += loss.item()
 
     # class_acc = 100 * correct/total
     return test_loss/n_test_steps
 
+
+def Plot_Loss(config):
+    """Plots the training and validation loss, provided that there is a config file with correct
+    location of data
+    """
+    losses = pickle.load(open(config['losses_f_name'], "rb"))
+    train_returns = np.array(losses["train_loss"])
+    test_returns = np.array(losses["test_loss"])
+
+    plt.figure(figsize=(10, 5))
+    plt.plot(np.arange(len(train_returns)) + 1, train_returns, label="Training Loss")
+    plt.plot(np.arange(len(test_returns)) + 1, test_returns, label="Testing Loss")
+    plt.xlabel("Training Iteration")
+    plt.ylabel("Loss")
+    plt.title("Training Curve")
+    plt.legend(loc='best')
+    plt.savefig(config['loss_plot_f_name'])
+    plt.close()
+
+def Angle_vs_Loss(quaternions, losses):
+    rotation_angles = []
+    for q in quaternions:
+        rot_vec = Rotation.from_quat(q).as_rotvec()
+        rotation_angles.append(np.linalg.norm(rot_vec))
+
+    plt.figure(figsize=(10,5))
+    plt.scatter(rotation_angles, losses)
+    plt.xlabel("Rotation Angle")
+    plt.ylabel("Loss")
+    plt.title("Loss vs Rotation Angle")
+    plt.savefig(config['rotation_predictions_plot'])
+    plt.close()
+
+def Plot_Bad_Predictions(dataset, predicted_quats, indices):
+    """Takes in the dataset, predicted quaternions, and indices of the 
+    worst predictions in the validation set
+    """
+    for i in indices:
+        datapoint = dataset.get_item_list(test_indices[i:i+1])
+        plt.figure(figsize=(14,7))
+        plt.subplot(121)
+        fig1 = plt.imshow(datapoint["depth_image1"][0][:, :, 0], cmap='gray')
+        plt.title('Stable pose')
+        plt.subplot(122)
+        fig2 = plt.imshow(datapoint["depth_image2"][0][:, :, 0], cmap='gray')
+        fig1.axes.get_xaxis().set_visible(False)
+        fig1.axes.get_yaxis().set_visible(False)
+        fig2.axes.get_xaxis().set_visible(False)
+        fig2.axes.get_yaxis().set_visible(False)
+        plt.title('True Quaternion: ' + Quaternion_String(datapoint["quaternion"][0]) + 
+                '\n Predicted Quaternion: ' + Quaternion_String(predicted_quats[i]))
+        plt.show()
 
 def display_conv_layers(model):
     def imshow(img):
@@ -118,6 +187,11 @@ def display_conv_layers(model):
 
 
 def parse_args():
+    """Parse arguments from the command line.
+    -config to input your own yaml config file. Default is unsup_rbt_train_quat.yaml
+    -dataset to input a name for your dataset. Should start with quaternion
+    --test to generate a graph of your train and validation loss
+    """
     parser = argparse.ArgumentParser()
     parser.add_argument('--test', action='store_true')
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -131,19 +205,24 @@ def parse_args():
 
 
 if __name__ == '__main__':
+    """Train on a dataset or generate a graph of the training and validation loss.
+    Current Datasets: 
+        quaternion_elephant: 2000 rotations per stable pose of object 4, an elephant. 6000 datapoints
+        quaternion_800obj_200rot: 200 rotations per stable pose of 800 objects. 435000 datapoints
+
+    """
     args = parse_args()
     config = YamlConfig(args.config)
 
-    if not args.test:
-        dataset = TensorDataset.open(args.dataset)
+    dataset = TensorDataset.open(args.dataset)
 
-        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        model = ResNetSiameseNetwork(config['pred_dim'], n_blocks=1, embed_dim=20).to(device)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = ResNetSiameseNetwork(config['pred_dim'], n_blocks=1, embed_dim=20).to(device)
 #         model = InceptionSiameseNetwork(config['pred_dim']).to(device)
-        loss_func = nn.CosineEmbeddingLoss()
-        one = torch.Tensor(1).to(device)
-        optimizer = optim.Adam(model.parameters())
+    loss_func = nn.CosineEmbeddingLoss()
+    optimizer = optim.Adam(model.parameters())
 
+    if not args.test:
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")
             dataset.make_split("train", train_pct=0.8)
@@ -161,20 +240,46 @@ if __name__ == '__main__':
             torch.save(model.state_dict(), config['model_save_dir'])
 
     else:
-        # model = ResNetSiameseNetwork(config['pred_dim'])
-        # model.load_state_dict(torch.load(config['model_save_dir']))
-        # display_conv_layers(model)
+        model.load_state_dict(torch.load(config['model_save_dir']))
+        display_conv_layers(model)
+        model.eval()
+        test_loss, total = 0, 0
 
-        losses = pickle.load(open(config['losses_f_name'], "rb"))
-        train_returns = np.array(losses["train_loss"])
-        test_returns = np.array(losses["test_loss"])
+        test_indices = dataset.split('train')[1][:1000]
+        n_test = len(test_indices)
+        batch_size = 1
+        ones = torch.Tensor(np.ones(batch_size)).to(device)
+        n_test_steps = n_test // batch_size
 
-        plt.figure(figsize=(10,5))
-        plt.plot(np.arange(len(train_returns)) + 1, train_returns, label="Training Loss")
-        plt.plot(np.arange(len(test_returns)) + 1, test_returns, label="Testing Loss")
-        plt.xlabel("Training Iteration")
-        plt.ylabel("Loss")
-        plt.title("Training Curve")
-        plt.legend(loc='best')
-        plt.savefig(config['loss_plot_f_name'])
-        plt.close()
+        true_quaternions = []
+        pred_quaternions = []
+        losses = []
+        with torch.no_grad():
+            for step in tqdm(range(n_test_steps)):
+                batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
+                depth_image1 = (batch["depth_image1"] * 255).astype(int)
+                depth_image2 = (batch["depth_image2"] * 255).astype(int)
+                im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
+                im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
+                transform_batch = Variable(torch.from_numpy(batch["quaternion"])).to(device)
+                pred_transform = model(im1_batch, im2_batch)
+                # print("True Quaternions:")
+                # print(transform_batch)
+                # print("Predicted Quaternions:")
+                # print(pred_transform)
+                # correct += (pred_transform == transform_batch).sum().item()
+                total += transform_batch.size(0)
+
+                loss = loss_func(pred_transform, transform_batch, ones)
+                true_quaternions.extend(transform_batch.cpu().numpy())
+                pred_quaternions.extend(pred_transform.cpu().numpy())
+
+                losses.append(loss.item())
+                test_loss += loss.item()
+        Angle_vs_Loss(true_quaternions, losses)
+        biggest_losses = np.argsort(losses[-10:-1])
+        Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
+        
+        # Plot_Loss(config)
+
+
