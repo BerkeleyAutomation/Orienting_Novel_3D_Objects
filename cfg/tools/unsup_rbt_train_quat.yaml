@@ -3,5 +3,6 @@ batch_size: 64
 num_epochs: 100
 losses_f_name: results/losses_free_space_axis_pred.p
 loss_plot_f_name: plots/losses_free_space_axis_pred.png
-model_save_dir: models/unsup_rbt.pt
+final_epoch_dir: models/unsup_rbt.pt
+best_epoch_dir: models/unsup_rbt_best.pt
 rotation_predictions_plot: plots/rotation_predictions.png

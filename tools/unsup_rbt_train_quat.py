@@ -142,7 +142,7 @@ def Plot_Loss(config):
     plt.savefig(config['loss_plot_f_name'])
     plt.close()
 
-def Angle_vs_Loss(quaternions, losses):
+def Plot_Angle_vs_Loss(quaternions, losses):
     rotation_angles = []
     for q in quaternions:
         rot_vec = Rotation.from_quat(q).as_rotvec()
@@ -164,10 +164,10 @@ def Plot_Bad_Predictions(dataset, predicted_quats, indices):
         datapoint = dataset.get_item_list(test_indices[i:i+1])
         plt.figure(figsize=(14,7))
         plt.subplot(121)
-        fig1 = plt.imshow(datapoint["depth_image1"][0][:, :, 0], cmap='gray')
+        fig1 = plt.imshow(datapoint["depth_image1"][0][0], cmap='gray')
         plt.title('Stable pose')
         plt.subplot(122)
-        fig2 = plt.imshow(datapoint["depth_image2"][0][:, :, 0], cmap='gray')
+        fig2 = plt.imshow(datapoint["depth_image2"][0][0], cmap='gray')
         fig1.axes.get_xaxis().set_visible(False)
         fig1.axes.get_yaxis().set_visible(False)
         fig2.axes.get_xaxis().set_visible(False)
@@ -228,6 +228,7 @@ if __name__ == '__main__':
             dataset.make_split("train", train_pct=0.8)
 
         train_losses, test_losses = [], []
+        min_loss = 100000
         for epoch in range(config['num_epochs']):
             train_loss = train(dataset, config['batch_size'])
             test_loss = test(dataset, config['batch_size'])
@@ -237,11 +238,14 @@ if __name__ == '__main__':
                   (epoch, train_loss, test_loss))
             pickle.dump({"train_loss": train_losses, "test_loss": test_losses,
                         }, open(config['losses_f_name'], "wb"))
-            torch.save(model.state_dict(), config['model_save_dir'])
+            torch.save(model.state_dict(), config['final_epoch_dir'])
+            if test_loss.item() < min_loss:
+                torch.save(model.state_dict(), config['best_epoch_dir'])
+                min_loss = test_loss.item()
 
     else:
-        model.load_state_dict(torch.load(config['model_save_dir']))
-        display_conv_layers(model)
+        model.load_state_dict(torch.load(config['final_epoch_dir']))
+        # display_conv_layers(model)
         model.eval()
         test_loss, total = 0, 0
 
@@ -276,8 +280,9 @@ if __name__ == '__main__':
 
                 losses.append(loss.item())
                 test_loss += loss.item()
-        Angle_vs_Loss(true_quaternions, losses)
-        biggest_losses = np.argsort(losses[-10:-1])
+        Plot_Angle_vs_Loss(true_quaternions, losses)
+        biggest_losses = np.argsort(losses)[-10:-1]
+        # smellest_losses = np.argsort(losses)[:10]
         Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
         
         # Plot_Loss(config)
