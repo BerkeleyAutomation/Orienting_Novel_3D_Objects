@@ -28,12 +28,34 @@ from termcolor import colored
 def normalize(z):
     return z / np.linalg.norm(z)
 
-
 def Generate_Quaternion():
     """Generate a random quaternion with conditions.
-    To avoid double coverage, we make sure the real component is positive.
-    We also try to limit our rotation space by making the real component 
-    have the greatest magnitude.
+    To avoid double coverage and limit our rotation space, 
+    we make sure the real component is positive and have 
+    the greatest magnitude. We also limit rotations to less
+    than 60 degrees. We sample according to the following links:
+    https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/index.htm
+    http://planning.cs.uiuc.edu/node198.html
+    """
+    quat = np.zeros(4)
+    while np.arccos(np.max(np.abs(quat))) > np.pi / 6:
+      uniforms = np.random.uniform(0, 1, 3)
+      one_minus_u1, u1 = np.sqrt(1- uniforms[0]), np.sqrt(uniforms[0])
+      uniforms_pi = 2*np.pi*uniforms
+      quat = np.array([one_minus_u1*np.sin(uniforms_pi[1]), one_minus_u1*np.cos(uniforms_pi[1]), u1*np.sin(uniforms_pi[2]), u1*np.cos(uniforms_pi[2])])
+
+    max_i = np.argmax(np.abs(quat))
+    quat[3], quat[max_i] = quat[max_i], quat[3]
+    if quat[3] < 0:
+        quat = -1 * quat
+    return quat
+
+
+def Generate_Quaternion_i():
+    """Generate a random quaternion with conditions.
+    To avoid double coverage and limit our rotation space, 
+    we make sure the i component is positive and
+    has the greatest magnitude.
     """
     quat = np.random.uniform(-1, 1, 4)
     quat = normalize(quat)
