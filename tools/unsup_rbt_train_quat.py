@@ -207,8 +207,9 @@ def parse_args():
 if __name__ == '__main__':
     """Train on a dataset or generate a graph of the training and validation loss.
     Current Datasets: 
-        quaternion_elephant: 2000 rotations per stable pose of object 4, an elephant. 6000 datapoints
-        quaternion_800obj_200rot: 200 rotations per stable pose of 800 objects. 435000 datapoints
+        quaternion_elephant: 2000 rotations per stable pose of object 4, an elephant. 8000 datapoints
+        quaternion_800obj_200rot: 100 rotations per stable pose of 872 objects. 800*25*4*stable pose per obj = 175360 datapoints
+        elephant_small_angle: smaller angles. 4000 datapoints
 
     """
     args = parse_args()
@@ -239,9 +240,9 @@ if __name__ == '__main__':
             pickle.dump({"train_loss": train_losses, "test_loss": test_losses,
                         }, open(config['losses_f_name'], "wb"))
             torch.save(model.state_dict(), config['final_epoch_dir'])
-            if test_loss.item() < min_loss:
+            if test_loss < min_loss:
                 torch.save(model.state_dict(), config['best_epoch_dir'])
-                min_loss = test_loss.item()
+                min_loss = test_loss
 
     else:
         model.load_state_dict(torch.load(config['final_epoch_dir']))
@@ -282,9 +283,9 @@ if __name__ == '__main__':
                 test_loss += loss.item()
         Plot_Angle_vs_Loss(true_quaternions, losses)
         biggest_losses = np.argsort(losses)[-10:-1]
-        # smellest_losses = np.argsort(losses)[:10]
-        Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
+        # smallest_losses = np.argsort(losses)[:10]
+        # Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
         
-        # Plot_Loss(config)
+        Plot_Loss(config)
 
 

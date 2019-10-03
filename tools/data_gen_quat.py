@@ -38,9 +38,9 @@ def Generate_Quaternion():
     http://planning.cs.uiuc.edu/node198.html
     """
     quat = np.zeros(4)
-    while np.arccos(np.max(np.abs(quat))) > np.pi / 6:
+    while np.max(np.abs(quat)) < 0.866:
       uniforms = np.random.uniform(0, 1, 3)
-      one_minus_u1, u1 = np.sqrt(1- uniforms[0]), np.sqrt(uniforms[0])
+      one_minus_u1, u1 = np.sqrt(1 - uniforms[0]), np.sqrt(uniforms[0])
       uniforms_pi = 2*np.pi*uniforms
       quat = np.array([one_minus_u1*np.sin(uniforms_pi[1]), one_minus_u1*np.cos(uniforms_pi[1]), u1*np.sin(uniforms_pi[2]), u1*np.cos(uniforms_pi[2])])
 
@@ -69,7 +69,7 @@ def Quaternion_String(quat):
     """Converts a 4 element quaternion to a string for printing
     """
     quat = np.round(quat, 3)
-    return str(quat[0]) + " + " + str(quat[1]) + "i + " + str(quat[2]) + "j + " + str(quat[3]) + "k"
+    return str(quat[3]) + " + " + str(quat[0]) + "i + " + str(quat[1]) + "j + " + str(quat[2]) + "k"
 
 def Quaternion_to_Rotation(quaternion, center_of_mass):
     """Take in an object's center of mass and a quaternion, and
@@ -101,6 +101,13 @@ def Plot_Datapoint(datapoint):
     fig2.axes.get_yaxis().set_visible(False)
     plt.title('After Rigid Transformation: ' + Quaternion_String(datapoint["quaternion"]))
     plt.show()
+
+    def addNoise(image):
+        """Adds noise to image array.
+        """
+        noise = np.random.normal(0, 1, image.shape)
+        return image + noise
+
 
 def create_scene():
     """Create scene for taking depth images.
@@ -170,13 +177,6 @@ if __name__ == "__main__":
     if config['debug']:
         name_gen_dataset += "_junk"
 
-    if name_gen_dataset.startswith('z-axis-only'):
-        transform_strs = ["0 Z", "90 Z", "180 Z", "270 Z"]
-    elif name_gen_dataset.startswith('xyz-axis'):
-        transform_strs = ["0 Z", "90 X", "90 Y", "90 Z"]
-    else:
-        assert(False, "Dataset does not have correct labels")
-
     # dataset configuration
     tensor_config = config['dataset']['tensors']
     dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/" + name_gen_dataset + "/", tensor_config)
@@ -202,8 +202,8 @@ if __name__ == "__main__":
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
-            # if obj_id != 4:
-            #     continue
+            if obj_id != 4:
+                continue
             # if args.objpred:
             #     if obj_id == 10:
             #         dataset.flush()
@@ -227,7 +227,7 @@ if __name__ == "__main__":
             for _ in range(num_samples_per_obj):
                 # iterate over all stable poses of the object
                 for j, pose_matrix in enumerate(stable_poses):
-                    print("Stable Pose number:", j)
+                    # print("Stable Pose number:", j)
                     ctr_of_mass = pose_matrix[0:3, 3]
 
                     # iterate over all transforms
@@ -244,7 +244,7 @@ if __name__ == "__main__":
                         # Render image 2, which will be image 1 rotated according to our specification
                         random_quat = Generate_Quaternion()
                         quat_str = Quaternion_String(random_quat)
-                        print("Quaternion: ", quat_str)
+                        # print("Quaternion: ", quat_str)
                         # print("Rotation Matrix: ", Rotation.from_quat(random_quat).as_dcm())
                         # print("Random Rotation Matrix: ", Generate_Random_Transform(ctr_of_mass))
                         # print("Image 1: ", rand_transform)
@@ -254,13 +254,16 @@ if __name__ == "__main__":
                         image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
                         mse = np.linalg.norm(image1-image2)
-                        if mse < 0.75:
+                        # if mse < 0.75:
+                        if mse < 0.6:
                             # if config['debug']:
-                            print("Too similar MSE:", mse)
+                            # print("Too similar MSE:", mse)
+                            # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
                             num_too_similar += 1
-                        else:
-                            # if config['debug']:
-                            print("MSE okay:", mse)
+                        # else:
+                        #     if config['debug']:
+                        #     print("MSE okay:", mse)
+                        image1, image2 = addNoise(image1), addNoise(image2)
 
                         datapoint = dataset.datapoint_template
                         datapoint["depth_image1"] = np.expand_dims(image1, -1)
@@ -274,21 +277,21 @@ if __name__ == "__main__":
 
 
                     num_second_dp_match = 0
-                    for dp1, dp2 in itertools.combinations(obj_datapoints, 2):
-                        if np.linalg.norm(dp1['depth_image2'] - dp2['depth_image2']) < 0.75:
-                            num_second_dp_match += 1
+                    # for dp1, dp2 in itertools.combinations(obj_datapoints, 2):
+                    #     if np.linalg.norm(dp1['depth_image2'] - dp2['depth_image2']) < 0.75:
+                    #         num_second_dp_match += 1
 
                     if num_too_similar < 2 or num_second_dp_match < 3 or True:
-                        print("ADDING STABLE POSE")
+                        print("ADDING STABLE POSE ", j)
                         for dp in obj_datapoints:
                             if config['debug']:
                                 Plot_Datapoint(dp)
 
                             data_point_counter += 1
                             dataset.add(dp)
-                    else:
-                        print("Not ADDING STABLE POSE")
-
+                    # else:
+                    #     print("Not ADDING STABLE POSE")
+            print("Added object ", obj_id, " and overall datapoints are: ", data_point_counter)
             # delete the object to make room for the next
             scene.remove_node(object_node)
     print("Added ", data_point_counter, " datapoints to dataset")
