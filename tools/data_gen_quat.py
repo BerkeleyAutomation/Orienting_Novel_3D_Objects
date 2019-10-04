@@ -15,7 +15,7 @@ import trimesh
 import itertools
 import sys
 import argparse
-
+import pyrender
 from pyrender import (Scene, IntrinsicsCamera, Mesh,
                       Viewer, OffscreenRenderer, RenderFlags, Node)
 from sd_maskrcnn.envs import CameraStateSpace
@@ -102,17 +102,17 @@ def Plot_Datapoint(datapoint):
     plt.title('After Rigid Transformation: ' + Quaternion_String(datapoint["quaternion"]))
     plt.show()
 
-    def addNoise(image):
-        """Adds noise to image array.
-        """
-        noise = np.random.normal(0, 1, image.shape)
-        return image + noise
+def addNoise(image):
+    """Adds noise to image array.
+    """
+    noise = np.random.normal(0, 0.002, image.shape)
+    return image + noise
 
 
 def create_scene():
     """Create scene for taking depth images.
     """
-    scene = Scene()
+    scene = Scene(ambient_light=[0.02, 0.02, 0.02], bg_color=[1.0, 1.0, 1.0])
     renderer = OffscreenRenderer(viewport_width=1, viewport_height=1)
 
     # initialize camera and renderer
@@ -216,6 +216,7 @@ if __name__ == "__main__":
             obj_mesh = Mesh.from_trimesh(mesh)
             object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
             scene.add_node(object_node)
+            # scene.add(pyrender.PointLight(color=[1.0, 1.0, 1.0], intensity=2.0), pose=np.eye(4)) # for rgb? 
 
             # calculate stable poses
             stable_poses, _ = mesh.compute_stable_poses(
@@ -233,47 +234,50 @@ if __name__ == "__main__":
                     # iterate over all transforms
                     obj_datapoints = []
                     num_too_similar = 0
-                    num_rotations = 4 # Total rotations= this * config rotations
 
-                    for transform_num in range(num_rotations):
-                        # Render image 1, which will be our original image with a random initial pose
-                        rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
-                        scene.set_pose(object_node, pose=rand_transform)
-                        image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                    # Render image 1, which will be our original image with a random initial pose
+                    rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
+                    scene.set_pose(object_node, pose=rand_transform)
+                    image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                    # image1, depth = renderer.render(scene, RenderFlags.RGBA | RenderFlags.SHADOWS_DIRECTIONAL)
 
-                        # Render image 2, which will be image 1 rotated according to our specification
-                        random_quat = Generate_Quaternion()
-                        quat_str = Quaternion_String(random_quat)
-                        # print("Quaternion: ", quat_str)
-                        # print("Rotation Matrix: ", Rotation.from_quat(random_quat).as_dcm())
-                        # print("Random Rotation Matrix: ", Generate_Random_Transform(ctr_of_mass))
-                        # print("Image 1: ", rand_transform)
-                        new_pose = Quaternion_to_Rotation(random_quat, ctr_of_mass) @ rand_transform
+                    # Render image 2, which will be image 1 rotated according to our specification
+                    random_quat = Generate_Quaternion()
+                    quat_str = Quaternion_String(random_quat)
+                    # print("Quaternion: ", quat_str)
+                    # print("Rotation Matrix: ", Rotation.from_quat(random_quat).as_dcm())
+                    # print("Random Rotation Matrix: ", Generate_Random_Transform(ctr_of_mass))
+                    # print("Image 1: ", rand_transform)
+                    new_pose = Quaternion_to_Rotation(random_quat, ctr_of_mass) @ rand_transform
 
-                        scene.set_pose(object_node, pose=new_pose)
-                        image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                    scene.set_pose(object_node, pose=new_pose)
+                    image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                    # image2, depth = renderer.render(scene, RenderFlags.RGBA | RenderFlags.SHADOWS_DIRECTIONAL)
+                    # print(image1[:,:,0].shape)
+                    # image1 = image1[:,:,0]*0.3 + image1[:,:,1]*0.59 * image1[:,:,2]*0.11
+                    # image2 = image2[:,:,0]*0.3 + image2[:,:,1]*0.59 * image2[:,:,2]*0.11
 
-                        mse = np.linalg.norm(image1-image2)
-                        # if mse < 0.75:
-                        if mse < 0.6:
-                            # if config['debug']:
-                            # print("Too similar MSE:", mse)
-                            # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
-                            num_too_similar += 1
-                        # else:
-                        #     if config['debug']:
-                        #     print("MSE okay:", mse)
-                        image1, image2 = addNoise(image1), addNoise(image2)
+                    mse = np.linalg.norm(image1 - image2)
+                    # if mse < 0.75:
+                    if mse < 0.6:
+                        # if config['debug']:
+                        # print("Too similar MSE:", mse)
+                        # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
+                        num_too_similar += 1
+                    # else:
+                    #     if config['debug']:
+                    #     print("MSE okay:", mse)
+                    image1, image2 = addNoise(image1), addNoise(image2)
 
-                        datapoint = dataset.datapoint_template
-                        datapoint["depth_image1"] = np.expand_dims(image1, -1)
-                        datapoint["depth_image2"] = np.expand_dims(image2, -1)
-                        datapoint["quaternion"] = random_quat
-                        datapoint["obj_id"] = obj_id
-                        obj_datapoints.append(datapoint)
+                    datapoint = dataset.datapoint_template
+                    datapoint["depth_image1"] = np.expand_dims(image1, -1)
+                    datapoint["depth_image2"] = np.expand_dims(image2, -1)
+                    datapoint["quaternion"] = random_quat
+                    datapoint["obj_id"] = obj_id
+                    obj_datapoints.append(datapoint)
 
-                        if config['debug']:
-                            Plot_Datapoint(datapoint)
+                    if config['debug']:
+                        Plot_Datapoint(datapoint)
 
 
                     num_second_dp_match = 0

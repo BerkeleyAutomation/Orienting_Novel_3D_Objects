@@ -1,6 +1,6 @@
-debug: 0
-num_samples_per_obj: 1 #5
-num_samples_per_obj_objpred: 500
+debug: 1
+num_samples_per_obj: 20
+num_samples_per_obj_objpred: 2000
 # dataset params
 dataset:
   tensors:

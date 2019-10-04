@@ -152,6 +152,7 @@ def Plot_Angle_vs_Loss(quaternions, losses):
     plt.scatter(rotation_angles, losses)
     plt.xlabel("Rotation Angle")
     plt.ylabel("Loss")
+    plt.ylim(0, 0.02)
     plt.title("Loss vs Rotation Angle")
     plt.savefig(config['rotation_predictions_plot'])
     plt.close()
@@ -210,6 +211,7 @@ if __name__ == '__main__':
         quaternion_elephant: 2000 rotations per stable pose of object 4, an elephant. 8000 datapoints
         quaternion_800obj_200rot: 100 rotations per stable pose of 872 objects. 800*25*4*stable pose per obj = 175360 datapoints
         elephant_small_angle: smaller angles. 4000 datapoints
+        elephant_noise: smaller angles, N(0,0.002) noise. 6000 datapoints
 
     """
     args = parse_args()
