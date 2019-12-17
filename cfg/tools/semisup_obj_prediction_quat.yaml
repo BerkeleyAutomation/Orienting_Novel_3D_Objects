@@ -1,0 +1,10 @@
+pred_dim: 50
+batch_size: 64
+num_epochs: 50
+embed_dim: 1024
+losses_f_name: results/semisup_obj_pred_losses.p
+losses_plot_f_name: plots/semisup_obj_pred_losses.png
+accs_plot_f_name: plots/semisup_obj_pred_accs.png
+unsup_model_path: models/800obj_1024_drop0.6.pt
+model_save_dir: models/embedding_obj_prediction.pt
+unsup_model_save_dir: /nfs/diskstation/projects/unsupervised_rbt/models/ResNet_xyz-axis1_block_20_embed.pkl

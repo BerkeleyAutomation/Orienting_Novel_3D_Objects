@@ -39,10 +39,11 @@ def train(dataset, batch_size):
     model.train()
     train_loss, total = 0, 0
 
-    train_indices = dataset.split('train')[0][:10000]
+    # train_indices = dataset.split('train')[0][:10000]
+    train_indices = dataset.split('train')[0]
     N_train = len(train_indices)
     n_train_steps = N_train//batch_size
-    
+
     ones = torch.Tensor(np.ones(batch_size)).to(device)
 
     for step in tqdm(range(n_train_steps)):
@@ -94,7 +95,8 @@ def test(dataset, batch_size):
     model.eval()
     test_loss, total = 0, 0
 
-    test_indices = dataset.split('train')[1][:1000]
+    # test_indices = dataset.split('train')[1][:1000]
+    test_indices = dataset.split('train')[1]
     n_test = len(test_indices)
     n_test_steps = n_test // batch_size
 
@@ -142,7 +144,7 @@ def Plot_Loss(config):
     plt.savefig(config['loss_plot_f_name'])
     plt.close()
 
-def Plot_Angle_vs_Loss(quaternions, losses):
+def Plot_Angle_vs_Loss(quaternions, losses, name = "20_obj"):
     rotation_angles = []
     for q in quaternions:
         rot_vec = Rotation.from_quat(q).as_rotvec()
@@ -152,8 +154,11 @@ def Plot_Angle_vs_Loss(quaternions, losses):
     plt.scatter(rotation_angles, losses)
     plt.xlabel("Rotation Angle")
     plt.ylabel("Loss")
-    plt.ylim(0, 0.02)
+    plt.ylim(-0.002, np.max(losses)*1.05)
     plt.title("Loss vs Rotation Angle")
+    filename = config['rotation_predictions_plot'][:-4] + name + ".png"
+    print(filename)
+    plt.show()
     plt.savefig(config['rotation_predictions_plot'])
     plt.close()
 
@@ -175,6 +180,7 @@ def Plot_Bad_Predictions(dataset, predicted_quats, indices):
         fig2.axes.get_yaxis().set_visible(False)
         plt.title('True Quaternion: ' + Quaternion_String(datapoint["quaternion"][0]) + 
                 '\n Predicted Quaternion: ' + Quaternion_String(predicted_quats[i]))
+        plt.savefig("plots/worst_preds/worst_pred_" + str(i))
         plt.show()
 
 def display_conv_layers(model):
@@ -195,6 +201,7 @@ def parse_args():
     """
     parser = argparse.ArgumentParser()
     parser.add_argument('--test', action='store_true')
+    parser.add_argument('--worst_pred', action='store_true')
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
                                            'cfg/tools/unsup_rbt_train_quat.yaml')
@@ -210,8 +217,11 @@ if __name__ == '__main__':
     Current Datasets: 
         quaternion_elephant: 2000 rotations per stable pose of object 4, an elephant. 8000 datapoints
         quaternion_800obj_200rot: 100 rotations per stable pose of 872 objects. 800*25*4*stable pose per obj = 175360 datapoints
-        elephant_small_angle: smaller angles. 4000 datapoints
-        elephant_noise: smaller angles, N(0,0.002) noise. 6000 datapoints
+        elephant_small_angle: small angles. 4000 datapoints
+        elephant_noise: small angles, N(0,0.002) noise. 6000 datapoints
+        20_obj_400_rot: small angles, N(0,0.001) noise. 21600 datapoints
+        20obj_1000rot: small angles, no noise, small differences removed (2752). Upto 1000 rotations per OBJECT. 16,242 datapoints
+        800obj_200rot_v2: small angles, no noise, small differences removed (). Upto 200 rotations per OBJECT. ~90,000 datapoints
 
     """
     args = parse_args()
@@ -220,11 +230,11 @@ if __name__ == '__main__':
     dataset = TensorDataset.open(args.dataset)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ResNetSiameseNetwork(config['pred_dim'], n_blocks=1, embed_dim=20).to(device)
+    model = ResNetSiameseNetwork(config['pred_dim'], n_blocks=config['n_blocks'], embed_dim=config['embed_dim']).to(device)
 #         model = InceptionSiameseNetwork(config['pred_dim']).to(device)
     loss_func = nn.CosineEmbeddingLoss()
     optimizer = optim.Adam(model.parameters())
-
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.8)
     if not args.test:
         if not os.path.exists(args.dataset + "/splits/train"):
             print("Created Train Split")
@@ -233,8 +243,10 @@ if __name__ == '__main__':
         train_losses, test_losses = [], []
         min_loss = 100000
         for epoch in range(config['num_epochs']):
+
             train_loss = train(dataset, config['batch_size'])
             test_loss = test(dataset, config['batch_size'])
+            scheduler.step()
             train_losses.append(train_loss)
             test_losses.append(test_loss)
             print("Epoch %d, Train Loss = %f, Test Loss = %f" %
@@ -252,7 +264,8 @@ if __name__ == '__main__':
         model.eval()
         test_loss, total = 0, 0
 
-        test_indices = dataset.split('train')[1][:1000]
+        # test_indices = dataset.split('train')[1][:1000]
+        test_indices = dataset.split('train')[1]
         n_test = len(test_indices)
         batch_size = 1
         ones = torch.Tensor(np.ones(batch_size)).to(device)
@@ -286,7 +299,8 @@ if __name__ == '__main__':
         Plot_Angle_vs_Loss(true_quaternions, losses)
         biggest_losses = np.argsort(losses)[-10:-1]
         # smallest_losses = np.argsort(losses)[:10]
-        # Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
+        if args.worst_pred:
+            Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
         
         Plot_Loss(config)
 

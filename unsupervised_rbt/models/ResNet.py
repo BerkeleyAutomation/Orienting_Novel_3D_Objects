@@ -4,14 +4,17 @@ import torch.nn.functional as F
 
 
 class ResNetSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim, dropout=False, embed_dim=200, n_blocks = 4):
+    def __init__(self, transform_pred_dim, n_blocks = 1, embed_dim=200, dropout=False, norm = True):
         super(ResNetSiameseNetwork, self).__init__()
         blocks = [item for item in [1] for i in range(n_blocks)]
         self.resnet = ResNet(BasicBlock, blocks, embed_dim, dropout=False)   # [1,1,1,1]
         self.fc_1 = nn.Linear(embed_dim*2, 1000) # was 200 before (but 50 achieves same result)
         self.fc_2 = nn.Linear(1000, 1000)
         self.final_fc = nn.Linear(1000, transform_pred_dim)
-        self.dropout = nn.Dropout(0.2)
+        self.dropout = nn.Dropout(0.6)
+        self.norm = norm
+        # self.bn1 = nn.BatchNorm1d(1000)
+        # self.bn2 = nn.BatchNorm1d(1000)
 
     def forward(self, input1, input2):
         output1 = self.resnet(input1)
@@ -20,19 +23,31 @@ class ResNetSiameseNetwork(nn.Module):
         output = self.dropout(F.relu(self.fc_1(output_concat)))
         output = self.dropout(F.relu(self.fc_2(output)))
         output = self.final_fc(output)
-        return F.normalize(output) #Normalize for Quaternion Regression
+        if self.norm:
+            return F.normalize(output) #Normalize for Quaternion Regression
+        else:
+            return output
 
 class LinearEmbeddingClassifier(nn.Module):
-    def __init__(self, config, num_classes, dropout=False, init=False):
+    def __init__(self, config, num_classes, embed_dim=200, dropout=False, init=False):
         super(LinearEmbeddingClassifier, self).__init__()
-        embed_dim = 20
 #         print(init)
-        siamese = ResNetSiameseNetwork(config['pred_dim'], dropout, embed_dim=embed_dim, n_blocks=1)
+        siamese = ResNetSiameseNetwork(config['pred_dim'], n_blocks=1, embed_dim=embed_dim, dropout=dropout, norm=False)
         if init:
             print('------------- Loaded self-supervised model -------------')
-            siamese.load_state_dict(torch.load(config['unsup_model_save_dir']))
+            # siamese.load_state_dict(torch.load(config['unsup_model_save_dir']))
+            new_state_dict = siamese.state_dict()
+            load_params = torch.load(config['unsup_model_path'])
+            load_params_new = load_params.copy()
+            for layer_name in load_params:
+                if not layer_name.startswith(('resnet')):
+                    # print("deleting layer", layer_name)
+                    del load_params_new[layer_name]
+            new_state_dict.update(load_params_new)
+            siamese.load_state_dict(new_state_dict)
+
         self.resnet = siamese.resnet
-        self.fc_1 = nn.Linear(embed_dim, 1000) # was 200 before (but 50 achieves same result)
+        self.fc_1 = nn.Linear(embed_dim, 1000) # was 200 before (but 50 achieves same result for rotation prediction)
         self.fc_2 = nn.Linear(1000, 1000)
         self.final_fc = nn.Linear(1000, num_classes)
         self.dropout = nn.Dropout(0.2)
@@ -45,7 +60,7 @@ class LinearEmbeddingClassifier(nn.Module):
         return self.final_fc(output)
     
 class ResNetObjIdPred(nn.Module):
-    def __init__(self, transform_pred_dim, dropout=False, embed_dim=200, n_blocks = 1):
+    def __init__(self, transform_pred_dim, dropout=False, embed_dim=200, n_blocks = 4):
         super(ResNetObjIdPred, self).__init__()
         blocks = [item for item in [1] for i in range(n_blocks)]
         self.resnet = ResNet(BasicBlock, blocks, embed_dim, dropout=False)   # [1,1,1,1]
@@ -85,7 +100,7 @@ class BasicBlock(nn.Module):
         return out
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_output=10, dropout=False):
+    def __init__(self, block, num_blocks, num_output=200, dropout=False):
         super(ResNet, self).__init__()
         self.in_planes = 64
         self.n_blocks = len(num_blocks)

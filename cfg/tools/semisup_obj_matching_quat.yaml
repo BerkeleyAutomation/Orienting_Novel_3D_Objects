@@ -1,0 +1,13 @@
+pred_dim: 2
+batch_size: 64
+num_epochs: 100
+embed_dim: 1024
+losses_f_name: results/semisup_losses_quat.p
+losses_plot_f_name: plots/semisup_losses_quat.png
+accs_plot_f_name: plots/semisup_accs_quat.png
+model_save_dir: models/semisup_rbt_quat.pt
+unsup_model_path: models/800obj_1024_drop0.6.pt
+# unsup_model_path: /nfs/diskstation/projects/unsupervised_rbt/models/ResNet_xyz-axis1_block_20_embed.pkl
+# /nfs/diskstation/projects/unsupervised_rbt/models/1_ResNet_z-axis-only_best.pkl
+# /nfs/diskstation/projects/unsupervised_rbt/models/4_ResNet_xyz-axis-obj-pred-tilted_2_blocks.pkl
+# /nfs/diskstation/projects/unsupervised_rbt/models/1_ResNet_z-axis-only_best.pkl

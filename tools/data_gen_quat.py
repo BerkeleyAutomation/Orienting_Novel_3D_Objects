@@ -102,10 +102,10 @@ def Plot_Datapoint(datapoint):
     plt.title('After Rigid Transformation: ' + Quaternion_String(datapoint["quaternion"]))
     plt.show()
 
-def addNoise(image):
+def addNoise(image, std=0.001):
     """Adds noise to image array.
     """
-    noise = np.random.normal(0, 0.002, image.shape)
+    noise = np.random.normal(0, std, image.shape)
     return image + noise
 
 
@@ -198,17 +198,23 @@ if __name__ == "__main__":
 
     obj_id = 0
     data_point_counter = 0
+    num_too_similar_75 = 0
+    num_too_similar_6 = 0
+    num_too_similar_5 = 0
+    num_too_similar_4 = 0
+    num_too_similar_3 = 0
 
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
-            if obj_id != 4:
-                continue
+            # if obj_id != 4:
+            #     continue
             # if args.objpred:
-            #     if obj_id == 10:
-            #         dataset.flush()
-            #         sys.exit(0)
-            # log
+            # if obj_id > 20:
+            #     break
+                # dataset.flush()
+                # sys.exit(0)
+            
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
 
             # load object mesh
@@ -224,8 +230,10 @@ if __name__ == "__main__":
                 n_samples=obj_config['stp_num_samples'],
                 threshold=obj_config['stp_min_prob']
             )
+            if len(stable_poses) == 0:
+                continue
 
-            for _ in range(num_samples_per_obj):
+            for _ in range(num_samples_per_obj // len(stable_poses)):
                 # iterate over all stable poses of the object
                 for j, pose_matrix in enumerate(stable_poses):
                     # print("Stable Pose number:", j)
@@ -259,15 +267,25 @@ if __name__ == "__main__":
 
                     mse = np.linalg.norm(image1 - image2)
                     # if mse < 0.75:
-                    if mse < 0.6:
+                    # if mse < 0.6:
                         # if config['debug']:
                         # print("Too similar MSE:", mse)
                         # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
-                        num_too_similar += 1
+                        # num_too_similar += 1
                     # else:
                     #     if config['debug']:
                     #     print("MSE okay:", mse)
-                    image1, image2 = addNoise(image1), addNoise(image2)
+                    if mse < 0.75:
+                        num_too_similar_75 += 1
+                    if mse < 0.6:
+                        num_too_similar_6 += 1
+                    if mse < 0.5:
+                        num_too_similar_5 += 1
+                    if mse < 0.4:
+                        num_too_similar_4 += 1
+                    if mse < 0.3:
+                        num_too_similar_3 += 1
+                    image1, image2 = addNoise(image1, config['noise']), addNoise(image2, config['noise'])
 
                     datapoint = dataset.datapoint_template
                     datapoint["depth_image1"] = np.expand_dims(image1, -1)
@@ -276,8 +294,8 @@ if __name__ == "__main__":
                     datapoint["obj_id"] = obj_id
                     obj_datapoints.append(datapoint)
 
-                    if config['debug']:
-                        Plot_Datapoint(datapoint)
+                    # if config['debug']:
+                    #     Plot_Datapoint(datapoint)
 
 
                     num_second_dp_match = 0
@@ -285,8 +303,9 @@ if __name__ == "__main__":
                     #     if np.linalg.norm(dp1['depth_image2'] - dp2['depth_image2']) < 0.75:
                     #         num_second_dp_match += 1
 
-                    if num_too_similar < 2 or num_second_dp_match < 3 or True:
-                        print("ADDING STABLE POSE ", j)
+                    # if num_too_similar < 2 or num_second_dp_match < 3 or True:
+                    if mse >= 0.75:
+                        # print("ADDING STABLE POSE ", j)
                         for dp in obj_datapoints:
                             if config['debug']:
                                 Plot_Datapoint(dp)
@@ -299,4 +318,6 @@ if __name__ == "__main__":
             # delete the object to make room for the next
             scene.remove_node(object_node)
     print("Added ", data_point_counter, " datapoints to dataset")
+    print("Number of datapoints with difference 0.75,0.6,0.5,0.4,0.3 is", num_too_similar_75, 
+            num_too_similar_6, num_too_similar_5, num_too_similar_4, num_too_similar_3)
     dataset.flush()
