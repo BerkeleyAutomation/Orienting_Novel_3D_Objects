@@ -83,7 +83,8 @@ def Quaternion_to_Rotation(quaternion, center_of_mass):
 def Generate_Random_Transform(center_of_mass):
     """Create a matrix that will randomly rotate an object about the z-axis by a random angle.
     """
-    return RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=center_of_mass, angle=2*np.pi*np.random.random()).matrix
+    z_angle = 2*np.pi*np.random.random()
+    return RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=center_of_mass, angle=z_angle).matrix, z_angle
 
 def Plot_Datapoint(datapoint):
     """Takes in a datapoint of our Tensor Dataset, and plots its two images for visualizing their 
@@ -101,13 +102,14 @@ def Plot_Datapoint(datapoint):
     fig2.axes.get_yaxis().set_visible(False)
     plt.title('After Rigid Transformation: ' + Quaternion_String(datapoint["quaternion"]))
     plt.show()
+    # plt.savefig("pictures/allobj/obj" + str(datapoint['obj_id']) + ".png")
+    # plt.close()
 
 def addNoise(image, std=0.001):
     """Adds noise to image array.
     """
     noise = np.random.normal(0, std, image.shape)
     return image + noise
-
 
 def create_scene():
     """Create scene for taking depth images.
@@ -203,18 +205,24 @@ if __name__ == "__main__":
     num_too_similar_5 = 0
     num_too_similar_4 = 0
     num_too_similar_3 = 0
+    symmetries = [3,3,3,0,0,3,0.5,1.5,1,3,0,1,2,3,1,0,1,3,2,2,3,3,3,3,1,0,0,1.5,2,2,2,3,1,1,3,0,3,1,1,2,0.5,3,
+    0,1.5,1,1,3,1,0,1.5,2.5,1,0,3,3,0,3,3,1.5,2,3,0,3,2,3,1.5,3,1,2,3,3,2,1,3,1,3,0.5,2,1,0.5,1.5,3,2,2,2,2,
+    2,3,2,2,3,0,3,3,3,2,0,1,2,3,3,3,3,0,3,0,3,3,3,2,1.5,3,1,3,3,3,3,3,0,3,0,3,1,0,3,3,2,0,3,3,3,2,1,3,1.5,3,
+    3,0,3,2,2,2,2,2,2,2,2,3,0.5,0,2,3,2,3,3,2,3,2,2,3,2,1.5,3,0.5,3,2,2,1.5,2,3,3,3,3,3,3,2,2,3,2,3,2,2,0.5,
+    2,2,2,3,2,0,3,1.5,0,2,0,0,2,2,2,0,0,1,1.5,2,2,0]
 
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
             # if obj_id != 4:
             #     continue
-            # if args.objpred:
             # if obj_id > 20:
             #     break
                 # dataset.flush()
                 # sys.exit(0)
-            
+            if obj_id > len(symmetries) or symmetries[obj_id-1] != 0:
+                continue
+
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
 
             # load object mesh
@@ -230,21 +238,19 @@ if __name__ == "__main__":
                 n_samples=obj_config['stp_num_samples'],
                 threshold=obj_config['stp_min_prob']
             )
+
             if len(stable_poses) == 0:
+                scene.remove_node(object_node)
                 continue
 
-            for _ in range(num_samples_per_obj // len(stable_poses)):
+            for _ in range(max(num_samples_per_obj // len(stable_poses), 1)):
                 # iterate over all stable poses of the object
                 for j, pose_matrix in enumerate(stable_poses):
                     # print("Stable Pose number:", j)
                     ctr_of_mass = pose_matrix[0:3, 3]
 
-                    # iterate over all transforms
-                    obj_datapoints = []
-                    num_too_similar = 0
-
                     # Render image 1, which will be our original image with a random initial pose
-                    rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
+                    rand_transform, z_angle = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
                     scene.set_pose(object_node, pose=rand_transform)
                     image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
                     # image1, depth = renderer.render(scene, RenderFlags.RGBA | RenderFlags.SHADOWS_DIRECTIONAL)
@@ -292,26 +298,17 @@ if __name__ == "__main__":
                     datapoint["depth_image2"] = np.expand_dims(image2, -1)
                     datapoint["quaternion"] = random_quat
                     datapoint["obj_id"] = obj_id
-                    obj_datapoints.append(datapoint)
-
-                    # if config['debug']:
-                    #     Plot_Datapoint(datapoint)
-
-
-                    num_second_dp_match = 0
-                    # for dp1, dp2 in itertools.combinations(obj_datapoints, 2):
-                    #     if np.linalg.norm(dp1['depth_image2'] - dp2['depth_image2']) < 0.75:
-                    #         num_second_dp_match += 1
+                    datapoint["pose_matrix"] = pose_matrix
+                    datapoint["z_angle"] = z_angle
 
                     # if num_too_similar < 2 or num_second_dp_match < 3 or True:
                     if mse >= 0.75:
                         # print("ADDING STABLE POSE ", j)
-                        for dp in obj_datapoints:
-                            if config['debug']:
-                                Plot_Datapoint(dp)
+                        if config['debug']:
+                            Plot_Datapoint(datapoint)
 
-                            data_point_counter += 1
-                            dataset.add(dp)
+                        data_point_counter += 1
+                        dataset.add(datapoint)
                     # else:
                     #     print("Not ADDING STABLE POSE")
             print("Added object ", obj_id, " and overall datapoints are: ", data_point_counter)

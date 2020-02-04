@@ -158,7 +158,7 @@ def Plot_Angle_vs_Loss(quaternions, losses, name = "20_obj"):
     plt.title("Loss vs Rotation Angle")
     filename = config['rotation_predictions_plot'][:-4] + name + ".png"
     print(filename)
-    plt.show()
+    # plt.show()
     plt.savefig(config['rotation_predictions_plot'])
     plt.close()
 
@@ -180,8 +180,10 @@ def Plot_Bad_Predictions(dataset, predicted_quats, indices):
         fig2.axes.get_yaxis().set_visible(False)
         plt.title('True Quaternion: ' + Quaternion_String(datapoint["quaternion"][0]) + 
                 '\n Predicted Quaternion: ' + Quaternion_String(predicted_quats[i]))
-        plt.savefig("plots/worst_preds/worst_pred_" + str(i))
-        plt.show()
+        plt.savefig("plots/worst_preds/worst_pred_" + str(datapoint['obj_id'][0]) + "_"
+        + str(1- np.dot(predicted_quats[i], datapoint['quaternion'].flatten()))[2:5])
+        # plt.show()
+        plt.close()
 
 def display_conv_layers(model):
     def imshow(img):
@@ -222,6 +224,9 @@ if __name__ == '__main__':
         20_obj_400_rot: small angles, N(0,0.001) noise. 21600 datapoints
         20obj_1000rot: small angles, no noise, small differences removed (2752). Upto 1000 rotations per OBJECT. 16,242 datapoints
         800obj_200rot_v2: small angles, no noise, small differences removed (). Upto 200 rotations per OBJECT. ~90,000 datapoints
+        no_symmetry_30obj_400rot: small angles, no noise, small diffs not removed, 400 per OBJECT, 11986 datapoints
+        nosym_30obj_1000rot: above w 1000 rotations
+        nosym_29obj_1000rot: above w small diffs removed, no more shoe
 
     """
     args = parse_args()
@@ -259,7 +264,8 @@ if __name__ == '__main__':
                 min_loss = test_loss
 
     else:
-        model.load_state_dict(torch.load(config['final_epoch_dir']))
+        # model.load_state_dict(torch.load(config['final_epoch_dir']))
+        model.load_state_dict(torch.load(config['best_epoch_dir']))
         # display_conv_layers(model)
         model.eval()
         test_loss, total = 0, 0
