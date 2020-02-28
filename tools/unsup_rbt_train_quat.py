@@ -23,7 +23,12 @@ from perception import DepthImage, RgbdImage
 
 from scipy.spatial.transform import Rotation
 
-from tools.data_gen_quat import Quaternion_String
+from tools.data_gen_quat import Quaternion_String, create_scene, Quaternion_to_Rotation
+
+import trimesh
+from pyrender import (Scene, IntrinsicsCamera, Mesh,
+                      Viewer, OffscreenRenderer, RenderFlags, Node)
+
 
 # class CosineLoss(nn.Module):
 #     def __init__(self):
@@ -144,7 +149,7 @@ def Plot_Loss(config):
     plt.savefig(config['loss_plot_f_name'])
     plt.close()
 
-def Plot_Angle_vs_Loss(quaternions, losses, name = "20_obj"):
+def Plot_Angle_vs_Loss(quaternions, losses, name = "_29_obj"):
     rotation_angles = []
     for q in quaternions:
         rot_vec = Rotation.from_quat(q).as_rotvec()
@@ -157,7 +162,7 @@ def Plot_Angle_vs_Loss(quaternions, losses, name = "20_obj"):
     plt.ylim(-0.002, np.max(losses)*1.05)
     plt.title("Loss vs Rotation Angle")
     filename = config['rotation_predictions_plot'][:-4] + name + ".png"
-    print(filename)
+    # print(filename)
     # plt.show()
     plt.savefig(config['rotation_predictions_plot'])
     plt.close()
@@ -168,22 +173,58 @@ def Plot_Bad_Predictions(dataset, predicted_quats, indices):
     """
     for i in indices:
         datapoint = dataset.get_item_list(test_indices[i:i+1])
-        plt.figure(figsize=(14,7))
-        plt.subplot(121)
+        predicted_quat = predicted_quats[i]
+        plt.figure(figsize=(16,7))
+        plt.subplot(131)
         fig1 = plt.imshow(datapoint["depth_image1"][0][0], cmap='gray')
         plt.title('Stable pose')
-        plt.subplot(122)
+        plt.subplot(132)
         fig2 = plt.imshow(datapoint["depth_image2"][0][0], cmap='gray')
+        plt.title('True Quat: ' + Quaternion_String(datapoint["quaternion"][0]))
+        plt.subplot(133)
+        fig3 = plt.imshow(Plot_Predicted_Rotation(datapoint, predicted_quat), cmap='gray')
+        plt.title('Pred Quat: ' + Quaternion_String(predicted_quat))
         fig1.axes.get_xaxis().set_visible(False)
         fig1.axes.get_yaxis().set_visible(False)
         fig2.axes.get_xaxis().set_visible(False)
         fig2.axes.get_yaxis().set_visible(False)
-        plt.title('True Quaternion: ' + Quaternion_String(datapoint["quaternion"][0]) + 
-                '\n Predicted Quaternion: ' + Quaternion_String(predicted_quats[i]))
+        fig3.axes.get_xaxis().set_visible(False)
+        fig3.axes.get_yaxis().set_visible(False)
         plt.savefig("plots/worst_preds/worst_pred_" + str(datapoint['obj_id'][0]) + "_"
-        + str(1- np.dot(predicted_quats[i], datapoint['quaternion'].flatten()))[2:5])
+        + str(1- np.dot(predicted_quat, datapoint['quaternion'].flatten()))[2:5])
         # plt.show()
         plt.close()
+
+def Plot_Predicted_Rotation(datapoint, predicted_quat):
+    object_id, pose_matrix = datapoint['obj_id'], datapoint['pose_matrix'][0]
+    config = YamlConfig(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..',
+                                     'cfg/tools/data_gen_quat.yaml'))
+    scene, renderer = create_scene(data_gen=False)
+    dataset_name_list = ['3dnet', 'thingiverse', 'kit']
+    mesh_dir = config['state_space']['heap']['objects']['mesh_dir']
+    mesh_dir_list = [os.path.join(mesh_dir, dataset_name) for dataset_name in dataset_name_list]
+    obj_config = config['state_space']['heap']['objects']
+    mesh_lists = [os.listdir(mesh_dir) for mesh_dir in mesh_dir_list]
+    obj_id = 0
+    for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
+        for mesh_filename in mesh_list:
+            obj_id += 1
+            if obj_id != object_id:
+                continue
+
+            # load object mesh
+            mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
+            obj_mesh = Mesh.from_trimesh(mesh)
+            object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
+            scene.add_node(object_node)
+            # print(pose_matrix)
+            ctr_of_mass = pose_matrix[0:3, 3]
+
+            new_pose = Quaternion_to_Rotation(predicted_quat, ctr_of_mass) @ pose_matrix
+            scene.set_pose(object_node, pose=new_pose)
+            return 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+
+
 
 def display_conv_layers(model):
     def imshow(img):
@@ -217,16 +258,13 @@ def parse_args():
 if __name__ == '__main__':
     """Train on a dataset or generate a graph of the training and validation loss.
     Current Datasets: 
-        quaternion_elephant: 2000 rotations per stable pose of object 4, an elephant. 8000 datapoints
-        quaternion_800obj_200rot: 100 rotations per stable pose of 872 objects. 800*25*4*stable pose per obj = 175360 datapoints
         elephant_small_angle: small angles. 4000 datapoints
         elephant_noise: small angles, N(0,0.002) noise. 6000 datapoints
-        20_obj_400_rot: small angles, N(0,0.001) noise. 21600 datapoints
-        20obj_1000rot: small angles, no noise, small differences removed (2752). Upto 1000 rotations per OBJECT. 16,242 datapoints
         800obj_200rot_v2: small angles, no noise, small differences removed (). Upto 200 rotations per OBJECT. ~90,000 datapoints
         no_symmetry_30obj_400rot: small angles, no noise, small diffs not removed, 400 per OBJECT, 11986 datapoints
         nosym_30obj_1000rot: above w 1000 rotations
-        nosym_29obj_1000rot: above w small diffs removed, no more shoe
+        nosym_29obj_1000rot: above w small diffs 0.75 removed, no more shoe
+        nosym_47obj_1000rot: no noise, 45 degrees w small diffs 0.5 removed. Added pose matrix. Train/Test split diff, has unseen in test
 
     """
     args = parse_args()
@@ -239,11 +277,17 @@ if __name__ == '__main__':
 #         model = InceptionSiameseNetwork(config['pred_dim']).to(device)
     loss_func = nn.CosineEmbeddingLoss()
     optimizer = optim.Adam(model.parameters())
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.8)
+    # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.8)
     if not args.test:
         if not os.path.exists(args.dataset + "/splits/train"):
+            val_indices = []
+            for i in range(dataset.num_datapoints):
+                if dataset.datapoint(i)["obj_id"] >= 231:
+                    val_indices.append(i)
+
             print("Created Train Split")
-            dataset.make_split("train", train_pct=0.8)
+            # dataset.make_split("train", train_pct=0.8)
+            dataset.make_split("train", train_pct=0.8, val_indices= val_indices)
 
         train_losses, test_losses = [], []
         min_loss = 100000
@@ -251,7 +295,7 @@ if __name__ == '__main__':
 
             train_loss = train(dataset, config['batch_size'])
             test_loss = test(dataset, config['batch_size'])
-            scheduler.step()
+            # scheduler.step()
             train_losses.append(train_loss)
             test_losses.append(test_loss)
             print("Epoch %d, Train Loss = %f, Test Loss = %f" %
