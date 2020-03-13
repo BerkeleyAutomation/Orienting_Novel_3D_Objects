@@ -38,20 +38,24 @@ def Generate_Quaternion():
     http://planning.cs.uiuc.edu/node198.html
     """
     quat = np.zeros(4)
-    # while np.max(np.abs(quat)) < 0.866:
-    while np.max(np.abs(quat)) < 0.924: # 45 degrees
-    # while np.max(np.abs(quat)) < 0.966: # 30 degrees
+    # while np.max(np.abs(quat)) < 0.866: # 60 degrees
+    # while np.max(np.abs(quat)) < 0.92388: # 45 degrees
+    while np.max(np.abs(quat)) < 0.96592:  # 30 degrees
       uniforms = np.random.uniform(0, 1, 3)
       one_minus_u1, u1 = np.sqrt(1 - uniforms[0]), np.sqrt(uniforms[0])
       uniforms_pi = 2*np.pi*uniforms
-      quat = np.array([one_minus_u1*np.sin(uniforms_pi[1]), one_minus_u1*np.cos(uniforms_pi[1]), u1*np.sin(uniforms_pi[2]), u1*np.cos(uniforms_pi[2])])
+      quat = np.array(
+          [one_minus_u1 * np.sin(uniforms_pi[1]),
+           one_minus_u1 * np.cos(uniforms_pi[1]),
+           u1 * np.sin(uniforms_pi[2]),
+           u1 * np.cos(uniforms_pi[2])])
 
     max_i = np.argmax(np.abs(quat))
     quat[3], quat[max_i] = quat[max_i], quat[3]
     if quat[3] < 0:
         quat = -1 * quat
+    # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
     return quat
-
 
 def Generate_Quaternion_i():
     """Generate a random quaternion with conditions.
@@ -83,6 +87,15 @@ def Quaternion_to_Rotation(quaternion, center_of_mass):
     return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
 
 def Generate_Random_Transform(center_of_mass):
+    """Create a matrix that will randomly rotate an object about an axis by a random angle between 0 and 45.
+    """
+    angle = 1/4*np.pi*np.random.random()
+    # print(angle * 180 / np.pi)
+    axis = np.random.rand(3)
+    axis = axis / np.linalg.norm(axis)
+    return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
+
+def Generate_Random_Z_Transform(center_of_mass):
     """Create a matrix that will randomly rotate an object about the z-axis by a random angle.
     """
     z_angle = 2*np.pi*np.random.random()
@@ -92,9 +105,9 @@ def Plot_Datapoint(datapoint):
     """Takes in a datapoint of our Tensor Dataset, and plots its two images for visualizing their 
     iniitial pose and rotation.
     """
-    plt.figure(figsize=(14,7))
+    plt.figure(figsize=(14, 7))
     plt.subplot(121)
-    fig1 = plt.imshow(datapoint["depth_image1"][:, :, 0], cmap='gray')
+    fig1 = plt.imshow(datapoint["depth_image1"][:, :, 0], cmap='gray', vmin = 0.7, vmax = 0.8 )
     plt.title('Stable pose')
     plt.subplot(122)
     fig2 = plt.imshow(datapoint["depth_image2"][:, :, 0], cmap='gray')
@@ -113,16 +126,18 @@ def addNoise(image, std=0.001):
     noise = np.random.normal(0, std, image.shape)
     return image + noise
 
-def create_scene(data_gen = True):
+def create_scene(data_gen=True):
     """Create scene for taking depth images.
     """
     scene = Scene(ambient_light=[0.02, 0.02, 0.02], bg_color=[1.0, 1.0, 1.0])
     renderer = OffscreenRenderer(viewport_width=1, viewport_height=1)
     if not data_gen:
-        config = YamlConfig(os.path.join(os.path.dirname(os.path.realpath(__file__)),'..',
-                                         'cfg/tools/data_gen_quat.yaml'))
+        config2 = YamlConfig(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..',
+                                          'cfg/tools/data_gen_quat.yaml'))
+    else:
+        config2 = config
     # initialize camera and renderer
-    cam = CameraStateSpace(config['state_space']['camera']).sample()
+    cam = CameraStateSpace(config2['state_space']['camera']).sample()
 
     # If using older version of sd-maskrcnn
     # camera = PerspectiveCamera(cam.yfov, znear=0.05, zfar=3.0,
@@ -150,6 +165,7 @@ def create_scene(data_gen = True):
             '../data/objects/plane/pose.tf',
         )
     )
+    table_mesh.visual.vertex_colors = [[0 for c in r] for r in table_mesh.visual.vertex_colors]
     table_mesh = Mesh.from_trimesh(table_mesh)
     table_node = Node(mesh=table_mesh, matrix=table_tf.matrix)
     scene.add_node(table_node)
@@ -209,16 +225,30 @@ if __name__ == "__main__":
     num_too_similar_5 = 0
     num_too_similar_4 = 0
     num_too_similar_3 = 0
-    symmetries = [3,3,3,0,0,3,0.5,1.5,1,3,0,1,2,3,1,0,1,3,2,2,3,3,3,3,1,0,0,1.5,2,2,2,3,1,1,3,0,3,1,1,2,0.5,3,0,1.5,1,
-    1,3,1,0,1.5,2.5,1,0,3,3,0,3,3,1.5,2,3,0,3,2,3,1.5,3,1,2,3,3,2,1,3,1,3,0.5,2,1,0.5,1.5,3,2,2,2,2,2,3,2,2,3,0,3,3,3,
-    2,0,1,2,3,3,3,3,0,3,0,3,3,3,2,1.5,3,1,3,3,3,3,3,0,3,0,3,1,0,3,3,2,0,3,3,3,2,1,3,1.5,3,3,0,3,2,2,2,2,2,2,2,2,3,0.5,
-    0,2,3,2,3,3,2,3,2,2,3,2,1.5,3,0.5,3,404,2,1.5,2,3,3,3,3,3,3,2,2,3,2,3,2,2,404,2,2,2,3,2,404,3,1.5,0,2,0,0,2,2,2,0,
-    0,1,1.5,2,2,0,1,2,2,3,3,0,2,0.5,3,3,3,404,3,3,3,3,2,2,3,0.5,404,2,1,1.5,2.5,0,3,1.5,0,0,2.5,3,1.5,666,3,0.5,3,3,0,
-    3,404,3,3,1.5,3,2.5,2,2,3,3,1,2,2,2,999,0.5,3,3,3,3,0,3,0,0.5,2,0.5,0.5,2,2,2.5,3,3,1,2,1,1.5,3,2,2,3,2,1.5,0.5,0.5,
-    1,3,3,0,3,1,1,1,0,3,3,3,3,0,0,3,3,3,2,404,666,3,2,2,2,3,3,3,0,0,2,2,0,2,3,3,3,0,3,3,3,2,0.5,3,3,3,0.5,404,2,3,0.5,3,
-    3,3,0,3,1,3,3,3,3,0,3,404,0.5,3,3,2,3,2,3,3,3,3,3,3,3,3,3,3,3,3,3,3,2.5,2,3,0,2.5,0,2,0.5,0.5,3,3,3,3,3,3]
-    best_obj = [index for index, value in enumerate(symmetries) if value == 0]
-
+    symmetries = [
+        3, 3, 3, 0, 0, 3, 0.5, 1.5, 1, 3, 0, 1, 2, 3, 1, 0, 1, 3, 2, 2, 3, 3, 3, 3, 1, 0, 0, 1.5, 2, 2, 2, 3, 1, 1, 3, 0, 3, 1, 1, 2, 0.5, 3, 0, 1.5,
+        1, 1, 3, 1, 0, 1.5, 2.5, 1, 0, 3, 3, 0, 3, 3, 1.5, 2, 3, 1.5, 3, 2, 3, 1.5, 3, 1, 2, 3, 3, 2, 1, 3, 1, 3, 0.5, 2, 1, 0.5, 1.5, 3, 2, 2, 2, 2,
+        2, 3, 2, 2, 3, 0, 3, 3, 3, 2, 0, 1, 2, 3, 3, 3, 3, 0, 3, 0, 3, 3, 3, 2, 1.5, 3, 1, 3, 3, 3, 3, 3, 0, 3, 0, 3, 1, 0, 3, 3, 2, 0, 3, 3, 3, 2, 1,
+        3, 1.5, 3, 3, 0, 3, 2, 2, 2, 2, 2, 2, 2, 2, 3, 0.5, 0, 2, 3, 2, 3, 3, 2, 3, 2, 2, 3, 2, 1.5, 3, 0.5, 3, 404, 2, 1.5, 2, 3, 3, 3, 3, 3, 3, 2,
+        2, 3, 2, 3, 2, 2, 404, 2, 2, 2, 3, 2, 404, 3, 1.5, 0, 2, 0, 0, 2, 2, 2, 0, 0, 1, 1.5, 2, 2, 0, 1, 2, 2, 3, 3, 0, 2, 0.5, 3, 3, 3, 404, 3, 3,
+        3, 3, 2, 2, 3, 0.5, 404, 2, 1, 1.5, 2.5, 0, 3, 1.5, 0, 0, 2.5, 3, 1.5, 666, 3, 0.5, 3, 3, 0, 3, 404, 3, 3, 1.5, 3, 2.5, 2, 2, 3, 3, 1, 2, 2,
+        2, 999, 0.5, 3, 3, 3, 3, 0, 3, 0, 0.5, 2, 0.5, 0.5, 2, 2, 2.5, 3, 3, 1, 2, 1, 1.5, 3, 2, 2, 3, 2, 1.5, 0.5, 0.5, 1, 3, 3, 0, 3, 1, 1, 1, 2.5,
+        3, 3, 3, 3, 2, 0, 3, 3, 3, 2, 404, 666, 3, 2, 2, 2, 3, 3, 3, 1.5, 0, 2, 2, 2, 2, 3, 3, 3, 0, 3, 3, 3, 2, 0.5, 3, 3, 3, 0.5, 404, 2, 3, 0.5, 3,
+        3, 3, 0, 3, 1, 3, 3, 3, 3, 0, 3, 404, 0.5, 3, 3, 2, 3, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2.5, 2, 3, 0, 2.5, 0, 2, 0.5, 0.5, 3, 3,
+        3, 3, 3, 3, 3, 3, 3, 3, 666, 0, 3, 1, 0, 0.5, 0, 2, 2, 3, 0, 3, 2, 1, 3, 3, 3, 3, 404, 3, 3, 2, 3, 3, 1, 404, 3, 3, 0, 2, 1.5, 2, 404, 3, 2,
+        2, 2, 2, 0, 0, 0, 0, 1, 0, 1.5, 0, 3, 3, 3, 3, 3, 2, 3, 1.5, 0, 1.5, 3, 3, 2, 1, 2, 1.5, 0, 2, 1.5, 2, 0, 3, 3, 0, 1.5, 0, 3, 3, 1.5, 1.5, 3,
+        3, 3, 3, 2, 3, 3, 3, 3, 1.5, 0, 3, 3, 3, 3, 3, 404, 3, 2, 2, 2, 1, 1, 3, 3, 0, 2, 1.5, 1.5, 1.5, 1.5, 2, 3, 3, 666, 404, 3, 3, 3, 0.5, 1.5,
+        1.5, 0, 3, 3, 3, 2, 3, 3, 3, 2, 3, 3, 3, 0, 3, 2, 2, 3, 2, 2, 1, 1.5, 3, 3, 1.5, 1.5, 2, 0, 3, 2, 2, 2, 3, 1, 1.5, 1.5, 1.5, 3, 1.5, 1.5, 3,
+        2, 1.5, 3, 3, 2, 1.5, 3, 3, 3, 404, 3, 0, 3, 2, 3, 3, 3, 2, 2, 404, 3, 2, 3, 3, 3, 2, 2, 1.5, 3, 2, 3, 3, 3, 3, 3, 0, 2, 2, 3, 3, 3, 3, 1, 0,
+        0, 0, 3, 1.5, 3, 1.5, 3, 3, 1.5, 1.5, 3, 2, 1.5, 0.5, 3, 3, 2, 3, 2, 3, 2, 1.5, 0, 1.5, 0, 3, 2, 2, 1, 0, 3, 0, 1.5, 3, 3, 3, 3, 3, 2, 1.5, 3,
+        3, 3, 3, 404, 3, 2, 1.5, 3, 3, 1, 3, 3, 3, 3, 1.5, 3]
+    best_obj = [index +1 for index, value in enumerate(symmetries) if value == 0]
+    best_obj_scores = [327, 423, 490, 555, 438, 421, 496, 553, 113, 566, 272, 310, 150, 304, 462, 346, 556, 243, 4, 530, 427, 228, 313, 592, 639, 244, 359,
+                594, 608, 763, 16, 660, 13, 731, 634, 205, 491, 523, 621, 466, 104, 256, 26, 382, 340, 834, 260, 227, 653, 464, 89, 737, 596, 306,
+                766, 399, 231, 177, 544, 726, 353, 83, 184, 655, 455, 230, 351, 650, 90, 235]
+    # best_obj_scores += [5]
+    dont_include = [555,310,304, 462, 243, 228, 313,592, 359, 763, 13, 634, 491, 621,466, 340, 227,653,464,89,596,306,177,353,83,184,230,650,90]
+    objects_added = {}
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
@@ -226,10 +256,14 @@ if __name__ == "__main__":
             #     continue
             # if obj_id > 20:
             #     break
-                # dataset.flush()
-                # sys.exit(0)
-            if obj_id > len(symmetries) or (obj_id-1) not in best_obj: # or symmetries[obj_id-1] != 0:
+            # dataset.flush()
+            # sys.exit(0)
+            if obj_id > len(symmetries) or obj_id not in best_obj: # or symmetries[obj_id-1] != 0:
                 continue
+            # if (obj_id not in best_obj_scores and obj_id not in best_obj) or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
+            #     continue
+            # if obj_id not in best_obj_scores or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
+            #     continue
 
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
 
@@ -238,7 +272,10 @@ if __name__ == "__main__":
             obj_mesh = Mesh.from_trimesh(mesh)
             object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
             scene.add_node(object_node)
-            # scene.add(pyrender.PointLight(color=[1.0, 1.0, 1.0], intensity=2.0), pose=np.eye(4)) # for rgb? 
+
+            # light_pose = np.eye(4)
+            # light_pose[:,3] = np.array([0.5,0.5,1,1])
+            # scene.add(pyrender.PointLight(color=[1.0, 1.0, 1.0], intensity=2.0), pose=light_pose) # for rgb?
 
             # calculate stable poses
             stable_poses, _ = mesh.compute_stable_poses(
@@ -248,49 +285,60 @@ if __name__ == "__main__":
             )
 
             if len(stable_poses) == 0:
+                print("No Stable Poses")
                 scene.remove_node(object_node)
                 continue
 
             for _ in range(max(num_samples_per_obj // len(stable_poses), 1)):
                 # iterate over all stable poses of the object
                 for j, pose_matrix in enumerate(stable_poses):
-                    # print("Stable Pose number:", j)
                     ctr_of_mass = pose_matrix[0:3, 3]
 
+                    # mesh_cyl = trimesh.load_mesh("/nfs/diskstation/objects/meshes/thingiverse/recorder_shaft_4163665.obj")
+                    
                     # Render image 1, which will be our original image with a random initial pose
+                    # rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
                     rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
                     scene.set_pose(object_node, pose=rand_transform)
-                    image1 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                    # image1, depth = renderer.render(scene, RenderFlags.RGBA | RenderFlags.SHADOWS_DIRECTIONAL)
+                    image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+
+                    # image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
+                    # fig1 = plt.imshow(image1)
+                    # fig1.axes.get_xaxis().set_visible(False)
+                    # fig1.axes.get_yaxis().set_visible(False)
+                    # plt.savefig("pictures/rgb_images/obj" + str(obj_id) + ".png")
+                    # plt.close()
+                    # plt.show()
+                    # plt.imshow(1 - depth_im, cmap = 'gray')
+                    # plt.show()
 
                     # Render image 2, which will be image 1 rotated according to our specification
                     random_quat = Generate_Quaternion()
                     quat_str = Quaternion_String(random_quat)
-                    # print("Quaternion: ", quat_str)
-                    # print("Rotation Matrix: ", Rotation.from_quat(random_quat).as_dcm())
-                    # print("Random Rotation Matrix: ", Generate_Random_Transform(ctr_of_mass))
                     new_pose = Quaternion_to_Rotation(random_quat, ctr_of_mass) @ rand_transform
 
                     scene.set_pose(object_node, pose=new_pose)
-                    image2 = 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                    # print(image1[:,:,0].shape)
+                    image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
                     # image1 = image1[:,:,0]*0.3 + image1[:,:,1]*0.59 * image1[:,:,2]*0.11
                     # image2 = image2[:,:,0]*0.3 + image2[:,:,1]*0.59 * image2[:,:,2]*0.11
 
+                    #Generate cuts
+                    segmask_size = np.sum(image1 <= 1 - 0.200001)
+                    while True:
+                        cut1 = np.random.randint(0,128,2)
+                        cut2 = np.random.randint(0,128,2)
+                        slope = (cut2[1]-cut1[1])/(np.max([cut2[0]-cut1[0], 1e-4]))
+                        xx, yy = np.meshgrid(np.arange(0,128), np.arange(0,128))
+                        image_cut = image1 * ((yy - xx*slope) >= cut1[1] - slope*cut1[0])
+                        if np.sum(np.logical_and(image_cut <= 1 - 0.200001, image_cut > 0)) >= 0.7 * segmask_size:
+                            # print(np.sum(image_cut >= 0.200001), segmask_size)
+                            break
+
                     mse = np.linalg.norm(image1 - image2)
-                    # if mse < 0.75:
-                    # if mse < 0.6:
-                        # if config['debug']:
-                        # print("Too similar MSE:", mse)
-                        # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
-                        # num_too_similar += 1
-                    # else:
-                    #     if config['debug']:
-                    #     print("MSE okay:", mse)
-                    image1, image2 = addNoise(image1, config['noise']), addNoise(image2, config['noise'])
+                    image_cut, image2 = addNoise(image_cut, config['noise']), addNoise(image2, config['noise'])
 
                     datapoint = dataset.datapoint_template
-                    datapoint["depth_image1"] = np.expand_dims(image1, -1)
+                    datapoint["depth_image1"] = np.expand_dims(image_cut, -1)
                     datapoint["depth_image2"] = np.expand_dims(image2, -1)
                     datapoint["quaternion"] = random_quat
                     datapoint["obj_id"] = obj_id
@@ -312,11 +360,17 @@ if __name__ == "__main__":
                             Plot_Datapoint(datapoint)
                         data_point_counter += 1
                         dataset.add(datapoint)
+                        objects_added[obj_id] = 1
 
             print("Added object ", obj_id, " and overall datapoints are: ", data_point_counter)
             # delete the object to make room for the next
             scene.remove_node(object_node)
-    print("Added ", data_point_counter, " datapoints to dataset")
-    print("Number of datapoints with difference 0.75,0.6,0.5,0.4,0.3 is", num_too_similar_75, 
-            num_too_similar_6, num_too_similar_5, num_too_similar_4, num_too_similar_3)
+    objects_added = np.array(list(objects_added.keys()))
+    np.random.shuffle(objects_added)
+    print("Added ", data_point_counter, " datapoints to dataset from ", len(objects_added), "objects")
+    print("Obj ID to split on trainin and validation:")
+    print(objects_added[:len(objects_added)//5])
+    np.savetxt("cfg/tools/train_split", objects_added[:len(objects_added)//5])
+    print("Number of datapoints with difference 0.75,0.6,0.5,0.4,0.3 is", num_too_similar_75,
+          num_too_similar_6, num_too_similar_5, num_too_similar_4, num_too_similar_3)
     dataset.flush()

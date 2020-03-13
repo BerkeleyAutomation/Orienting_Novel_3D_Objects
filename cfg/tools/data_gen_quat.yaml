@@ -1,5 +1,5 @@
 debug: 0
-num_samples_per_obj: 5
+num_samples_per_obj: 2000
 num_samples_per_obj_objpred: 1000
 noise: 0
 
@@ -75,7 +75,8 @@ state_space:
       train_pct: 0.8
       stp_com_sigma: .0025
       stp_num_samples: 10
-      stp_min_prob: .1
+      # stp_num_samples: 10
+      stp_min_prob: .08
       object_keys:
         thingiverse: all
         3dnet: all
@@ -102,12 +103,12 @@ state_space:
 
   camera:
     name: camera
-
+    # Initial Setting 128x128
     im_width: 128
     im_height: 128
 #     old setting don't know why, maybe for transfer learning on dex-net later?
-#     im_width: 512
-#     im_height: 384
+    # im_width: 512
+    # im_height: 384
 
     # intrinsics
     focal_length:

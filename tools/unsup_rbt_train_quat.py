@@ -101,7 +101,7 @@ def test(dataset, batch_size):
     test_loss, total = 0, 0
 
     # test_indices = dataset.split('train')[1][:1000]
-    test_indices = dataset.split('train')[1]
+    test_indices = dataset.split('train')[1][:64*100]
     n_test = len(test_indices)
     n_test_steps = n_test // batch_size
 
@@ -167,7 +167,7 @@ def Plot_Angle_vs_Loss(quaternions, losses, name = "_29_obj"):
     plt.savefig(config['rotation_predictions_plot'])
     plt.close()
 
-def Plot_Bad_Predictions(dataset, predicted_quats, indices):
+def Plot_Bad_Predictions(dataset, predicted_quats, indices, name = "worst"):
     """Takes in the dataset, predicted quaternions, and indices of the 
     worst predictions in the validation set
     """
@@ -176,7 +176,7 @@ def Plot_Bad_Predictions(dataset, predicted_quats, indices):
         predicted_quat = predicted_quats[i]
         plt.figure(figsize=(16,7))
         plt.subplot(131)
-        fig1 = plt.imshow(datapoint["depth_image1"][0][0], cmap='gray')
+        fig1 = plt.imshow(datapoint["depth_image1"][0][0], cmap='gray', vmin=np.min(datapoint["depth_image1"][0][0]))
         plt.title('Stable pose')
         plt.subplot(132)
         fig2 = plt.imshow(datapoint["depth_image2"][0][0], cmap='gray')
@@ -190,8 +190,9 @@ def Plot_Bad_Predictions(dataset, predicted_quats, indices):
         fig2.axes.get_yaxis().set_visible(False)
         fig3.axes.get_xaxis().set_visible(False)
         fig3.axes.get_yaxis().set_visible(False)
-        plt.savefig("plots/worst_preds/worst_pred_" + str(datapoint['obj_id'][0]) + "_"
+        plt.savefig("plots/worst_preds/" + name + "_pred_" + str(datapoint['obj_id'][0]) + "_"
         + str(1- np.dot(predicted_quat, datapoint['quaternion'].flatten()))[2:5])
+        print(1 - np.dot(predicted_quat, datapoint['quaternion'].flatten()))
         # plt.show()
         plt.close()
 
@@ -222,7 +223,7 @@ def Plot_Predicted_Rotation(datapoint, predicted_quat):
 
             new_pose = Quaternion_to_Rotation(predicted_quat, ctr_of_mass) @ pose_matrix
             scene.set_pose(object_node, pose=new_pose)
-            return 1 - renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+            return renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
 
 
@@ -265,7 +266,10 @@ if __name__ == '__main__':
         nosym_30obj_1000rot: above w 1000 rotations
         nosym_29obj_1000rot: above w small diffs 0.75 removed, no more shoe
         nosym_47obj_1000rot: no noise, 45 degrees w small diffs 0.5 removed. Added pose matrix. Train/Test split diff, has unseen in test
-
+        72obj_2000rot: no noise, 30 degrees w small diffs 0.4 removed. Removed some more bad obj. 57 train, 15 test, 137679 points
+        best_scores_2000rot: first attempt at score function
+        72obj_random_rot: mse 0.5, no more z-axis, random 0-45. stable pose threshold down from 0.10 to 0.08, 136,098 points
+        72obj_cuts: 135,440 points, image 1 random cuts
     """
     args = parse_args()
     config = YamlConfig(args.config)
@@ -280,14 +284,17 @@ if __name__ == '__main__':
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.8)
     if not args.test:
         if not os.path.exists(args.dataset + "/splits/train"):
+            obj_id_split = np.loadtxt("cfg/tools/train_split")
             val_indices = []
             for i in range(dataset.num_datapoints):
-                if dataset.datapoint(i)["obj_id"] >= 231:
+                if dataset.datapoint(i)["obj_id"] in obj_id_split:
                     val_indices.append(i)
 
             print("Created Train Split")
             # dataset.make_split("train", train_pct=0.8)
             dataset.make_split("train", train_pct=0.8, val_indices= val_indices)
+        if not os.path.exists(args.dataset + "/splits/train2"):
+            dataset.make_split("train2", train_pct=0.8)
 
         train_losses, test_losses = [], []
         min_loss = 100000
@@ -348,9 +355,10 @@ if __name__ == '__main__':
                 test_loss += loss.item()
         Plot_Angle_vs_Loss(true_quaternions, losses)
         biggest_losses = np.argsort(losses)[-10:-1]
-        # smallest_losses = np.argsort(losses)[:10]
+        smallest_losses = np.argsort(losses)[:10]
         if args.worst_pred:
             Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
+            Plot_Bad_Predictions(dataset, pred_quaternions, smallest_losses, "best")
         
         Plot_Loss(config)
 

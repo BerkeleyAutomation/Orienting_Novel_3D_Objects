@@ -9,7 +9,7 @@ class ResNetSiameseNetwork(nn.Module):
         blocks = [item for item in [1] for i in range(n_blocks)]
         self.resnet = ResNet(BasicBlock, blocks, embed_dim, dropout=False)   # [1,1,1,1]
         self.fc_1 = nn.Linear(embed_dim*2, 1000) # was 200 before (but 50 achieves same result)
-        self.fc_2 = nn.Linear(1000, 1000)
+        self.fc_2 = nn.Linear(1000, 1000) #changed all from 1000
         self.final_fc = nn.Linear(1000, transform_pred_dim)
         self.dropout = nn.Dropout(0.6)
         self.norm = norm
@@ -22,6 +22,8 @@ class ResNetSiameseNetwork(nn.Module):
         output_concat = torch.cat((output1, output2), 1)
         output = self.dropout(F.relu(self.fc_1(output_concat)))
         output = self.dropout(F.relu(self.fc_2(output)))
+        # output = F.relu(self.bn1(self.fc_1(output_concat)))
+        # output = F.relu(self.bn2(self.fc_2(output)))
         output = self.final_fc(output)
         if self.norm:
             return F.normalize(output) #Normalize for Quaternion Regression
