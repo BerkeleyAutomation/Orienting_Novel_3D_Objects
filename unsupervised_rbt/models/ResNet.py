@@ -4,7 +4,7 @@ import torch.nn.functional as F
 
 
 class ResNetSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim, n_blocks = 1, embed_dim=200, dropout=False, norm = True):
+    def __init__(self, transform_pred_dim, n_blocks = 1, embed_dim=512, dropout=False, norm = True):
         super(ResNetSiameseNetwork, self).__init__()
         blocks = [item for item in [1] for i in range(n_blocks)]
         self.resnet = ResNet(BasicBlock, blocks, embed_dim, dropout=False)   # [1,1,1,1]

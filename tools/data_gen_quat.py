@@ -7,7 +7,7 @@ from scipy.spatial.transform import Rotation
 import os
 
 # Use this if you are SSH
-# os.environ["PYOPENGL_PLATFORM"] = 'egl'
+os.environ["PYOPENGL_PLATFORM"] = 'egl'
 # os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
 
 import numpy as np
@@ -29,6 +29,21 @@ def normalize(z):
     return z / np.linalg.norm(z)
 
 def Generate_Quaternion():
+    """Generate a random quaternion with conditions.
+    To avoid double coverage and limit our rotation space, 
+    we make sure the real component is positive and have 
+    the greatest magnitude. Sample axes randomly. Sample degree uniformly
+    """
+    axis = np.random.normal(0, 1, 3)
+    axis = axis / np.linalg.norm(axis) 
+    angle = np.random.uniform(0,np.pi/3)
+    quat = Rotation.from_rotvec(axis * angle).as_quat()
+    if quat[3] < 0:
+        quat = -1 * quat
+    # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
+    return quat
+
+def Generate_Quaternion_SO3():
     """Generate a random quaternion with conditions.
     To avoid double coverage and limit our rotation space, 
     we make sure the real component is positive and have 
@@ -91,7 +106,7 @@ def Generate_Random_Transform(center_of_mass):
     """
     angle = 1/4*np.pi*np.random.random()
     # print(angle * 180 / np.pi)
-    axis = np.random.rand(3)
+    axis = np.random.normal(0,1,3)
     axis = axis / np.linalg.norm(axis)
     return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
 
@@ -107,7 +122,7 @@ def Plot_Datapoint(datapoint):
     """
     plt.figure(figsize=(14, 7))
     plt.subplot(121)
-    fig1 = plt.imshow(datapoint["depth_image1"][:, :, 0], cmap='gray', vmin = 0.7, vmax = 0.8 )
+    fig1 = plt.imshow(datapoint["depth_image1"][:, :, 0], cmap='gray', vmin = 0.7)
     plt.title('Stable pose')
     plt.subplot(122)
     fig2 = plt.imshow(datapoint["depth_image2"][:, :, 0], cmap='gray')
@@ -186,7 +201,6 @@ def parse_args():
                                            'cfg/tools/data_gen_quat.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str, required=True)
-    parser.add_argument('--objpred', action='store_true')
     args = parser.parse_args()
     return args
 
@@ -213,10 +227,7 @@ if __name__ == "__main__":
     print("NUM OBJECTS")
     print([len(a) for a in mesh_lists])
 
-    if args.objpred:
-        num_samples_per_obj = config['num_samples_per_obj_objpred']
-    else:
-        num_samples_per_obj = config['num_samples_per_obj']
+    num_samples_per_obj = config['num_samples_per_obj']
 
     obj_id = 0
     data_point_counter = 0
@@ -249,6 +260,7 @@ if __name__ == "__main__":
     # best_obj_scores += [5]
     dont_include = [555,310,304, 462, 243, 228, 313,592, 359, 763, 13, 634, 491, 621,466, 340, 227,653,464,89,596,306,177,353,83,184,230,650,90]
     objects_added = {}
+    all_points = {}
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
@@ -258,8 +270,8 @@ if __name__ == "__main__":
             #     break
             # dataset.flush()
             # sys.exit(0)
-            if obj_id > len(symmetries) or obj_id not in best_obj: # or symmetries[obj_id-1] != 0:
-                continue
+            # if obj_id > len(symmetries) or obj_id not in best_obj: # or symmetries[obj_id-1] != 0:
+            #     continue
             # if (obj_id not in best_obj_scores and obj_id not in best_obj) or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
             #     continue
             # if obj_id not in best_obj_scores or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
@@ -283,7 +295,9 @@ if __name__ == "__main__":
                 n_samples=obj_config['stp_num_samples'],
                 threshold=obj_config['stp_min_prob']
             )
-
+            points = mesh.vertices
+            print(points.shape)
+            all_points[obj_id] = list(points.T)
             if len(stable_poses) == 0:
                 print("No Stable Poses")
                 scene.remove_node(object_node)
@@ -301,7 +315,7 @@ if __name__ == "__main__":
                     rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
                     scene.set_pose(object_node, pose=rand_transform)
                     image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-
+                    points1 = (rand_transform[:3,:3] @ points.T).T
                     # image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
                     # fig1 = plt.imshow(image1)
                     # fig1.axes.get_xaxis().set_visible(False)
@@ -319,21 +333,28 @@ if __name__ == "__main__":
 
                     scene.set_pose(object_node, pose=new_pose)
                     image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                    points2 = (new_pose[:3,:3] @ points.T).T
                     # image1 = image1[:,:,0]*0.3 + image1[:,:,1]*0.59 * image1[:,:,2]*0.11
                     # image2 = image2[:,:,0]*0.3 + image2[:,:,1]*0.59 * image2[:,:,2]*0.11
 
                     #Generate cuts
                     segmask_size = np.sum(image1 <= 1 - 0.200001)
+                    grip = [0,0]
+                    while image1[grip[0]][grip[1]] > 1-0.200001:
+                        grip = np.random.randint(0,128,2)
                     while True:
-                        cut1 = np.random.randint(0,128,2)
-                        cut2 = np.random.randint(0,128,2)
-                        slope = (cut2[1]-cut1[1])/(np.max([cut2[0]-cut1[0], 1e-4]))
+                        slope = np.random.uniform(-1,1,2)
+                        slope = slope[1]/np.max([slope[0], 1e-8])
                         xx, yy = np.meshgrid(np.arange(0,128), np.arange(0,128))
-                        image_cut = image1 * ((yy - xx*slope) >= cut1[1] - slope*cut1[0])
+                        mask = (np.abs(yy-grip[1] - slope*(xx-grip[0])) <= 4*(np.abs(slope)+1))
+                        image_cut = image1.copy()
+                        image_cut[mask] = np.min(image1) + np.random.uniform(-0.03,0.03)
+                        # print(slope)
+                        # plt.imshow(image_cut, cmap='gray')
+                        # plt.show()
                         if np.sum(np.logical_and(image_cut <= 1 - 0.200001, image_cut > 0)) >= 0.7 * segmask_size:
                             # print(np.sum(image_cut >= 0.200001), segmask_size)
                             break
-
                     mse = np.linalg.norm(image1 - image2)
                     image_cut, image2 = addNoise(image_cut, config['noise']), addNoise(image2, config['noise'])
 
@@ -355,7 +376,7 @@ if __name__ == "__main__":
                         num_too_similar_3 += 1
 
                     # if num_too_similar < 2 or num_second_dp_match < 3 or True:
-                    if mse >= 0.5:
+                    if mse >= 0.5 or True:
                         if config['debug']:
                             Plot_Datapoint(datapoint)
                         data_point_counter += 1
@@ -368,9 +389,12 @@ if __name__ == "__main__":
     objects_added = np.array(list(objects_added.keys()))
     np.random.shuffle(objects_added)
     print("Added ", data_point_counter, " datapoints to dataset from ", len(objects_added), "objects")
-    print("Obj ID to split on trainin and validation:")
+    print("Obj ID to split on training and validation:")
     print(objects_added[:len(objects_added)//5])
-    np.savetxt("cfg/tools/train_split", objects_added[:len(objects_added)//5])
+    if num_samples_per_obj > 5:
+        np.savetxt("cfg/tools/train_split", objects_added[:len(objects_added)//5])
     print("Number of datapoints with difference 0.75,0.6,0.5,0.4,0.3 is", num_too_similar_75,
           num_too_similar_6, num_too_similar_5, num_too_similar_4, num_too_similar_3)
+    print(all_points)
+    pickle.dump(all_points, open("cfg/tools/point_clouds", "wb"))
     dataset.flush()

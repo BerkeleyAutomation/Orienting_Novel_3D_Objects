@@ -46,6 +46,7 @@ def train(dataset, batch_size):
 
     # train_indices = dataset.split('train')[0][:10000]
     train_indices = dataset.split('train')[0]
+    # train_indices = dataset.split('train2')[0]
     N_train = len(train_indices)
     n_train_steps = N_train//batch_size
 
@@ -102,6 +103,7 @@ def test(dataset, batch_size):
 
     # test_indices = dataset.split('train')[1][:1000]
     test_indices = dataset.split('train')[1][:64*100]
+    # test_indices = dataset.split('train2')[1][:64*100]
     n_test = len(test_indices)
     n_test_steps = n_test // batch_size
 
@@ -149,22 +151,49 @@ def Plot_Loss(config):
     plt.savefig(config['loss_plot_f_name'])
     plt.close()
 
-def Plot_Angle_vs_Loss(quaternions, losses, name = "_29_obj"):
-    rotation_angles = []
-    for q in quaternions:
+def Plot_Angle_vs_Loss(quaternions, losses, mean_loss, max_angle = 30):
+    bins = max_angle // 5
+    rotation_angles = [[] for i in range(bins)]
+    for q,l in zip(quaternions, losses):
         rot_vec = Rotation.from_quat(q).as_rotvec()
-        rotation_angles.append(np.linalg.norm(rot_vec))
+        rot_angle = np.linalg.norm(rot_vec) * 180 / np.pi
+        bin_num = np.min((int(rot_angle // 5), bins-1))
+        rotation_angles[bin_num].append(l)
+
+    mean_losses = [np.mean(ra) for ra in rotation_angles]
+    errors = [np.std(ra) for ra in rotation_angles]
+    labels = [str(i) + "-" + str(i+5) for i in range(0,max_angle,5)]
 
     plt.figure(figsize=(10,5))
-    plt.scatter(rotation_angles, losses)
-    plt.xlabel("Rotation Angle")
-    plt.ylabel("Loss")
-    plt.ylim(-0.002, np.max(losses)*1.05)
+    plt.bar(labels, mean_losses, yerr = errors)
+    plt.axhline(mean_loss, c = 'r')
+    plt.xlabel("Rotation Angle (Degrees)")
+    plt.ylabel("Angle Loss (Degrees)")
+    plt.ylim(0.0, (np.max(mean_losses)+np.max(errors))*1.1)
     plt.title("Loss vs Rotation Angle")
-    filename = config['rotation_predictions_plot'][:-4] + name + ".png"
-    # print(filename)
-    # plt.show()
     plt.savefig(config['rotation_predictions_plot'])
+    plt.close()
+
+def Plot_Axis_vs_Loss(quaternions, losses, mean_loss):
+    bins = 9
+    rotation_angles = [[] for i in range(bins)]
+    for q,l in zip(quaternions, losses):
+        rot_vec = Rotation.from_quat(q).as_rotvec()
+        theta_from_z = np.arccos(np.abs(rot_vec[2] / np.linalg.norm(rot_vec))) * 180 / np.pi
+        bin_num = int(theta_from_z // 10)
+        rotation_angles[bin_num].append(l)
+
+    labels = [str(i) + "-" + str(i+10) for i in range(0,90,10)]
+    mean_losses = [np.mean(ra) for ra in rotation_angles]
+    errors = [np.std(ra) for ra in rotation_angles]
+    plt.figure(figsize=(10,5))
+    plt.bar(labels, mean_losses, yerr = errors)
+    plt.axhline(mean_loss, c = 'r')
+    plt.xlabel("Rotation Angle from Z-Axis (Degrees)")
+    plt.ylabel("Angle Loss (Degrees)")
+    plt.ylim(0.0, (np.max(mean_losses)+np.max(errors))*1.1)
+    plt.title("Loss vs Rotation Angle from Z-Axis")
+    plt.savefig("plots/axes_loss.png")
     plt.close()
 
 def Plot_Bad_Predictions(dataset, predicted_quats, indices, name = "worst"):
@@ -174,7 +203,7 @@ def Plot_Bad_Predictions(dataset, predicted_quats, indices, name = "worst"):
     for i in indices:
         datapoint = dataset.get_item_list(test_indices[i:i+1])
         predicted_quat = predicted_quats[i]
-        plt.figure(figsize=(16,7))
+        plt.figure(figsize=(15,5))
         plt.subplot(131)
         fig1 = plt.imshow(datapoint["depth_image1"][0][0], cmap='gray', vmin=np.min(datapoint["depth_image1"][0][0]))
         plt.title('Stable pose')
@@ -270,6 +299,8 @@ if __name__ == '__main__':
         best_scores_2000rot: first attempt at score function
         72obj_random_rot: mse 0.5, no more z-axis, random 0-45. stable pose threshold down from 0.10 to 0.08, 136,098 points
         72obj_cuts: 135,440 points, image 1 random cuts
+        72obj_occ: ~130,000 points, image 1 random rectangles
+        uniform30, uniform45, uniform60: ~143,940 points, occlusions, angles sampled uniformly from 0-30,0-45,0-60
     """
     args = parse_args()
     config = YamlConfig(args.config)
@@ -323,6 +354,7 @@ if __name__ == '__main__':
 
         # test_indices = dataset.split('train')[1][:1000]
         test_indices = dataset.split('train')[1]
+        # test_indices = dataset.split('train2')[1]
         n_test = len(test_indices)
         batch_size = 1
         ones = torch.Tensor(np.ones(batch_size)).to(device)
@@ -347,16 +379,19 @@ if __name__ == '__main__':
                 # correct += (pred_transform == transform_batch).sum().item()
                 total += transform_batch.size(0)
 
-                loss = loss_func(pred_transform, transform_batch, ones)
+                loss = loss_func(pred_transform, transform_batch, ones).item()
                 true_quaternions.extend(transform_batch.cpu().numpy())
                 pred_quaternions.extend(pred_transform.cpu().numpy())
 
-                losses.append(loss.item())
-                test_loss += loss.item()
-        Plot_Angle_vs_Loss(true_quaternions, losses)
-        biggest_losses = np.argsort(losses)[-10:-1]
-        smallest_losses = np.argsort(losses)[:10]
+                angle_loss = np.arccos(1-loss) * 180 / np.pi
+                losses.append(angle_loss)
+                test_loss += angle_loss
+        print("Mean loss is: ", test_loss/total)
+        Plot_Angle_vs_Loss(true_quaternions, losses, test_loss/total)
+        Plot_Axis_vs_Loss(true_quaternions, losses, test_loss/total)
         if args.worst_pred:
+            biggest_losses = np.argsort(losses)[-10:-1]
+            smallest_losses = np.argsort(losses)[:10]
             Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
             Plot_Bad_Predictions(dataset, pred_quaternions, smallest_losses, "best")
         

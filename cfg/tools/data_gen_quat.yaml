@@ -1,6 +1,5 @@
 debug: 0
-num_samples_per_obj: 2000
-num_samples_per_obj_objpred: 1000
+num_samples_per_obj: 1
 noise: 0
 
 # dataset params
