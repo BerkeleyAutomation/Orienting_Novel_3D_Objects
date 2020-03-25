@@ -23,7 +23,7 @@ from sd_maskrcnn.envs import CameraStateSpace
 import matplotlib.pyplot as plt
 import random
 from termcolor import colored
-
+import pickle
 
 def normalize(z):
     return z / np.linalg.norm(z)
@@ -36,7 +36,7 @@ def Generate_Quaternion():
     """
     axis = np.random.normal(0, 1, 3)
     axis = axis / np.linalg.norm(axis) 
-    angle = np.random.uniform(0,np.pi/3)
+    angle = np.random.uniform(0,np.pi/6)
     quat = Rotation.from_rotvec(axis * angle).as_quat()
     if quat[3] < 0:
         quat = -1 * quat
@@ -188,7 +188,6 @@ def create_scene(data_gen=True):
     # scene.add(Mesh.from_trimesh(table_mesh), pose=table_tf.matrix, name='table')
     return scene, renderer
 
-
 def parse_args():
     """Parse arguments from the command line.
     -config to input your own yaml config file. Default is data_gen_quat.yaml
@@ -231,11 +230,7 @@ if __name__ == "__main__":
 
     obj_id = 0
     data_point_counter = 0
-    num_too_similar_75 = 0
-    num_too_similar_6 = 0
-    num_too_similar_5 = 0
-    num_too_similar_4 = 0
-    num_too_similar_3 = 0
+
     symmetries = [
         3, 3, 3, 0, 0, 3, 0.5, 1.5, 1, 3, 0, 1, 2, 3, 1, 0, 1, 3, 2, 2, 3, 3, 3, 3, 1, 0, 0, 1.5, 2, 2, 2, 3, 1, 1, 3, 0, 3, 1, 1, 2, 0.5, 3, 0, 1.5,
         1, 1, 3, 1, 0, 1.5, 2.5, 1, 0, 3, 3, 0, 3, 3, 1.5, 2, 3, 1.5, 3, 2, 3, 1.5, 3, 1, 2, 3, 3, 2, 1, 3, 1, 3, 0.5, 2, 1, 0.5, 1.5, 3, 2, 2, 2, 2,
@@ -260,7 +255,8 @@ if __name__ == "__main__":
     # best_obj_scores += [5]
     dont_include = [555,310,304, 462, 243, 228, 313,592, 359, 763, 13, 634, 491, 621,466, 340, 227,653,464,89,596,306,177,353,83,184,230,650,90]
     objects_added = {}
-    all_points = {}
+    all_points, all_points300, all_scales = {}, {}, {}
+
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
@@ -281,6 +277,10 @@ if __name__ == "__main__":
 
             # load object mesh
             mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
+            points = mesh.vertices
+            if points.shape[1] >= 300:
+                continue
+
             obj_mesh = Mesh.from_trimesh(mesh)
             object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
             scene.add_node(object_node)
@@ -295,9 +295,15 @@ if __name__ == "__main__":
                 n_samples=obj_config['stp_num_samples'],
                 threshold=obj_config['stp_min_prob']
             )
-            points = mesh.vertices
-            print(points.shape)
-            all_points[obj_id] = list(points.T)
+            # points = mesh.vertices
+            # print(points.shape)
+            # all_points[obj_id] = points.T
+            # all_scales[obj_id] = mesh.scale
+            # if points.shape[1] >= 300:
+            #     points_clone = np.copy(points)
+            #     np.random.shuffle(points_clone)
+            #     all_points300[obj_id] = points_clone[:300]
+
             if len(stable_poses) == 0:
                 print("No Stable Poses")
                 scene.remove_node(object_node)
@@ -315,7 +321,7 @@ if __name__ == "__main__":
                     rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
                     scene.set_pose(object_node, pose=rand_transform)
                     image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                    points1 = (rand_transform[:3,:3] @ points.T).T
+                    # points1 = (rand_transform[:3,:3] @ points.T).T
                     # image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
                     # fig1 = plt.imshow(image1)
                     # fig1.axes.get_xaxis().set_visible(False)
@@ -333,7 +339,7 @@ if __name__ == "__main__":
 
                     scene.set_pose(object_node, pose=new_pose)
                     image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                    points2 = (new_pose[:3,:3] @ points.T).T
+                    # points2 = (new_pose[:3,:3] @ points.T).T
                     # image1 = image1[:,:,0]*0.3 + image1[:,:,1]*0.59 * image1[:,:,2]*0.11
                     # image2 = image2[:,:,0]*0.3 + image2[:,:,1]*0.59 * image2[:,:,2]*0.11
 
@@ -364,18 +370,7 @@ if __name__ == "__main__":
                     datapoint["quaternion"] = random_quat
                     datapoint["obj_id"] = obj_id
                     datapoint["pose_matrix"] = rand_transform
-                    if mse < 0.75:
-                        num_too_similar_75 += 1
-                    if mse < 0.6:
-                        num_too_similar_6 += 1
-                    if mse < 0.5:
-                        num_too_similar_5 += 1
-                    if mse < 0.4:
-                        num_too_similar_4 += 1
-                    if mse < 0.3:
-                        num_too_similar_3 += 1
 
-                    # if num_too_similar < 2 or num_second_dp_match < 3 or True:
                     if mse >= 0.5 or True:
                         if config['debug']:
                             Plot_Datapoint(datapoint)
@@ -393,8 +388,8 @@ if __name__ == "__main__":
     print(objects_added[:len(objects_added)//5])
     if num_samples_per_obj > 5:
         np.savetxt("cfg/tools/train_split", objects_added[:len(objects_added)//5])
-    print("Number of datapoints with difference 0.75,0.6,0.5,0.4,0.3 is", num_too_similar_75,
-          num_too_similar_6, num_too_similar_5, num_too_similar_4, num_too_similar_3)
-    print(all_points)
-    pickle.dump(all_points, open("cfg/tools/point_clouds", "wb"))
+    # print(all_points)
+    # pickle.dump(all_points, open("cfg/tools/point_clouds", "wb"))
+    # pickle.dump(all_points300, open("cfg/tools/point_clouds300", "wb"))
+    # pickle.dump(all_scales, open("cfg/tools/scales", "wb"))
     dataset.flush()

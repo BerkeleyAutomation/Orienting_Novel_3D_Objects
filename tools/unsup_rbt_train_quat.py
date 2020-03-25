@@ -19,6 +19,7 @@ from tqdm import tqdm
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
 from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork
+from unsupervised_rbt.losses.shapematch import ShapeMatchLoss
 from perception import DepthImage, RgbdImage
 
 from scipy.spatial.transform import Rotation
@@ -29,108 +30,12 @@ import trimesh
 from pyrender import (Scene, IntrinsicsCamera, Mesh,
                       Viewer, OffscreenRenderer, RenderFlags, Node)
 
-
 # class CosineLoss(nn.Module):
 #     def __init__(self):
 #         super(CosineLoss,self).__init__()
         
 #     def forward(self,x,y):
-#         print("X is: ", x, "Y is: ", y)
 #         return 1 - x.dot(y)
-
-
-def train(dataset, batch_size):
-    '''Train model specified in main and return training loss and classification accuracy'''
-    model.train()
-    train_loss, total = 0, 0
-
-    # train_indices = dataset.split('train')[0][:10000]
-    train_indices = dataset.split('train')[0]
-    # train_indices = dataset.split('train2')[0]
-    N_train = len(train_indices)
-    n_train_steps = N_train//batch_size
-
-    ones = torch.Tensor(np.ones(batch_size)).to(device)
-
-    for step in tqdm(range(n_train_steps)):
-        batch = dataset.get_item_list(train_indices[step*batch_size: (step+1)*batch_size])
-        depth_image1 = (batch["depth_image1"] * 255).astype(int)
-        depth_image2 = (batch["depth_image2"] * 255).astype(int)
-
-        im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
-        im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
-        transform_batch = Variable(torch.from_numpy(batch["quaternion"])).to(device)
-
-#         print(depth_image1.shape)
-#         print(depth_image2.shape)
-
-#         if step > 20:
-#             for i in range(batch_size):
-#                 plt.subplot(121)
-#                 depth_image_show1 = depth_image1[i][0]
-#                 plt.imshow(depth_image_show1, cmap='gray')
-#                 plt.subplot(122)
-#                 depth_image_show2 = depth_image2[i][0]
-#                 plt.imshow(depth_image_show2, cmap='gray')
-#                 plt.title('Transform: {}'.format(transform_batch[i]))
-#                 plt.show()
-
-        optimizer.zero_grad()
-        pred_transform = model(im1_batch, im2_batch)
-#         print("TRANSFORM BATCH")
-#         print(transform_batch)
-        # _, predicted = torch.max(pred_transform, 1)
-#         print("PRED TRANSFORM")
-#         print(predicted)
-        # correct += (predicted == transform_batch).sum().item()
-        total += transform_batch.size(0)
-        # print(transform_batch)
-        loss = loss_func(pred_transform, transform_batch, ones)
-        loss.backward()
-        train_loss += loss.item()
-        optimizer.step()
-
-    # class_acc = 100 * correct/total
-    return train_loss/n_train_steps
-
-
-def test(dataset, batch_size):
-    """
-    Return loss and classification accuracy of the model on the test data
-    """
-    model.eval()
-    test_loss, total = 0, 0
-
-    # test_indices = dataset.split('train')[1][:1000]
-    test_indices = dataset.split('train')[1][:64*100]
-    # test_indices = dataset.split('train2')[1][:64*100]
-    n_test = len(test_indices)
-    n_test_steps = n_test // batch_size
-
-    ones = torch.Tensor(np.ones(batch_size)).to(device)
-
-    with torch.no_grad():
-        for step in tqdm(range(n_test_steps)):
-            batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
-            depth_image1 = (batch["depth_image1"] * 255).astype(int)
-            depth_image2 = (batch["depth_image2"] * 255).astype(int)
-            im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
-            im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
-            transform_batch = Variable(torch.from_numpy(batch["quaternion"])).to(device)
-            pred_transform = model(im1_batch, im2_batch)
-#             print("TRUE TRANSFORMS")
-#             print(transform_batch)
-            # _, predicted = torch.max(pred_transform, 1)
-#             print("PREDICTED TRANSFORMS")
-#             print(predicted)
-            # correct += (pred_transform == transform_batch).sum().item()
-            total += transform_batch.size(0)
-
-            loss = loss_func(pred_transform, transform_batch, ones)
-            test_loss += loss.item()
-
-    # class_acc = 100 * correct/total
-    return test_loss/n_test_steps
 
 
 def Plot_Loss(config):
@@ -151,7 +56,7 @@ def Plot_Loss(config):
     plt.savefig(config['loss_plot_f_name'])
     plt.close()
 
-def Plot_Angle_vs_Loss(quaternions, losses, mean_loss, max_angle = 30):
+def Plot_Angle_vs_Loss(quaternions, losses, mean_loss, max_angle = 60):
     bins = max_angle // 5
     rotation_angles = [[] for i in range(bins)]
     for q,l in zip(quaternions, losses):
@@ -254,8 +159,6 @@ def Plot_Predicted_Rotation(datapoint, predicted_quat):
             scene.set_pose(object_node, pose=new_pose)
             return renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
-
-
 def display_conv_layers(model):
     def imshow(img):
         img = img / 2 + 0.5     # unnormalize
@@ -264,6 +167,121 @@ def display_conv_layers(model):
         plt.show()
     with torch.no_grad():
         imshow(torchvision.utils.make_grid(model.resnet.conv1.weight))
+
+def get_points(obj_id, points_pose):
+    points = point_clouds[obj_id] / scales[obj_id] * 10
+    # print(points.shape)
+    # print(batch["pose_matrix"][0])
+    points = points_pose @ points
+    points = torch.Tensor(points).to(device)
+    points = torch.unsqueeze(points, 0)
+    # print(points[:,:5])
+    return points
+
+def train(dataset, batch_size):
+    '''Train model specified in main and return training loss and classification accuracy'''
+    model.train()
+    train_loss = 0
+
+    # train_indices = dataset.split('train')[0][:10000]
+    train_indices = dataset.split('train')[0][::2]
+    # train_indices = dataset.split('train2')[0][:10000]
+    # np.random.shuffle(train_indices)
+    # print(train_indices)
+    # train_indices = np.random.choice(train_indices,len(train_indices))
+    # print(train_indices)
+
+    N_train = len(train_indices)
+    n_train_steps = N_train//batch_size
+
+    ones = torch.Tensor(np.ones(batch_size)).to(device)
+    optimizer.zero_grad()
+
+    for step in tqdm(range(n_train_steps)):
+        batch = dataset.get_item_list(train_indices[step*batch_size: (step+1)*batch_size])
+        depth_image1 = (batch["depth_image1"] * 255).astype(int)
+        depth_image2 = (batch["depth_image2"] * 255).astype(int)
+        obj_id = batch["obj_id"][0]
+        points_pose = batch["pose_matrix"][0][:3,:3]
+        points = get_points(obj_id, points_pose)
+
+        im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
+        im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
+        transform_batch = Variable(torch.from_numpy(batch["quaternion"])).to(device)
+
+#         print(depth_image1.shape)
+#         print(depth_image2.shape)
+
+#         if step > 20:
+#             for i in range(batch_size):
+#                 plt.subplot(121)
+#                 depth_image_show1 = depth_image1[i][0]
+#                 plt.imshow(depth_image_show1, cmap='gray')
+#                 plt.subplot(122)
+#                 depth_image_show2 = depth_image2[i][0]
+#                 plt.imshow(depth_image_show2, cmap='gray')
+#                 plt.title('Transform: {}'.format(transform_batch[i]))
+#                 plt.show()
+        backward = step % 64 == 63 or step == n_train_steps - 1
+        pred_transform = model(im1_batch, im2_batch)
+
+        # print(transform_batch)
+        # loss = loss_func(pred_transform, transform_batch, ones)
+        # print(points.size())
+        loss = loss_func(pred_transform, transform_batch, points)
+        loss.backward()
+
+        if backward or True:
+            optimizer.step()
+            optimizer.zero_grad()
+        train_loss += loss.item()
+
+    return train_loss/n_train_steps
+
+
+def test(dataset, batch_size):
+    """
+    Return loss and classification accuracy of the model on the test data
+    """
+    model.eval()
+    test_loss, total = 0, 0
+
+    # test_indices = dataset.split('train')[1][:1000]
+    test_indices = dataset.split('train')[1][:64*100]
+    # test_indices = dataset.split('train2')[1][:64*100]
+    n_test = len(test_indices)
+    n_test_steps = n_test // batch_size
+
+    ones = torch.Tensor(np.ones(batch_size)).to(device)
+
+    with torch.no_grad():
+        for step in tqdm(range(n_test_steps)):
+            batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
+            depth_image1 = (batch["depth_image1"] * 255).astype(int)
+            depth_image2 = (batch["depth_image2"] * 255).astype(int)
+
+            obj_id = batch["obj_id"][0]
+            points_pose = batch["pose_matrix"][0][:3,:3]
+            points = get_points(obj_id, points_pose)
+
+            im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
+            im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
+            transform_batch = Variable(torch.from_numpy(batch["quaternion"])).to(device)
+            pred_transform = model(im1_batch, im2_batch)
+#             print("TRUE TRANSFORMS")
+#             print(transform_batch)
+            # _, predicted = torch.max(pred_transform, 1)
+#             print("PREDICTED TRANSFORMS")
+#             print(predicted)
+            # correct += (pred_transform == transform_batch).sum().item()
+            total += transform_batch.size(0)
+
+            # loss = loss_func(pred_transform, transform_batch, ones)
+            loss = loss_func(pred_transform, transform_batch, points)
+            test_loss += loss.item()
+
+    # class_acc = 100 * correct/total
+    return test_loss/n_test_steps
 
 
 def parse_args():
@@ -310,8 +328,12 @@ if __name__ == '__main__':
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     model = ResNetSiameseNetwork(config['pred_dim'], n_blocks=config['n_blocks'], embed_dim=config['embed_dim']).to(device)
 #         model = InceptionSiameseNetwork(config['pred_dim']).to(device)
-    loss_func = nn.CosineEmbeddingLoss()
-    optimizer = optim.Adam(model.parameters())
+    # loss_func = nn.CosineEmbeddingLoss()
+    loss_func = ShapeMatchLoss()
+    point_clouds = pickle.load(open("cfg/tools/point_clouds", "rb"))
+    scales = pickle.load(open("cfg/tools/scales", "rb"))
+    # print(point_clouds[1])
+    optimizer = optim.Adam(model.parameters(), weight_decay=1e-4)
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.8)
     if not args.test:
         if not os.path.exists(args.dataset + "/splits/train"):
@@ -368,6 +390,11 @@ if __name__ == '__main__':
                 batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
                 depth_image1 = (batch["depth_image1"] * 255).astype(int)
                 depth_image2 = (batch["depth_image2"] * 255).astype(int)
+
+                obj_id = batch["obj_id"][0]
+                points_pose = batch["pose_matrix"][0][:3,:3]
+                points = get_points(obj_id, points_pose)
+
                 im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
                 im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
                 transform_batch = Variable(torch.from_numpy(batch["quaternion"])).to(device)
@@ -379,22 +406,38 @@ if __name__ == '__main__':
                 # correct += (pred_transform == transform_batch).sum().item()
                 total += transform_batch.size(0)
 
-                loss = loss_func(pred_transform, transform_batch, ones).item()
+
+                # loss = loss_func(pred_transform, transform_batch, ones).item()
+                # angle_loss = np.arccos(1-loss) * 180 / np.pi
+
+                loss = loss_func(pred_transform, transform_batch, points).item()
+                angle_loss = loss
+
                 true_quaternions.extend(transform_batch.cpu().numpy())
                 pred_quaternions.extend(pred_transform.cpu().numpy())
 
-                angle_loss = np.arccos(1-loss) * 180 / np.pi
                 losses.append(angle_loss)
                 test_loss += angle_loss
         print("Mean loss is: ", test_loss/total)
         Plot_Angle_vs_Loss(true_quaternions, losses, test_loss/total)
         Plot_Axis_vs_Loss(true_quaternions, losses, test_loss/total)
         if args.worst_pred:
-            biggest_losses = np.argsort(losses)[-10:-1]
-            smallest_losses = np.argsort(losses)[:10]
+            biggest_losses = np.argsort(losses)[-5:-1]
+            smallest_losses = np.argsort(losses)[:5]
+            # s = smallest_losses[0]
+            # print(losses[s], true_quaternions[s], pred_quaternions[s])
+
+            # batch = dataset.get_item_list(test_indices[s*1: (s+1)*1])
+            # obj_id = batch["obj_id"][0]
+            # print(obj_id)
+            # print(batch["pose_matrix"][0][:3,:3])
+            # points_pose = batch["pose_matrix"][0][:3,:3]
+            # points = get_points(obj_id, points_pose)
+            # print(points[:,:5])
+
             Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
             Plot_Bad_Predictions(dataset, pred_quaternions, smallest_losses, "best")
-        
+
         Plot_Loss(config)
 
 
