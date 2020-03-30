@@ -36,7 +36,7 @@ class ShapeMatchLoss(torch.nn.Module):
         chamfer_distance = torch.mean(chamfer_distance) # loss
         return chamfer_distance
 
-    def forward(self, predquat, gtquat, points): # points should be of shape (batch x 3 x npoints)
+    def forward(self, predquat, gtquat, points, lambd = 0.08): # points should be of shape (batch x 3 x npoints)
         predrot = kornia.quaternion_to_rotation_matrix(predquat)
         gtrot = kornia.quaternion_to_rotation_matrix(gtquat)
         # print(predrot)
@@ -45,7 +45,11 @@ class ShapeMatchLoss(torch.nn.Module):
         gtpts = torch.matmul(gtrot, points)
         # print(predpts)
         # print(gtpts)
-        return self.PointCloudDistance(torch.transpose(gtpts,1,2), torch.transpose(predpts,1,2))
+        loss = self.PointCloudDistance(torch.transpose(gtpts,1,2), torch.transpose(predpts,1,2))
+        # for q in predquat:
+        #     if q[3] <= 0:
+        #         loss -= q[3] * lambd / predquat.size(0)
+        return loss
 
 if __name__ == "__main__":
     points = [[0,0,1],[0,1,0],[1,0,0],[1,1,0]]

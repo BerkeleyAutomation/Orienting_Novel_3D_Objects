@@ -256,7 +256,7 @@ if __name__ == "__main__":
     dont_include = [555,310,304, 462, 243, 228, 313,592, 359, 763, 13, 634, 491, 621,466, 340, 227,653,464,89,596,306,177,353,83,184,230,650,90]
     objects_added = {}
     all_points, all_points300, all_scales = {}, {}, {}
-
+    scores = np.loadtxt("cfg/tools/final_scores")
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
@@ -274,11 +274,13 @@ if __name__ == "__main__":
             #     continue
 
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
+            if scores[obj_id-1] < 40:
+                continue
 
             # load object mesh
             mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
             points = mesh.vertices
-            if points.shape[1] >= 300:
+            if points.shape[0] < 300:
                 continue
 
             obj_mesh = Mesh.from_trimesh(mesh)
@@ -295,14 +297,14 @@ if __name__ == "__main__":
                 n_samples=obj_config['stp_num_samples'],
                 threshold=obj_config['stp_min_prob']
             )
-            # points = mesh.vertices
+            points = mesh.vertices
             # print(points.shape)
             # all_points[obj_id] = points.T
             # all_scales[obj_id] = mesh.scale
-            # if points.shape[1] >= 300:
+            # if points.shape[0] >= 300:
             #     points_clone = np.copy(points)
             #     np.random.shuffle(points_clone)
-            #     all_points300[obj_id] = points_clone[:300]
+            #     all_points300[obj_id] = points_clone[:300].T
 
             if len(stable_poses) == 0:
                 print("No Stable Poses")

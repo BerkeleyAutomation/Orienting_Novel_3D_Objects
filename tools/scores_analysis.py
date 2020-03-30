@@ -15,7 +15,10 @@ if __name__ == "__main__":
         else:
             scores[k] = - np.inf
     values_rot = np.array([scores[i] for i in range(1, len(scores)+1)])
-    # print(values_rot)
+    indices = np.argsort(values_rot)[::-1] + 1
+    for i in indices[:400]:
+        print(i, values_rot[i-1])
+    print("Charizard is ",values_rot[326])
     # np.sum(values_rot > 0.5)
     # values_rot[489]    
 # np.array(list(scores.values())) >= 150)
@@ -31,13 +34,20 @@ if __name__ == "__main__":
     final_scores = values_feat*values_rot
     # print(final_scores)
     final_scores = np.array([-np.inf if f == np.inf else f for f in final_scores])
-    indices = np.argsort(final_scores)[::-1][:70] + 1
-    print(list(indices))
-    for k in indices:
-        try:
-            print(k, final_scores[k-1])
-            img = plt.imread("pictures/allobj/obj" + str(k) + ".png")
-            plt.imshow(img)
-            plt.show()
-        except:
-            print("Image ", k, " not in objects")
+    indices = np.argsort(final_scores)[::-1] + 1
+    for i in indices[:400]:
+        print(i, final_scores[i-1])
+    print("Charizard is ", final_scores[326])
+    print("Elephant is ", final_scores[3])
+    print("Symmetric object is ", final_scores[282])
+    print("Symmetric object is ", final_scores[18])
+    np.savetxt("cfg/tools/final_scores",final_scores)
+    # print(list(indices))
+    # for k in indices:
+    #     try:
+    #         print(k, final_scores[k-1])
+    #         img = plt.imread("pictures/allobj/obj" + str(k) + ".png")
+    #         plt.imshow(img)
+    #         plt.show()
+    #     except:
+    #         print("Image ", k, " not in objects")

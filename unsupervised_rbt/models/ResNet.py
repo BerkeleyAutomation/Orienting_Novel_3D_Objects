@@ -2,17 +2,26 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class onerelu(nn.Module):
+    def __init__(self):
+        super(onerelu, self).__init__()
+    def forward(self, input):
+        for i in input:
+            i = torch.Tensor
+        return 
+
 
 class ResNetSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim, n_blocks = 1, embed_dim=512, dropout=False, norm = True):
+    def __init__(self, transform_pred_dim, n_blocks = 1, embed_dim=512, dropout=False):
         super(ResNetSiameseNetwork, self).__init__()
         blocks = [item for item in [1] for i in range(n_blocks)]
         self.resnet = ResNet(BasicBlock, blocks, embed_dim, dropout=False)   # [1,1,1,1]
         self.fc_1 = nn.Linear(embed_dim*2, 1000) # was 200 before (but 50 achieves same result)
         self.fc_2 = nn.Linear(1000, 1000) #changed all from 1000
         self.final_fc = nn.Linear(1000, transform_pred_dim)
+        # self.final_fc1 = nn.Linear(1000, transform_pred_dim - 1)
+        # self.final_fc2 = nn.Linear(1000, 1)
         self.dropout = nn.Dropout(0.6)
-        self.norm = norm
         # self.bn1 = nn.BatchNorm1d(1000)
         # self.bn2 = nn.BatchNorm1d(1000)
 
@@ -22,13 +31,17 @@ class ResNetSiameseNetwork(nn.Module):
         output_concat = torch.cat((output1, output2), 1)
         output = self.dropout(F.relu(self.fc_1(output_concat)))
         output = self.dropout(F.relu(self.fc_2(output)))
+        
         # output = F.relu(self.bn1(self.fc_1(output_concat)))
         # output = F.relu(self.bn2(self.fc_2(output)))
+
+        # output1 = self.final_fc1(output)
+        # output2 = self.final_fc2(output)
+        # output2 = F.relu(output2)
+        # output = torch.cat((output1,output2),1)
         output = self.final_fc(output)
-        if self.norm:
-            return F.normalize(output) #Normalize for Quaternion Regression
-        else:
-            return output
+        # print(output)
+        return F.normalize(output) #Normalize for Quaternion Regression
 
 class LinearEmbeddingClassifier(nn.Module):
     def __init__(self, config, num_classes, embed_dim=200, dropout=False, init=False):

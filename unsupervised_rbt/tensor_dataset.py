@@ -799,7 +799,6 @@ class TensorDataset(object):
         if val_indices is not None:
             all_indices = np.arange(self.num_datapoints)
             train_indices = np.setdiff1d(all_indices, val_indices)
-            np.random.shuffle(train_indices)
         elif field_name is None:
             # split on indices
             indices = np.arange(self.num_datapoints)
