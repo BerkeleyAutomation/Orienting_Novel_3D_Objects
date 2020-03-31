@@ -35,6 +35,19 @@ def import_stl(filepath):
         i.select_set(False)
     return parent
 
+def import_obj(filepath):
+    parent = create_empty(filepath)
+    bpy.ops.import_scene.obj(filepath=filepath)
+    for i in bpy.context.selected_objects:
+        if i.type == "MESH":
+            # Set each mesh's parent
+            i.parent = parent
+            i.select_set(False)
+        else:
+            # delete lights, cameras, and any other non-mesh objects
+            bpy.data.objects.remove(i, do_unlink=True)
+    return parent
+
 def import_collada(filepath):
     parent = create_empty(filepath)
     bpy.ops.wm.collada_import(filepath=filepath)
@@ -55,6 +68,8 @@ def import_mesh(filepath):
         mesh = import_collada(filepath)
     elif ".stl" == ext.lower():
         mesh = import_stl(filepath)
+    elif ".obj" == ext.lower():
+        mesh = import_obj(filepath)
     else:
         return None
     bpy.context.view_layer.objects.active = mesh
