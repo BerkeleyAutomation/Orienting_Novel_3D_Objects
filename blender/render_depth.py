@@ -88,8 +88,25 @@ def random_quaternion(rng):
     c2 = cos(u2)
     s3 = sin(u3)
     c3 = cos(u3)
+    q = (i1 * s2, i1 * c2, r1 * s2, r1 * c2)
+    return Quaternion(q)
 
-    return (i1 * s2, i1 * c2, r1 * s2, r1 * c2)
+def random_quaternion_uniform30(rng):
+    "from https://www.mathworks.com/help/robotics/ref/quaternion.rotvec.html"
+    angle = rng.uniform(0,pi/6)
+    while True:
+        x = rng.gauss(0,1)
+        y = rng.gauss(0,1)
+        z = rng.gauss(0,1)
+        if x*x + y*y + z*z <= 1:
+            break
+    norm = (x*x + y*y + z*z) ** 0.5
+    x,y,z = x/norm, y/norm, z/norm
+    # qr = cos(angle/2)
+    # s = sin(angle/2)
+    # qi,qj,qk = x*s, y*s, z*s
+    # q = (qi,qj,qk,qr)
+    return Quaternion((x,y,z),angle)
 
 def setup_depth_rendering(z_near, z_far):
     bpy.context.scene.use_nodes = True
@@ -129,15 +146,21 @@ if "__main__" == __name__:
 
     # ======================================== Options
     # Set these values to specify the depth range of the camera
-    z_near = 0.5
-    z_far = 1.5
+    z_near = 0.83
+    z_far = 1.035
     # Number of frames to generate
-    num_frames = 10
+    num_pairs = 10
     # Input mesh
-    mesh_file = 'hex_vase_3276254.stl'
+    # mesh_file = 'hex_vase_3276254.stl'
+    # mesh_file = 'banana_3dnet/banana_3dnet.obj'
+    mesh_file = 'elephant_1_3dnet/elephant_1_3dnet.obj'
     # Output prefix
-    quaternion_output_file = os.path.join(os.getcwd(), "quaternion_hex_vase.txt")
-    depth_output_prefix = os.path.join(os.getcwd(), "depth_hex_vase_")
+    # quaternion_output_file = os.path.join(os.getcwd(), "quaternion_hex_vase.txt")
+    # depth_output_prefix = os.path.join(os.getcwd(), "depth_hex_vase_")
+    # quaternion_output_file = os.path.join(os.getcwd(), "banana_3dnet/banana_3dnet.txt")
+    # depth_output_prefix = os.path.join(os.getcwd(), "banana_3dnet/banana_3dnet_")
+    quaternion_output_file = os.path.join(os.getcwd(), "elephant_1_3dnet/elephant_1_3dnet.txt")
+    depth_output_prefix = os.path.join(os.getcwd(), "elephant_1_3dnet/elephant_1_3dnet_")
     # ======================================== End of Options
 
     # position the camera 1 meter above the view plane.
@@ -147,12 +170,14 @@ if "__main__" == __name__:
     camera.rotation_euler = (0.0, 0.0, 0.0)
     camera.data.clip_start = z_near
     camera.data.clip_end = z_far
+    # camera.data.angle = 27.0*pi/180.0
+    camera.data.angle = 9.0*pi/180.0
 
     setup_depth_rendering(z_near, z_far)
 
     # Set the camera output size
-    bpy.context.scene.render.resolution_x = 1024
-    bpy.context.scene.render.resolution_y = 798
+    bpy.context.scene.render.resolution_x = 128
+    bpy.context.scene.render.resolution_y = 128
     
     #import_mesh('nozzle_5222583.stl')
     mesh = import_mesh(mesh_file)
@@ -163,17 +188,27 @@ if "__main__" == __name__:
     # Set the number of frames in our "animation".  Blender defaults
     # to starting on frame 1, we like 0-based indexing though.
     bpy.context.scene.frame_start = 0
-    bpy.context.scene.frame_end = num_frames - 1
+    bpy.context.scene.frame_end = 2*num_pairs - 1
 
     q_file = open(quaternion_output_file, "w")
     
     # For each frame, generate a different keyframed rotation on the mesh
-    for fno in range(num_frames):
-        bpy.context.scene.frame_current = fno
-        q = random_quaternion(rng)
-        q_file.write("%.16f %.16f %.16f %.16f\n" % q)
-        mesh.rotation_quaternion = q
-        mesh.keyframe_insert(data_path='rotation_quaternion', frame=fno)
+    for fno in range(num_pairs):
+        bpy.context.scene.frame_current = 2*fno
+        q1 = random_quaternion(rng)
+        mesh.rotation_quaternion = q1
+        mesh.keyframe_insert(data_path='rotation_quaternion', frame=2*fno)
+
+        
+        bpy.context.scene.frame_current = 2*fno + 1
+        q2 = q1.copy()
+        q_rotate = random_quaternion_uniform30(rng)
+        q2.rotate(q_rotate)
+        mesh.rotation_quaternion = q2
+        q_list = (q_rotate.x, q_rotate.y, q_rotate.z, q_rotate.w)
+        q_file.write("%.16f %.16f %.16f %.16f\n" % q_list)
+        mesh.keyframe_insert(data_path='rotation_quaternion', frame= 2*fno + 1)
+
 
     q_file.close()
     

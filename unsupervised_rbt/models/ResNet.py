@@ -34,11 +34,7 @@ class ResNetSiameseNetwork(nn.Module):
         
         # output = F.relu(self.bn1(self.fc_1(output_concat)))
         # output = F.relu(self.bn2(self.fc_2(output)))
-
-        # output1 = self.final_fc1(output)
-        # output2 = self.final_fc2(output)
-        # output2 = F.relu(output2)
-        # output = torch.cat((output1,output2),1)
+        
         output = self.final_fc(output)
         # print(output)
         return F.normalize(output) #Normalize for Quaternion Regression

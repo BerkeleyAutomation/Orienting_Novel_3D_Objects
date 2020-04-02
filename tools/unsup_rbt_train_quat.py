@@ -260,7 +260,6 @@ def train(dataset, batch_size, first=False):
 
     return train_loss/n_train_steps
 
-
 def test(dataset, batch_size):
     """
     Return loss and classification accuracy of the model on the test data
@@ -302,7 +301,6 @@ def test(dataset, batch_size):
 
     # class_acc = 100 * correct/total
     return test_loss/n_test_steps
-
 
 def parse_args():
     """Parse arguments from the command line.
@@ -382,7 +380,7 @@ if __name__ == '__main__':
             train_loss = train(dataset, config['batch_size'], first = (epoch == 0))
             if config['loss'] == 'shapematch' and epoch == 0:
                 loss_func = ShapeMatchLoss()
-            test_loss = test(dataset, config['batch_size'], first = (epoch == 0))
+            test_loss = test(dataset, config['batch_size'])
             # scheduler.step()
             train_losses.append(train_loss)
             test_losses.append(test_loss)
@@ -397,11 +395,12 @@ if __name__ == '__main__':
 
     else:
         loss_func = nn.CosineEmbeddingLoss()
+        loss_func2 = ShapeMatchLoss()
         # model.load_state_dict(torch.load(config['final_epoch_dir']))
         model.load_state_dict(torch.load(config['test_epoch_dir']))
         # display_conv_layers(model)
         model.eval()
-        test_loss, total = 0, 0
+        test_loss,test_loss2, total = 0, 0,0
 
         # test_indices = dataset.split('train')[1][:1000]
         test_indices = dataset.split('train')[1]
@@ -432,19 +431,18 @@ if __name__ == '__main__':
 
                 loss = loss_func(pred_transform, transform_batch, ones).item()
                 angle_loss = np.arccos(1-loss) * 180 / np.pi * 2
-
-                # obj_ids = batch["obj_id"]
-                # points_poses = batch["pose_matrix"][:,:3,:3]
-                # points = get_points(obj_ids, points_poses)
-
-                # loss = loss_func(pred_transform, transform_batch, points).item()
-                # angle_loss = loss
+                
+                obj_ids = batch["obj_id"]
+                points_poses = batch["pose_matrix"][:,:3,:3]
+                points = get_points(obj_ids, points_poses)
+                loss2 = loss_func2(pred_transform, transform_batch, points).item()
 
                 true_quaternions.extend(transform_batch.cpu().numpy())
                 pred_quaternions.extend(pred_transform.cpu().numpy())
 
                 losses.append(angle_loss)
                 test_loss += angle_loss
+                test_loss2 += loss2
         Plot_Angle_vs_Loss(true_quaternions, losses, test_loss/total)
         Plot_Small_Angle_Loss(true_quaternions, losses, test_loss/total)
         Plot_Axis_vs_Loss(true_quaternions, losses, test_loss/total)
@@ -460,6 +458,7 @@ if __name__ == '__main__':
             Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
             Plot_Bad_Predictions(dataset, pred_quaternions, np.array(smallest_losses), "best")
         print("Mean loss is: ", test_loss/total)
+        print("Mean SM loss is: ", test_loss2/total)
         Plot_Loss(config)
 
 
