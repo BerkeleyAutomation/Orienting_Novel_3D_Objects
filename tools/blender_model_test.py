@@ -60,11 +60,11 @@ if __name__ == '__main__':
     plt.imshow(imgs[4][0],cmap='gray')
     plt.subplot(122)
     plt.imshow(imgs[5][0],cmap='gray')
-    plt.savefig("tools/blender.png")
+    plt.savefig("blender/blender.png")
 
     plt.figure()
     plt.subplot(121)
     plt.imshow(elephant_img1[0][0],cmap='gray')
     plt.subplot(122)
     plt.imshow(elephant_img2[0][0],cmap='gray')
-    plt.savefig("tools/pyrender.png")
+    plt.savefig("blender/pyrender.png")
