@@ -320,7 +320,6 @@ def parse_args():
     args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
     return args
 
-
 if __name__ == '__main__':
     """Train on a dataset or generate a graph of the training and validation loss.
     Current Datasets: 
@@ -339,6 +338,8 @@ if __name__ == '__main__':
         uniform30, uniform45, uniform60: ~143,940 points, occlusions, angles sampled uniformly from 0-30,0-45,0-60
         564obj_250rot: 546(18 not available because of stable pose?) obj with more than 300 points
         best_scores: obj > 300 points, 257 obj, 500 rot. score >= 40. 128293
+        546obj_dr: obj > 300 points. Initial pose has random translation. ~130k
+        best_scoresv2: occlusion is now w background pixels. 82 obj > 300 pts, 1800 rot, score >= 156.52. 163930. 16 obj in val
     """
     args = parse_args()
     config = YamlConfig(args.config)
@@ -353,9 +354,9 @@ if __name__ == '__main__':
 
     scales = pickle.load(open("cfg/tools/scales", "rb"))
     # print(point_clouds[1])
-    optimizer = optim.Adam(model.parameters())
-    optimizer = optim.Adam(model.parameters(), weight_decay=1e-7)
-    # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.8)
+    # optimizer = optim.Adam(model.parameters())
+    optimizer = optim.Adam(model.parameters(), weight_decay=1e-6)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.9)
     if not args.test:
         if not os.path.exists(args.dataset + "/splits/train"):
             obj_id_split = np.loadtxt("cfg/tools/train_split")
@@ -381,7 +382,7 @@ if __name__ == '__main__':
             if config['loss'] == 'shapematch' and epoch == 0:
                 loss_func = ShapeMatchLoss()
             test_loss = test(dataset, config['batch_size'])
-            # scheduler.step()
+            scheduler.step()
             train_losses.append(train_loss)
             test_losses.append(test_loss)
             print("Epoch %d, Train Loss = %f, Test Loss = %f" %
@@ -400,7 +401,7 @@ if __name__ == '__main__':
         model.load_state_dict(torch.load(config['test_epoch_dir']))
         # display_conv_layers(model)
         model.eval()
-        test_loss,test_loss2, total = 0, 0,0
+        test_loss, test_loss2, test_loss3, total = 0, 0, 0, 0
 
         # test_indices = dataset.split('train')[1][:1000]
         test_indices = dataset.split('train')[1]
@@ -443,6 +444,7 @@ if __name__ == '__main__':
                 losses.append(angle_loss)
                 test_loss += angle_loss
                 test_loss2 += loss2
+                test_loss3 += loss
         Plot_Angle_vs_Loss(true_quaternions, losses, test_loss/total)
         Plot_Small_Angle_Loss(true_quaternions, losses, test_loss/total)
         Plot_Axis_vs_Loss(true_quaternions, losses, test_loss/total)
@@ -457,7 +459,8 @@ if __name__ == '__main__':
                     break
             Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
             Plot_Bad_Predictions(dataset, pred_quaternions, np.array(smallest_losses), "best")
-        print("Mean loss is: ", test_loss/total)
+        print("Mean Cosine loss is: ", test_loss3/total)
+        print("Mean Angle loss is: ", test_loss/total)
         print("Mean SM loss is: ", test_loss2/total)
         Plot_Loss(config)
 

@@ -72,20 +72,6 @@ def Generate_Quaternion_SO3():
     # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
     return quat
 
-def Generate_Quaternion_i():
-    """Generate a random quaternion with conditions.
-    To avoid double coverage and limit our rotation space, 
-    we make sure the i component is positive and
-    has the greatest magnitude.
-    """
-    quat = np.random.uniform(-1, 1, 4)
-    quat = normalize(quat)
-    max_i = np.argmax(np.abs(quat))
-    quat[0], quat[max_i] = quat[max_i], quat[0]
-    if quat[0] < 0:
-        quat = -1 * quat
-    return quat
-
 def Quaternion_String(quat):
     """Converts a 4 element quaternion to a string for printing
     """
@@ -102,13 +88,20 @@ def Quaternion_to_Rotation(quaternion, center_of_mass):
     return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
 
 def Generate_Random_Transform(center_of_mass):
-    """Create a matrix that will randomly rotate an object about an axis by a random angle between 0 and 45.
+    """Create a matrix that will randomly rotate an object about an axis by a randomly sampled quaternion
     """
-    angle = 1/4*np.pi*np.random.random()
-    # print(angle * 180 / np.pi)
-    axis = np.random.normal(0,1,3)
-    axis = axis / np.linalg.norm(axis)
-    return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
+    quat = np.zeros(4)
+    uniforms = np.random.uniform(0, 1, 3)
+    one_minus_u1, u1 = np.sqrt(1 - uniforms[0]), np.sqrt(uniforms[0])
+    uniforms_pi = 2*np.pi*uniforms
+    quat = np.array(
+        [one_minus_u1 * np.sin(uniforms_pi[1]),
+        one_minus_u1 * np.cos(uniforms_pi[1]),
+        u1 * np.sin(uniforms_pi[2]),
+        u1 * np.cos(uniforms_pi[2])])
+
+    quat = normalize(quat)
+    return Quaternion_to_Rotation(quat, center_of_mass)
 
 def Generate_Random_Z_Transform(center_of_mass):
     """Create a matrix that will randomly rotate an object about the z-axis by a random angle.
@@ -272,16 +265,23 @@ if __name__ == "__main__":
             #     continue
             # if obj_id not in best_obj_scores or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
             #     continue
+            if scores[obj_id-1] < 156.5:
+                continue
 
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
-            if scores[obj_id-1] < 40:
-                continue
 
             # load object mesh
             mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
             points = mesh.vertices
             if points.shape[0] < 300:
                 continue
+            # print(points.shape)
+            # all_points[obj_id] = points.T
+            # all_scales[obj_id] = mesh.scale
+            # if points.shape[0] >= 300:
+            #     points_clone = np.copy(points)
+            #     np.random.shuffle(points_clone)
+            #     all_points300[obj_id] = points_clone[:300].T
 
             obj_mesh = Mesh.from_trimesh(mesh)
             object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
@@ -297,14 +297,6 @@ if __name__ == "__main__":
                 n_samples=obj_config['stp_num_samples'],
                 threshold=obj_config['stp_min_prob']
             )
-            points = mesh.vertices
-            # print(points.shape)
-            # all_points[obj_id] = points.T
-            # all_scales[obj_id] = mesh.scale
-            # if points.shape[0] >= 300:
-            #     points_clone = np.copy(points)
-            #     np.random.shuffle(points_clone)
-            #     all_points300[obj_id] = points_clone[:300].T
 
             if len(stable_poses) == 0:
                 print("No Stable Poses")
@@ -314,25 +306,26 @@ if __name__ == "__main__":
             for _ in range(max(num_samples_per_obj // len(stable_poses), 1)):
                 # iterate over all stable poses of the object
                 for j, pose_matrix in enumerate(stable_poses):
+                    # print(pose_matrix[:,3])
+                    pose_matrix = pose_matrix.copy()
+                    pose_matrix[:2,3] += np.random.uniform(-0.02,0.02,2)
+                    pose_matrix[2,3] += np.random.uniform(0,0.1)
+                    # print(pose_matrix[:,3])
+
                     ctr_of_mass = pose_matrix[0:3, 3]
 
-                    # mesh_cyl = trimesh.load_mesh("/nfs/diskstation/objects/meshes/thingiverse/recorder_shaft_4163665.obj")
-                    
                     # Render image 1, which will be our original image with a random initial pose
                     # rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
                     rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
                     scene.set_pose(object_node, pose=rand_transform)
                     image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                    # points1 = (rand_transform[:3,:3] @ points.T).T
                     # image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
                     # fig1 = plt.imshow(image1)
                     # fig1.axes.get_xaxis().set_visible(False)
                     # fig1.axes.get_yaxis().set_visible(False)
-                    # plt.savefig("pictures/rgb_images/obj" + str(obj_id) + ".png")
+                    # plt.show()
+                    # plt.savefig("pictures/com_test/obj" + str(obj_id) + ".png")
                     # plt.close()
-                    # plt.show()
-                    # plt.imshow(1 - depth_im, cmap = 'gray')
-                    # plt.show()
 
                     # Render image 2, which will be image 1 rotated according to our specification
                     random_quat = Generate_Quaternion()
@@ -341,28 +334,35 @@ if __name__ == "__main__":
 
                     scene.set_pose(object_node, pose=new_pose)
                     image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                    # points2 = (new_pose[:3,:3] @ points.T).T
                     # image1 = image1[:,:,0]*0.3 + image1[:,:,1]*0.59 * image1[:,:,2]*0.11
                     # image2 = image2[:,:,0]*0.3 + image2[:,:,1]*0.59 * image2[:,:,2]*0.11
 
                     #Generate cuts
-                    segmask_size = np.sum(image1 <= 1 - 0.200001)
+                    segmask_size = np.sum(image1 <= 1 - 0.20001)
                     grip = [0,0]
-                    while image1[grip[0]][grip[1]] > 1-0.200001:
+                    while image1[grip[0]][grip[1]] > 1-0.20001:
                         grip = np.random.randint(0,128,2)
+                    iteration, threshold = 0, 0.7
                     while True:
                         slope = np.random.uniform(-1,1,2)
                         slope = slope[1]/np.max([slope[0], 1e-8])
                         xx, yy = np.meshgrid(np.arange(0,128), np.arange(0,128))
-                        mask = (np.abs(yy-grip[1] - slope*(xx-grip[0])) <= 4*(np.abs(slope)+1))
+                        mask = (np.abs(yy-grip[1] - slope*(xx-grip[0])) <= (4/0.7*threshold)*(np.abs(slope)+1))
                         image_cut = image1.copy()
-                        image_cut[mask] = np.min(image1) + np.random.uniform(-0.03,0.03)
+                        image_cut[mask] = np.max(image1)
                         # print(slope)
                         # plt.imshow(image_cut, cmap='gray')
+                        # fig1.axes.get_xaxis().set_visible(False)
+                        # fig1.axes.get_yaxis().set_visible(False)
                         # plt.show()
-                        if np.sum(np.logical_and(image_cut <= 1 - 0.200001, image_cut > 0)) >= 0.7 * segmask_size:
+                        # plt.savefig("pictures/com_test/obj" + str(obj_id) + "segmask.png")
+                        # plt.close()
+                        if iteration % 1000 == 999:
+                            threshold -= 0.05
+                        if np.sum(image_cut <= 1 - 0.20001) >= 0.7 * segmask_size:
                             # print(np.sum(image_cut >= 0.200001), segmask_size)
                             break
+                        iteration += 1
                     mse = np.linalg.norm(image1 - image2)
                     image_cut, image2 = addNoise(image_cut, config['noise']), addNoise(image2, config['noise'])
 
@@ -383,13 +383,14 @@ if __name__ == "__main__":
             print("Added object ", obj_id, " and overall datapoints are: ", data_point_counter)
             # delete the object to make room for the next
             scene.remove_node(object_node)
-    objects_added = np.array(list(objects_added.keys()))
+    objects_added = np.array(list(objects_added.keys()),dtype=int)
     np.random.shuffle(objects_added)
     print("Added ", data_point_counter, " datapoints to dataset from ", len(objects_added), "objects")
     print("Obj ID to split on training and validation:")
     print(objects_added[:len(objects_added)//5])
-    if num_samples_per_obj > 5:
+    if num_samples_per_obj > 20:
         np.savetxt("cfg/tools/train_split", objects_added[:len(objects_added)//5])
+        np.savetxt("cfg/tools/test_split", objects_added[len(objects_added)//5:])
     # print(all_points)
     # pickle.dump(all_points, open("cfg/tools/point_clouds", "wb"))
     # pickle.dump(all_points300, open("cfg/tools/point_clouds300", "wb"))
