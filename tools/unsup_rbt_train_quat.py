@@ -278,8 +278,8 @@ def test(dataset, batch_size):
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
             batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
-            depth_image1 = (batch["depth_image1"] * 255).astype(int)
-            depth_image2 = (batch["depth_image2"] * 255).astype(int)
+            depth_image1 = batch["depth_image1"]
+            depth_image2 = batch["depth_image2"]
 
 
             im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
@@ -338,8 +338,10 @@ if __name__ == '__main__':
         uniform30, uniform45, uniform60: ~143,940 points, occlusions, angles sampled uniformly from 0-30,0-45,0-60
         564obj_250rot: 546(18 not available because of stable pose?) obj with more than 300 points
         best_scores: obj > 300 points, 257 obj, 500 rot. score >= 40. 128293
-        546obj_dr: obj > 300 points. Initial pose has random translation. ~130k
+        546obj_dr: obj > 300 points. Occlusion is now w background pixels. ~130k
         best_scoresv2: occlusion is now w background pixels. 82 obj > 300 pts, 1800 rot, score >= 156.52. 163930. 16 obj in val
+        546obj: obj > 300 points, 300 rot.  Initial pose has random translation. ~160k
+        best_scoresv3: Initial pose translation. 82 obj > 300 pts, 2000 rot, score >= 156.52. 163930. 16 obj in val
     """
     args = parse_args()
     config = YamlConfig(args.config)

@@ -3,7 +3,7 @@ batch_size: 64
 num_epochs: 50
 n_blocks: 1
 embed_dim: 1024
-loss: cosine
+loss: shapematch
 losses_f_name: results/best_scoresv2_cos.p
 loss_plot_f_name: plots/best_scoresv2_cos_loss.png
 rotation_predictions_plot: plots/best_scoresv2_cos_rot.png

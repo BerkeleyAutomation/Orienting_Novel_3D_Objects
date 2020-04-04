@@ -265,8 +265,8 @@ if __name__ == "__main__":
             #     continue
             # if obj_id not in best_obj_scores or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
             #     continue
-            if scores[obj_id-1] < 156.5:
-                continue
+            # if scores[obj_id-1] < 156.5:
+            #     continue
 
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
 
@@ -308,8 +308,8 @@ if __name__ == "__main__":
                 for j, pose_matrix in enumerate(stable_poses):
                     # print(pose_matrix[:,3])
                     pose_matrix = pose_matrix.copy()
-                    pose_matrix[:2,3] += np.random.uniform(-0.02,0.02,2)
-                    pose_matrix[2,3] += np.random.uniform(0,0.1)
+                    pose_matrix[:2,3] += np.random.uniform(-0.015,0.015,2)
+                    pose_matrix[2,3] += np.random.uniform(0,0.05)
                     # print(pose_matrix[:,3])
 
                     ctr_of_mass = pose_matrix[0:3, 3]
@@ -337,35 +337,36 @@ if __name__ == "__main__":
                     # image1 = image1[:,:,0]*0.3 + image1[:,:,1]*0.59 * image1[:,:,2]*0.11
                     # image2 = image2[:,:,0]*0.3 + image2[:,:,1]*0.59 * image2[:,:,2]*0.11
 
-                    #Generate cuts
-                    segmask_size = np.sum(image1 <= 1 - 0.20001)
-                    grip = [0,0]
-                    while image1[grip[0]][grip[1]] > 1-0.20001:
-                        grip = np.random.randint(0,128,2)
-                    iteration, threshold = 0, 0.7
-                    while True:
-                        slope = np.random.uniform(-1,1,2)
-                        slope = slope[1]/np.max([slope[0], 1e-8])
-                        xx, yy = np.meshgrid(np.arange(0,128), np.arange(0,128))
-                        mask = (np.abs(yy-grip[1] - slope*(xx-grip[0])) <= (4/0.7*threshold)*(np.abs(slope)+1))
-                        image_cut = image1.copy()
-                        image_cut[mask] = np.max(image1)
-                        # print(slope)
-                        # plt.imshow(image_cut, cmap='gray')
-                        # fig1.axes.get_xaxis().set_visible(False)
-                        # fig1.axes.get_yaxis().set_visible(False)
-                        # plt.show()
-                        # plt.savefig("pictures/com_test/obj" + str(obj_id) + "segmask.png")
-                        # plt.close()
-                        if iteration % 1000 == 999:
-                            threshold -= 0.05
-                        if np.sum(image_cut <= 1 - 0.20001) >= 0.7 * segmask_size:
-                            # print(np.sum(image_cut >= 0.200001), segmask_size)
-                            break
-                        iteration += 1
-                    mse = np.linalg.norm(image1 - image2)
-                    image_cut, image2 = addNoise(image_cut, config['noise']), addNoise(image2, config['noise'])
+                    image_cut = image1
 
+                    #Generate cuts
+                    # segmask_size = np.sum(image1 <= 1 - 0.20001)
+                    # grip = [0,0]
+                    # while image1[grip[0]][grip[1]] > 1-0.20001:
+                    #     grip = np.random.randint(0,128,2)
+                    # iteration, threshold = 0, 0.7
+                    # while True:
+                    #     slope = np.random.uniform(-1,1,2)
+                    #     slope = slope[1]/np.max([slope[0], 1e-8])
+                    #     xx, yy = np.meshgrid(np.arange(0,128), np.arange(0,128))
+                    #     mask = (np.abs(yy-grip[1] - slope*(xx-grip[0])) <= (4/0.7*threshold)*(np.abs(slope)+1))
+                    #     image_cut = image1.copy()
+                    #     image_cut[mask] = np.max(image1)
+                    #     # print(slope)
+                    #     # plt.imshow(image_cut, cmap='gray')
+                    #     # fig1.axes.get_xaxis().set_visible(False)
+                    #     # fig1.axes.get_yaxis().set_visible(False)
+                    #     # plt.show()
+                    #     # plt.savefig("pictures/com_test/obj" + str(obj_id) + "segmask.png")
+                    #     # plt.close()
+                    #     if iteration % 1000 == 999:
+                    #         threshold -= 0.05
+                    #     if np.sum(image_cut <= 1 - 0.20001) >= 0.7 * segmask_size:
+                    #         # print(np.sum(image_cut >= 0.200001), segmask_size)
+                    #         break
+                    #     iteration += 1
+                    # mse = np.linalg.norm(image1 - image2)
+                    # image_cut, image2 = addNoise(image_cut, config['noise']), addNoise(image2, config['noise'])
                     datapoint = dataset.datapoint_template
                     datapoint["depth_image1"] = np.expand_dims(image_cut, -1)
                     datapoint["depth_image2"] = np.expand_dims(image2, -1)
@@ -373,12 +374,11 @@ if __name__ == "__main__":
                     datapoint["obj_id"] = obj_id
                     datapoint["pose_matrix"] = rand_transform
 
-                    if mse >= 0.5 or True:
-                        if config['debug']:
-                            Plot_Datapoint(datapoint)
-                        data_point_counter += 1
-                        dataset.add(datapoint)
-                        objects_added[obj_id] = 1
+                    if config['debug']:
+                        Plot_Datapoint(datapoint)
+                    data_point_counter += 1
+                    dataset.add(datapoint)
+                    objects_added[obj_id] = 1
 
             print("Added object ", obj_id, " and overall datapoints are: ", data_point_counter)
             # delete the object to make room for the next
@@ -388,9 +388,9 @@ if __name__ == "__main__":
     print("Added ", data_point_counter, " datapoints to dataset from ", len(objects_added), "objects")
     print("Obj ID to split on training and validation:")
     print(objects_added[:len(objects_added)//5])
-    if num_samples_per_obj > 20:
-        np.savetxt("cfg/tools/train_split", objects_added[:len(objects_added)//5])
-        np.savetxt("cfg/tools/test_split", objects_added[len(objects_added)//5:])
+    # if num_samples_per_obj > 20:
+    #     np.savetxt("cfg/tools/train_split", objects_added[:len(objects_added)//5])
+    #     np.savetxt("cfg/tools/test_split", objects_added[len(objects_added)//5:])
     # print(all_points)
     # pickle.dump(all_points, open("cfg/tools/point_clouds", "wb"))
     # pickle.dump(all_points300, open("cfg/tools/point_clouds300", "wb"))
