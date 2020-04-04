@@ -21,8 +21,7 @@ if __name__ == "__main__":
     print("Charizard is ",values_rot[326])
     # np.sum(values_rot > 0.5)
     # values_rot[489]    
-# np.array(list(scores.values())) >= 150)
-    percentiles = [0, 25, 50]
+
     for k, v in scores_features.items():
         if v:
             scores[k] = np.round(np.min(v) + scores_symmetry[k-1], 2)
@@ -35,7 +34,7 @@ if __name__ == "__main__":
     # print(final_scores)
     final_scores = np.array([-np.inf if f == np.inf else f for f in final_scores])
     indices = np.argsort(final_scores)[::-1] + 1
-    for i in indices[:400]:
+    for i in indices[:100]:
         print(i, final_scores[i-1])
     print("Charizard is ", final_scores[326])
     print("Elephant is ", final_scores[3])

@@ -23,7 +23,6 @@ class ResNetSiameseNetwork(nn.Module):
         # self.final_fc2 = nn.Linear(1000, 1)
         self.dropout = nn.Dropout(0.6)
         # self.bn1 = nn.BatchNorm1d(1000)
-        # self.bn2 = nn.BatchNorm1d(1000)
 
     def forward(self, input1, input2):
         output1 = self.resnet(input1)
@@ -33,7 +32,7 @@ class ResNetSiameseNetwork(nn.Module):
         output = self.dropout(F.relu(self.fc_2(output)))
         
         # output = F.relu(self.bn1(self.fc_1(output_concat)))
-        # output = F.relu(self.bn2(self.fc_2(output)))
+        # output = F.relu(self.dropout(self.fc_2(output)))
         
         output = self.final_fc(output)
         # print(output)

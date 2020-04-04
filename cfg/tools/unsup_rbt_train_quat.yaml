@@ -4,11 +4,11 @@ num_epochs: 50
 n_blocks: 1
 embed_dim: 1024
 loss: shapematch
-losses_f_name: results/losses_free_space_axis_pred.p
-loss_plot_f_name: plots/losses_free_space_axis_pred.png
+losses_f_name: results/best_scoresv2_cos.p
+loss_plot_f_name: plots/best_scoresv2_cos_loss.png
+rotation_predictions_plot: plots/best_scoresv2_cos_rot.png
 final_epoch_dir: models/unsup_rbt.pt
 best_epoch_dir: models/unsup_rbt_best.pt
 test_epoch_dir: models/unsup_rbt_best.pt
 # test_epoch_dir: models/564obj_1024.pt
 # test_epoch_dir: models/uniform30_1e7.pt
-rotation_predictions_plot: plots/rotation_predictions.png

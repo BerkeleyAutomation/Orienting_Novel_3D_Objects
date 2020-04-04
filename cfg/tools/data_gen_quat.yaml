@@ -1,5 +1,5 @@
 debug: 0
-num_samples_per_obj: 500
+num_samples_per_obj: 300
 noise: 0
 
 # dataset params
@@ -83,11 +83,11 @@ state_space:
 
       planar_translation:
         min:
-          - -0.025
-          - -0.025
+          - 0
+          - 0
         max:
-          - 0.025
-          - 0.025
+          - 0
+          - 0
 
       scale:
         min:
@@ -109,7 +109,7 @@ state_space:
     # im_width: 512
     # im_height: 384
 
-    # intrinsics
+    # intrinsics. See https://github.com/BerkeleyAutomation/sd-maskrcnn/blob/master/sd_maskrcnn/envs/random_variables.py
     focal_length:
       min: 535
       max: 535
