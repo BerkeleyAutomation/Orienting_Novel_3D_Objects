@@ -46,6 +46,10 @@ def Plot_Loss(config):
     train_returns = np.array(losses["train_loss"])
     test_returns = np.array(losses["test_loss"])
 
+    if config['loss'] == 'cosine':
+        train_returns = np.arccos(1-train_returns) * 180 / np.pi * 2
+        test_returns = np.arccos(1-test_returns) * 180 / np.pi * 2
+    
     plt.figure(figsize=(10, 5))
     plt.plot(np.arange(len(train_returns)) + 1, train_returns, label="Training Loss")
     plt.plot(np.arange(len(test_returns)) + 1, test_returns, label="Testing Loss")
@@ -214,11 +218,11 @@ def train(dataset, batch_size, first=False):
 
     ones = torch.Tensor(np.ones(batch_size)).to(device)
     optimizer.zero_grad()
-    loss = 0
+
     for step in tqdm(range(n_train_steps)):
         batch = dataset.get_item_list(train_indices[step*batch_size: (step+1)*batch_size])
-        depth_image1 = (batch["depth_image1"] * 255).astype(int)
-        depth_image2 = (batch["depth_image2"] * 255).astype(int)
+        depth_image1 = (batch["depth_image1"] * 65535).astype(int)
+        depth_image2 = (batch["depth_image2"] * 65535).astype(int)
 
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
@@ -233,25 +237,23 @@ def train(dataset, batch_size, first=False):
         #         plt.imshow(depth_image_show2, cmap='gray')
         #         plt.title('Transform: {}'.format(transform_batch[i]))
         #         plt.show()
-        backward = step % 128 == 127 or step == n_train_steps - 1 or config['batch_size'] > 1
+        obj_ids = batch["obj_id"]
+        points_poses = batch["pose_matrix"][:,:3,:3]
+        points = get_points(obj_ids, points_poses)
+
         pred_transform = model(im1_batch, im2_batch)
         if config['loss'] == 'cosine' or first:
             loss = loss_func(pred_transform, transform_batch, ones)
-            train_loss += loss.item()
             loss.backward()
-            optimizer.step()
-            optimizer.zero_grad()
         else:
-            obj_ids = batch["obj_id"]
-            points_poses = batch["pose_matrix"][:,:3,:3]
-            points = get_points(obj_ids, points_poses)
-            loss += loss_func(pred_transform, transform_batch, points)
-            if backward:
-                train_loss += loss.item()
-                loss.backward()
-                optimizer.step()
-                optimizer.zero_grad()
-                loss = 0
+            loss = loss_func(pred_transform, transform_batch, points)
+            loss.backward()
+
+        sm_loss = loss_func2(pred_transform, transform_batch, points)
+        
+        optimizer.step()
+        optimizer.zero_grad()
+        train_loss += sm_loss.item()
 
         # if step % 100 == 0:
         #     print(pred_transform[:3])
@@ -268,7 +270,7 @@ def test(dataset, batch_size):
     test_loss, total = 0, 0
 
     # test_indices = dataset.split('train')[1][:1000]
-    test_indices = dataset.split('train')[1][:64*100]
+    test_indices = dataset.split('train')[1]
     # test_indices = dataset.split('train2')[1][:64*100]
     n_test = len(test_indices)
     n_test_steps = n_test // batch_size
@@ -278,9 +280,8 @@ def test(dataset, batch_size):
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
             batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
-            depth_image1 = batch["depth_image1"]
-            depth_image2 = batch["depth_image2"]
-
+            depth_image1 = (batch["depth_image1"] * 65535).astype(int)
+            depth_image2 = (batch["depth_image2"] * 65535).astype(int)
 
             im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
             im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
@@ -288,18 +289,19 @@ def test(dataset, batch_size):
             pred_transform = model(im1_batch, im2_batch)
             total += transform_batch.size(0)
 
+            obj_ids = batch["obj_id"]
+            points_poses = batch["pose_matrix"][:,:3,:3]
+            points = get_points(obj_ids, points_poses)
             if config['loss'] == 'cosine':
                 loss = loss_func(pred_transform, transform_batch, ones)
             elif config['loss'] == 'shapematch':
-                obj_ids = batch["obj_id"]
-                points_poses = batch["pose_matrix"][:,:3,:3]
-                points = get_points(obj_ids, points_poses)
                 loss = loss_func(pred_transform, transform_batch, points)
             else:
                 assert False
-            test_loss += loss.item()
 
-    # class_acc = 100 * correct/total
+            sm_loss = loss_func2(pred_transform, transform_batch, points)
+            test_loss += sm_loss.item()
+
     return test_loss/n_test_steps
 
 def parse_args():
@@ -338,27 +340,32 @@ if __name__ == '__main__':
         uniform30, uniform45, uniform60: ~143,940 points, occlusions, angles sampled uniformly from 0-30,0-45,0-60
         564obj_250rot: 546(18 not available because of stable pose?) obj with more than 300 points
         best_scores: obj > 300 points, 257 obj, 500 rot. score >= 40. 128293
-        546obj_dr: obj > 300 points. Occlusion is now w background pixels. ~130k
+        546obj_dr: obj > 300 points. Occlusion is now w background pixels. ~130k. Initial pose from SO3
         best_scoresv2: occlusion is now w background pixels. 82 obj > 300 pts, 1800 rot, score >= 156.52. 163930. 16 obj in val
         546obj: obj > 300 points, 300 rot.  Initial pose has random translation. ~160k
         best_scoresv3: Initial pose translation. 82 obj > 300 pts, 2000 rot, score >= 156.52. 163930. 16 obj in val
+        546objv2: No pose translation, no dr.
+        546objv3: DR with pose sampling 0-45 degrees from stable pose
+        best_scoresv4: No pose translation, no dr.
+        best_scoresv5: DR with pose sampling 0-45 degrees from stable pose
     """
     args = parse_args()
     config = YamlConfig(args.config)
-
     dataset = TensorDataset.open(args.dataset)
-
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
     model = ResNetSiameseNetwork(config['pred_dim'], n_blocks=config['n_blocks'], embed_dim=config['embed_dim']).to(device)
     # model = InceptionSiameseNetwork(config['pred_dim']).to(device)
+
     # point_clouds = pickle.load(open("cfg/tools/point_clouds", "rb"))
     point_clouds = pickle.load(open("cfg/tools/point_clouds300", "rb"))
-
     scales = pickle.load(open("cfg/tools/scales", "rb"))
     # print(point_clouds[1])
+
     # optimizer = optim.Adam(model.parameters())
-    optimizer = optim.Adam(model.parameters(), weight_decay=1e-6)
+    optimizer = optim.Adam(model.parameters(), weight_decay=1e-5)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.9)
+    
     if not args.test:
         if not os.path.exists(args.dataset + "/splits/train"):
             obj_id_split = np.loadtxt("cfg/tools/train_split")
@@ -376,6 +383,7 @@ if __name__ == '__main__':
         train_losses, test_losses = [], []
         min_loss = 100000
         loss_func = nn.CosineEmbeddingLoss()
+        loss_func2 = ShapeMatchLoss()
         # model.load_state_dict(torch.load("models/uniform30_1e7.pt"))
 
         for epoch in range(config['num_epochs']):
@@ -419,8 +427,8 @@ if __name__ == '__main__':
         with torch.no_grad():
             for step in tqdm(range(n_test_steps)):
                 batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
-                depth_image1 = (batch["depth_image1"] * 255).astype(int)
-                depth_image2 = (batch["depth_image2"] * 255).astype(int)
+                depth_image1 = (batch["depth_image1"] * 65535).astype(int)
+                depth_image2 = (batch["depth_image2"] * 65535).astype(int)
 
                 im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
                 im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
@@ -447,9 +455,11 @@ if __name__ == '__main__':
                 test_loss += angle_loss
                 test_loss2 += loss2
                 test_loss3 += loss
-        Plot_Angle_vs_Loss(true_quaternions, losses, test_loss/total)
-        Plot_Small_Angle_Loss(true_quaternions, losses, test_loss/total)
-        Plot_Axis_vs_Loss(true_quaternions, losses, test_loss/total)
+        mean_cosine_loss = test_loss3/total
+        mean_angle_loss = np.arccos(1-test_loss3/total)*180/np.pi*2
+        Plot_Angle_vs_Loss(true_quaternions, losses, mean_angle_loss)
+        Plot_Small_Angle_Loss(true_quaternions, losses, mean_angle_loss)
+        Plot_Axis_vs_Loss(true_quaternions, losses, mean_angle_loss)
         if args.worst_pred:
             biggest_losses = np.argsort(losses)[-5:-1]
             smallest_losses_idx = np.argsort(losses)
@@ -462,7 +472,7 @@ if __name__ == '__main__':
             Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
             Plot_Bad_Predictions(dataset, pred_quaternions, np.array(smallest_losses), "best")
         print("Mean Cosine loss is: ", test_loss3/total)
-        print("Mean Angle loss is: ", test_loss/total)
+        print("Mean Angle loss is: ", mean_angle_loss)
         print("Mean SM loss is: ", test_loss2/total)
         Plot_Loss(config)
 

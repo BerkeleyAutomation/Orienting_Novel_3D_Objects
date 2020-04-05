@@ -3,12 +3,19 @@ batch_size: 64
 num_epochs: 50
 n_blocks: 1
 embed_dim: 1024
-loss: shapematch
-losses_f_name: results/best_scoresv2_cos.p
-loss_plot_f_name: plots/best_scoresv2_cos_loss.png
-rotation_predictions_plot: plots/best_scoresv2_cos_rot.png
-final_epoch_dir: models/unsup_rbt.pt
-best_epoch_dir: models/unsup_rbt_best.pt
-test_epoch_dir: models/unsup_rbt_best.pt
+loss: cosine
+# losses_f_name: results/546objv3_cos_sm.p
+# loss_plot_f_name: plots/546objv3_cos_sm_loss.png
+# rotation_predictions_plot: plots/546objv3_cos_sm_rot.png
+# final_epoch_dir: models/546objv3_cos_sm.pt
+# best_epoch_dir: models/546objv3_cos_sm_best.pt
+# test_epoch_dir: models/546objv3_cos_sm_best.pt
+losses_f_name: results/best_scoresv5_cos.p
+loss_plot_f_name: plots/best_scoresv5_cos_loss.png
+rotation_predictions_plot: plots/best_scoresv5_cos_rot.png
+final_epoch_dir: models/best_scoresv5_cos.pt
+best_epoch_dir: models/best_scoresv5_cos_best.pt
+test_epoch_dir: models/best_scoresv5_cos_best.pt
+
 # test_epoch_dir: models/564obj_1024.pt
 # test_epoch_dir: models/uniform30_1e7.pt

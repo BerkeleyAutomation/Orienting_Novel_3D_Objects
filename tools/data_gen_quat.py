@@ -87,7 +87,7 @@ def Quaternion_to_Rotation(quaternion, center_of_mass):
     axis = rotation_vector / angle
     return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
 
-def Generate_Random_Transform(center_of_mass):
+def Generate_Random_TransformSO3(center_of_mass):
     """Create a matrix that will randomly rotate an object about an axis by a randomly sampled quaternion
     """
     quat = np.zeros(4)
@@ -102,6 +102,18 @@ def Generate_Random_Transform(center_of_mass):
 
     quat = normalize(quat)
     return Quaternion_to_Rotation(quat, center_of_mass)
+
+def Generate_Random_Transform(center_of_mass):
+    """Create a matrix that will randomly rotate an object about an axis by a random angle between 0 and 45.
+    """
+    angle = 1/4*np.pi*np.random.random()
+    # print(angle * 180 / np.pi)
+    while True:
+        axis = np.random.normal(0,1,3)
+        if np.linalg.norm(axis) < 1:
+            axis = axis / np.linalg.norm(axis)
+            break
+    return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
 
 def Generate_Random_Z_Transform(center_of_mass):
     """Create a matrix that will randomly rotate an object about the z-axis by a random angle.
@@ -224,6 +236,8 @@ if __name__ == "__main__":
     obj_id = 0
     data_point_counter = 0
 
+    # split = np.loadtxt('cfg/tools/train_split_546')
+
     symmetries = [
         3, 3, 3, 0, 0, 3, 0.5, 1.5, 1, 3, 0, 1, 2, 3, 1, 0, 1, 3, 2, 2, 3, 3, 3, 3, 1, 0, 0, 1.5, 2, 2, 2, 3, 1, 1, 3, 0, 3, 1, 1, 2, 0.5, 3, 0, 1.5,
         1, 1, 3, 1, 0, 1.5, 2.5, 1, 0, 3, 3, 0, 3, 3, 1.5, 2, 3, 1.5, 3, 2, 3, 1.5, 3, 1, 2, 3, 3, 2, 1, 3, 1, 3, 0.5, 2, 1, 0.5, 1.5, 3, 2, 2, 2, 2,
@@ -308,8 +322,8 @@ if __name__ == "__main__":
                 for j, pose_matrix in enumerate(stable_poses):
                     # print(pose_matrix[:,3])
                     pose_matrix = pose_matrix.copy()
-                    pose_matrix[:2,3] += np.random.uniform(-0.015,0.015,2)
-                    pose_matrix[2,3] += np.random.uniform(0,0.05)
+                    # pose_matrix[:2,3] += np.random.uniform(-0.015,0.015,2)
+                    # pose_matrix[2,3] += np.random.uniform(0,0.05)
                     # print(pose_matrix[:,3])
 
                     ctr_of_mass = pose_matrix[0:3, 3]
@@ -319,13 +333,18 @@ if __name__ == "__main__":
                     rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
                     scene.set_pose(object_node, pose=rand_transform)
                     image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                    # image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
-                    # fig1 = plt.imshow(image1)
-                    # fig1.axes.get_xaxis().set_visible(False)
-                    # fig1.axes.get_yaxis().set_visible(False)
-                    # plt.show()
-                    # plt.savefig("pictures/com_test/obj" + str(obj_id) + ".png")
-                    # plt.close()
+
+                    # if j == 0:
+                    #     image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
+                    #     fig1 = plt.imshow(image1)
+                    #     fig1.axes.get_xaxis().set_visible(False)
+                    #     fig1.axes.get_yaxis().set_visible(False)
+                    #     plt.show()
+                    #     if obj_id in split:
+                    #         plt.savefig("pictures/rgb_images/symmetric546/test/obj" + str(obj_id) + ".png")
+                    #     else:
+                    #         plt.savefig("pictures/rgb_images/symmetric546/train/obj" + str(obj_id) + ".png")
+                    #     plt.close()
 
                     # Render image 2, which will be image 1 rotated according to our specification
                     random_quat = Generate_Quaternion()
@@ -340,31 +359,31 @@ if __name__ == "__main__":
                     image_cut = image1
 
                     #Generate cuts
-                    # segmask_size = np.sum(image1 <= 1 - 0.20001)
-                    # grip = [0,0]
-                    # while image1[grip[0]][grip[1]] > 1-0.20001:
-                    #     grip = np.random.randint(0,128,2)
-                    # iteration, threshold = 0, 0.7
-                    # while True:
-                    #     slope = np.random.uniform(-1,1,2)
-                    #     slope = slope[1]/np.max([slope[0], 1e-8])
-                    #     xx, yy = np.meshgrid(np.arange(0,128), np.arange(0,128))
-                    #     mask = (np.abs(yy-grip[1] - slope*(xx-grip[0])) <= (4/0.7*threshold)*(np.abs(slope)+1))
-                    #     image_cut = image1.copy()
-                    #     image_cut[mask] = np.max(image1)
-                    #     # print(slope)
-                    #     # plt.imshow(image_cut, cmap='gray')
-                    #     # fig1.axes.get_xaxis().set_visible(False)
-                    #     # fig1.axes.get_yaxis().set_visible(False)
-                    #     # plt.show()
-                    #     # plt.savefig("pictures/com_test/obj" + str(obj_id) + "segmask.png")
-                    #     # plt.close()
-                    #     if iteration % 1000 == 999:
-                    #         threshold -= 0.05
-                    #     if np.sum(image_cut <= 1 - 0.20001) >= 0.7 * segmask_size:
-                    #         # print(np.sum(image_cut >= 0.200001), segmask_size)
-                    #         break
-                    #     iteration += 1
+                    segmask_size = np.sum(image1 <= 1 - 0.20001)
+                    grip = [0,0]
+                    while image1[grip[0]][grip[1]] > 1-0.20001:
+                        grip = np.random.randint(0,128,2)
+                    iteration, threshold = 0, 0.7
+                    while True:
+                        slope = np.random.uniform(-1,1,2)
+                        slope = slope[1]/np.max([slope[0], 1e-8])
+                        xx, yy = np.meshgrid(np.arange(0,128), np.arange(0,128))
+                        mask = (np.abs(yy-grip[1] - slope*(xx-grip[0])) <= (4/0.7*threshold)*(np.abs(slope)+1))
+                        image_cut = image1.copy()
+                        image_cut[mask] = np.max(image1)
+                        # print(slope)
+                        # plt.imshow(image_cut, cmap='gray')
+                        # fig1.axes.get_xaxis().set_visible(False)
+                        # fig1.axes.get_yaxis().set_visible(False)
+                        # plt.show()
+                        # plt.savefig("pictures/com_test/obj" + str(obj_id) + "segmask.png")
+                        # plt.close()
+                        if iteration % 1000 == 999:
+                            threshold -= 0.05
+                        if np.sum(image_cut <= 1 - 0.20001) >= 0.7 * segmask_size:
+                            # print(np.sum(image_cut >= 0.200001), segmask_size)
+                            break
+                        iteration += 1
                     # mse = np.linalg.norm(image1 - image2)
                     # image_cut, image2 = addNoise(image_cut, config['noise']), addNoise(image2, config['noise'])
                     datapoint = dataset.datapoint_template

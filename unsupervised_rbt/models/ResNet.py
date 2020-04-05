@@ -28,8 +28,8 @@ class ResNetSiameseNetwork(nn.Module):
         output1 = self.resnet(input1)
         output2 = self.resnet(input2)
         output_concat = torch.cat((output1, output2), 1)
-        output = self.dropout(F.relu(self.fc_1(output_concat)))
-        output = self.dropout(F.relu(self.fc_2(output)))
+        output = self.dropout(F.leaky_relu(self.fc_1(output_concat)))
+        output = self.dropout(F.leaky_relu(self.fc_2(output)))
         
         # output = F.relu(self.bn1(self.fc_1(output_concat)))
         # output = F.relu(self.dropout(self.fc_2(output)))
