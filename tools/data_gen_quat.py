@@ -24,127 +24,7 @@ import matplotlib.pyplot as plt
 import random
 from termcolor import colored
 import pickle
-
-def normalize(z):
-    return z / np.linalg.norm(z)
-
-def Generate_Quaternion():
-    """Generate a random quaternion with conditions.
-    To avoid double coverage and limit our rotation space, 
-    we make sure the real component is positive and have 
-    the greatest magnitude. Sample axes randomly. Sample degree uniformly
-    """
-    axis = np.random.normal(0, 1, 3)
-    axis = axis / np.linalg.norm(axis) 
-    angle = np.random.uniform(0,np.pi/6)
-    quat = Rotation.from_rotvec(axis * angle).as_quat()
-    if quat[3] < 0:
-        quat = -1 * quat
-    # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
-    return quat
-
-def Generate_Quaternion_SO3():
-    """Generate a random quaternion with conditions.
-    To avoid double coverage and limit our rotation space, 
-    we make sure the real component is positive and have 
-    the greatest magnitude. We also limit rotations to less
-    than 60 degrees. We sample according to the following links:
-    https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/index.htm
-    http://planning.cs.uiuc.edu/node198.html
-    """
-    quat = np.zeros(4)
-    # while np.max(np.abs(quat)) < 0.866: # 60 degrees
-    # while np.max(np.abs(quat)) < 0.92388: # 45 degrees
-    while np.max(np.abs(quat)) < 0.96592:  # 30 degrees
-      uniforms = np.random.uniform(0, 1, 3)
-      one_minus_u1, u1 = np.sqrt(1 - uniforms[0]), np.sqrt(uniforms[0])
-      uniforms_pi = 2*np.pi*uniforms
-      quat = np.array(
-          [one_minus_u1 * np.sin(uniforms_pi[1]),
-           one_minus_u1 * np.cos(uniforms_pi[1]),
-           u1 * np.sin(uniforms_pi[2]),
-           u1 * np.cos(uniforms_pi[2])])
-
-    max_i = np.argmax(np.abs(quat))
-    quat[3], quat[max_i] = quat[max_i], quat[3]
-    if quat[3] < 0:
-        quat = -1 * quat
-    # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
-    return quat
-
-def Quaternion_String(quat):
-    """Converts a 4 element quaternion to a string for printing
-    """
-    quat = np.round(quat, 3)
-    return str(quat[3]) + " + " + str(quat[0]) + "i + " + str(quat[1]) + "j + " + str(quat[2]) + "k"
-
-def Quaternion_to_Rotation(quaternion, center_of_mass):
-    """Take in an object's center of mass and a quaternion, and
-    return a rotation matrix.
-    """
-    rotation_vector = Rotation.from_quat(quaternion).as_rotvec()
-    angle = np.linalg.norm(rotation_vector)
-    axis = rotation_vector / angle
-    return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
-
-def Generate_Random_TransformSO3(center_of_mass):
-    """Create a matrix that will randomly rotate an object about an axis by a randomly sampled quaternion
-    """
-    quat = np.zeros(4)
-    uniforms = np.random.uniform(0, 1, 3)
-    one_minus_u1, u1 = np.sqrt(1 - uniforms[0]), np.sqrt(uniforms[0])
-    uniforms_pi = 2*np.pi*uniforms
-    quat = np.array(
-        [one_minus_u1 * np.sin(uniforms_pi[1]),
-        one_minus_u1 * np.cos(uniforms_pi[1]),
-        u1 * np.sin(uniforms_pi[2]),
-        u1 * np.cos(uniforms_pi[2])])
-
-    quat = normalize(quat)
-    return Quaternion_to_Rotation(quat, center_of_mass)
-
-def Generate_Random_Transform(center_of_mass):
-    """Create a matrix that will randomly rotate an object about an axis by a random angle between 0 and 45.
-    """
-    angle = 1/4*np.pi*np.random.random()
-    # print(angle * 180 / np.pi)
-    while True:
-        axis = np.random.normal(0,1,3)
-        if np.linalg.norm(axis) < 1:
-            axis = axis / np.linalg.norm(axis)
-            break
-    return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
-
-def Generate_Random_Z_Transform(center_of_mass):
-    """Create a matrix that will randomly rotate an object about the z-axis by a random angle.
-    """
-    z_angle = 2*np.pi*np.random.random()
-    return RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=center_of_mass, angle=z_angle).matrix
-
-def Plot_Datapoint(datapoint):
-    """Takes in a datapoint of our Tensor Dataset, and plots its two images for visualizing their 
-    iniitial pose and rotation.
-    """
-    plt.figure(figsize=(14, 7))
-    plt.subplot(121)
-    fig1 = plt.imshow(datapoint["depth_image1"][:, :, 0], cmap='gray', vmin = 0.7)
-    plt.title('Stable pose')
-    plt.subplot(122)
-    fig2 = plt.imshow(datapoint["depth_image2"][:, :, 0], cmap='gray')
-    fig1.axes.get_xaxis().set_visible(False)
-    fig1.axes.get_yaxis().set_visible(False)
-    fig2.axes.get_xaxis().set_visible(False)
-    fig2.axes.get_yaxis().set_visible(False)
-    plt.title('After Rigid Transformation: ' + Quaternion_String(datapoint["quaternion"]))
-    plt.show()
-    # plt.savefig("pictures/allobj/obj" + str(datapoint['obj_id']) + ".png")
-    # plt.close()
-
-def addNoise(image, std=0.001):
-    """Adds noise to image array.
-    """
-    noise = np.random.normal(0, std, image.shape)
-    return image + noise
+from tools.utils import *
 
 def create_scene(data_gen=True):
     """Create scene for taking depth images.
@@ -207,7 +87,6 @@ def parse_args():
     parser.add_argument('-dataset', type=str, required=True)
     args = parser.parse_args()
     return args
-
 
 if __name__ == "__main__":
     args = parse_args()
@@ -279,8 +158,8 @@ if __name__ == "__main__":
             #     continue
             # if obj_id not in best_obj_scores or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
             #     continue
-            # if scores[obj_id-1] < 156.5:
-            #     continue
+            if scores[obj_id-1] < 156.5:
+                continue
 
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
 
@@ -322,15 +201,16 @@ if __name__ == "__main__":
                 for j, pose_matrix in enumerate(stable_poses):
                     # print(pose_matrix[:,3])
                     pose_matrix = pose_matrix.copy()
-                    # pose_matrix[:2,3] += np.random.uniform(-0.015,0.015,2)
-                    # pose_matrix[2,3] += np.random.uniform(0,0.05)
+                    pose_matrix[:2,3] += np.random.uniform(-0.02,0.02,2)
+                    pose_matrix[2,3] += np.random.uniform(0,0.2)
                     # print(pose_matrix[:,3])
 
                     ctr_of_mass = pose_matrix[0:3, 3]
 
                     # Render image 1, which will be our original image with a random initial pose
                     # rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
-                    rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
+                    # rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
+                    rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
                     scene.set_pose(object_node, pose=rand_transform)
                     image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
@@ -353,8 +233,6 @@ if __name__ == "__main__":
 
                     scene.set_pose(object_node, pose=new_pose)
                     image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                    # image1 = image1[:,:,0]*0.3 + image1[:,:,1]*0.59 * image1[:,:,2]*0.11
-                    # image2 = image2[:,:,0]*0.3 + image2[:,:,1]*0.59 * image2[:,:,2]*0.11
 
                     image_cut = image1
 

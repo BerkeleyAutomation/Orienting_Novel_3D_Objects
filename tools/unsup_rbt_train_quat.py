@@ -22,112 +22,12 @@ from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwor
 from unsupervised_rbt.losses.shapematch import ShapeMatchLoss
 from perception import DepthImage, RgbdImage
 
-from scipy.spatial.transform import Rotation
-
-from tools.data_gen_quat import Quaternion_String, create_scene, Quaternion_to_Rotation
+from tools.data_gen_quat import create_scene
+from tools.utils import *
 
 import trimesh
 from pyrender import (Scene, IntrinsicsCamera, Mesh,
                       Viewer, OffscreenRenderer, RenderFlags, Node)
-
-# class CosineLoss(nn.Module):
-#     def __init__(self):
-#         super(CosineLoss,self).__init__()
-        
-#     def forward(self,x,y):
-#         return 1 - x.dot(y)
-
-
-def Plot_Loss(config):
-    """Plots the training and validation loss, provided that there is a config file with correct
-    location of data
-    """
-    losses = pickle.load(open(config['losses_f_name'], "rb"))
-    train_returns = np.array(losses["train_loss"])
-    test_returns = np.array(losses["test_loss"])
-
-    if config['loss'] == 'cosine':
-        train_returns = np.arccos(1-train_returns) * 180 / np.pi * 2
-        test_returns = np.arccos(1-test_returns) * 180 / np.pi * 2
-    
-    plt.figure(figsize=(10, 5))
-    plt.plot(np.arange(len(train_returns)) + 1, train_returns, label="Training Loss")
-    plt.plot(np.arange(len(test_returns)) + 1, test_returns, label="Testing Loss")
-    plt.xlabel("Training Iteration")
-    plt.ylabel("Loss")
-    plt.title("Training Curve")
-    plt.legend(loc='best')
-    plt.savefig(config['loss_plot_f_name'])
-    plt.close()
-
-def Plot_Angle_vs_Loss(quaternions, losses, mean_loss, max_angle = 30):
-    bins = max_angle // 5
-    rotation_angles = [[] for i in range(bins)]
-    for q,l in zip(quaternions, losses):
-        rot_vec = Rotation.from_quat(q).as_rotvec()
-        rot_angle = np.linalg.norm(rot_vec) * 180 / np.pi
-        bin_num = np.min((int(rot_angle // 5), bins-1))
-        rotation_angles[bin_num].append(l)
-
-    mean_losses = [np.mean(ra) for ra in rotation_angles]
-    errors = [np.std(ra) for ra in rotation_angles]
-    labels = [str(i) + "-" + str(i+5) for i in range(0,max_angle,5)]
-
-    plt.figure(figsize=(10,5))
-    plt.bar(labels, mean_losses, yerr = errors)
-    plt.axhline(mean_loss, c = 'r')
-    plt.xlabel("Rotation Angle (Degrees)")
-    plt.ylabel("Angle Loss (Degrees)")
-    plt.ylim(0.0, (np.max(mean_losses)+np.max(errors))*1.1)
-    plt.title("Loss vs Rotation Angle")
-    plt.savefig(config['rotation_predictions_plot'])
-    plt.close()
-
-def Plot_Small_Angle_Loss(quaternions, losses, mean_loss):
-    bins = 10
-    rotation_angles = [[] for i in range(bins)]
-    for q,l in zip(quaternions, losses):
-        rot_vec = Rotation.from_quat(q).as_rotvec()
-        rot_angle = np.linalg.norm(rot_vec) * 180 / np.pi
-        if rot_angle <= 10:
-            bin_num = np.min((int(rot_angle), bins-1))
-            rotation_angles[bin_num].append(l)
-
-    mean_losses = [np.mean(ra) for ra in rotation_angles]
-    errors = [np.std(ra) for ra in rotation_angles]
-    labels = [str(i) + "-" + str(i+1) for i in range(0,bins,1)]
-
-    plt.figure(figsize=(10,5))
-    plt.bar(labels, mean_losses, yerr = errors)
-    plt.axhline(mean_loss, c = 'r')
-    plt.xlabel("Rotation Angle (Degrees)")
-    plt.ylabel("Angle Loss (Degrees)")
-    plt.ylim(0.0, (np.max(mean_losses)+np.max(errors))*1.1)
-    plt.title("Loss vs Rotation Angle")
-    plt.savefig("plots/small_rot.png")
-    plt.close()
-
-def Plot_Axis_vs_Loss(quaternions, losses, mean_loss):
-    bins = 9
-    rotation_angles = [[] for i in range(bins)]
-    for q,l in zip(quaternions, losses):
-        rot_vec = Rotation.from_quat(q).as_rotvec()
-        theta_from_z = np.arccos(np.abs(rot_vec[2] / np.linalg.norm(rot_vec))) * 180 / np.pi
-        bin_num = int(theta_from_z // 10)
-        rotation_angles[bin_num].append(l)
-
-    labels = [str(i) + "-" + str(i+10) for i in range(0,90,10)]
-    mean_losses = [np.mean(ra) for ra in rotation_angles]
-    errors = [np.std(ra) for ra in rotation_angles]
-    plt.figure(figsize=(10,5))
-    plt.bar(labels, mean_losses, yerr = errors)
-    plt.axhline(mean_loss, c = 'r')
-    plt.xlabel("Rotation Angle from Z-Axis (Degrees)")
-    plt.ylabel("Angle Loss (Degrees)")
-    plt.ylim(0.0, (np.max(mean_losses)+np.max(errors))*1.1)
-    plt.title("Loss vs Rotation Angle from Z-Axis")
-    plt.savefig("plots/axes_loss.png")
-    plt.close()
 
 def Plot_Bad_Predictions(dataset, predicted_quats, indices, name = "worst"):
     """Takes in the dataset, predicted quaternions, and indices of the 
@@ -187,15 +87,6 @@ def Plot_Predicted_Rotation(datapoint, predicted_quat):
             scene.set_pose(object_node, pose=new_pose)
             return renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
-def display_conv_layers(model):
-    def imshow(img):
-        img = img / 2 + 0.5     # unnormalize
-        npimg = img.cpu().numpy()
-        plt.imshow(np.transpose(npimg, (1, 2, 0)))
-        plt.show()
-    with torch.no_grad():
-        imshow(torchvision.utils.make_grid(model.resnet.conv1.weight))
-
 def get_points(obj_ids, points_poses):
     points = [point_clouds[obj_id] / scales[obj_id] * 10 for obj_id in obj_ids]
     # print(batch["pose_matrix"][0])
@@ -221,8 +112,10 @@ def train(dataset, batch_size, first=False):
 
     for step in tqdm(range(n_train_steps)):
         batch = dataset.get_item_list(train_indices[step*batch_size: (step+1)*batch_size])
-        depth_image1 = (batch["depth_image1"] * 65535).astype(int)
-        depth_image2 = (batch["depth_image2"] * 65535).astype(int)
+        # depth_image1 = Quantize(batch["depth_image1"])
+        # depth_image2 = Quantize(batch["depth_image2"])
+        depth_image1 = batch["depth_image1"]
+        depth_image2 = batch["depth_image2"]
 
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
@@ -280,8 +173,8 @@ def test(dataset, batch_size):
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
             batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
-            depth_image1 = (batch["depth_image1"] * 65535).astype(int)
-            depth_image2 = (batch["depth_image2"] * 65535).astype(int)
+            depth_image1 = batch["depth_image1"]
+            depth_image2 = batch["depth_image2"]
 
             im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
             im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
@@ -325,18 +218,7 @@ def parse_args():
 if __name__ == '__main__':
     """Train on a dataset or generate a graph of the training and validation loss.
     Current Datasets: 
-        elephant_small_angle: small angles. 4000 datapoints
-        elephant_noise: small angles, N(0,0.002) noise. 6000 datapoints
-        800obj_200rot_v2: small angles, no noise, small differences removed (). Upto 200 rotations per OBJECT. ~90,000 datapoints
-        no_symmetry_30obj_400rot: small angles, no noise, small diffs not removed, 400 per OBJECT, 11986 datapoints
-        nosym_30obj_1000rot: above w 1000 rotations
-        nosym_29obj_1000rot: above w small diffs 0.75 removed, no more shoe
-        nosym_47obj_1000rot: no noise, 45 degrees w small diffs 0.5 removed. Added pose matrix. Train/Test split diff, has unseen in test
-        72obj_2000rot: no noise, 30 degrees w small diffs 0.4 removed. Removed some more bad obj. 57 train, 15 test, 137679 points
-        best_scores_2000rot: first attempt at score function
-        72obj_random_rot: mse 0.5, no more z-axis, random 0-45. stable pose threshold down from 0.10 to 0.08, 136,098 points
-        72obj_cuts: 135,440 points, image 1 random cuts
-        72obj_occ: ~130,000 points, image 1 random rectangles
+        72obj_occ: ~130,000 points, image 1 random rectangles, 57 train, 15 test
         uniform30, uniform45, uniform60: ~143,940 points, occlusions, angles sampled uniformly from 0-30,0-45,0-60
         564obj_250rot: 546(18 not available because of stable pose?) obj with more than 300 points
         best_scores: obj > 300 points, 257 obj, 500 rot. score >= 40. 128293
@@ -348,6 +230,8 @@ if __name__ == '__main__':
         546objv3: DR with pose sampling 0-45 degrees from stable pose
         best_scoresv4: No pose translation, no dr.
         best_scoresv5: DR with pose sampling 0-45 degrees from stable pose
+        546objv4: DR with background, Translation(+-0.02,+-0.02,0-0.2), uniform sampling from SO3, 300 rot
+        best_scoresv6: DR with background, Translation(+-0.02,+-0.02,0-0.2), uniform sampling from SO3, 300 rot
     """
     args = parse_args()
     config = YamlConfig(args.config)
@@ -363,7 +247,7 @@ if __name__ == '__main__':
     # print(point_clouds[1])
 
     # optimizer = optim.Adam(model.parameters())
-    optimizer = optim.Adam(model.parameters(), weight_decay=1e-5)
+    optimizer = optim.Adam(model.parameters(), weight_decay=1e-7)
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.9)
     
     if not args.test:
@@ -423,12 +307,12 @@ if __name__ == '__main__':
 
         true_quaternions = []
         pred_quaternions = []
-        losses = []
+        losses, angle_vs_losses = [], []
         with torch.no_grad():
             for step in tqdm(range(n_test_steps)):
                 batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
-                depth_image1 = (batch["depth_image1"] * 65535).astype(int)
-                depth_image2 = (batch["depth_image2"] * 65535).astype(int)
+                depth_image1 = batch["depth_image1"]
+                depth_image2 = batch["depth_image2"]
 
                 im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
                 im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
@@ -441,7 +325,7 @@ if __name__ == '__main__':
                 total += transform_batch.size(0)
 
                 loss = loss_func(pred_transform, transform_batch, ones).item()
-                angle_loss = np.arccos(1-loss) * 180 / np.pi * 2
+                # angle_loss = np.arccos(1-loss) * 180 / np.pi * 2 #Don't use, always underestimates error.
                 
                 obj_ids = batch["obj_id"]
                 points_poses = batch["pose_matrix"][:,:3,:3]
@@ -451,13 +335,17 @@ if __name__ == '__main__':
                 true_quaternions.extend(transform_batch.cpu().numpy())
                 pred_quaternions.extend(pred_transform.cpu().numpy())
 
-                losses.append(angle_loss)
-                test_loss += angle_loss
+                true_quat = transform_batch.cpu().numpy()[0]
+                angle = np.arccos(true_quat[3]) * 180 / np.pi * 2
+                # print(true_quat[3], angle)
+                losses.append(loss)
+                angle_vs_losses.append([angle,loss,loss2])
+                test_loss += loss
                 test_loss2 += loss2
-                test_loss3 += loss
-        mean_cosine_loss = test_loss3/total
-        mean_angle_loss = np.arccos(1-test_loss3/total)*180/np.pi*2
-        Plot_Angle_vs_Loss(true_quaternions, losses, mean_angle_loss)
+        np.savetxt(config['hist_data'], np.array(angle_vs_losses))
+        mean_cosine_loss = test_loss/total
+        mean_angle_loss = np.arccos(1-mean_cosine_loss)*180/np.pi*2
+        Plot_Angle_vs_Loss(true_quaternions, losses, mean_angle_loss, config['rotation_predictions_plot'])
         Plot_Small_Angle_Loss(true_quaternions, losses, mean_angle_loss)
         Plot_Axis_vs_Loss(true_quaternions, losses, mean_angle_loss)
         if args.worst_pred:
@@ -471,7 +359,7 @@ if __name__ == '__main__':
                     break
             Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
             Plot_Bad_Predictions(dataset, pred_quaternions, np.array(smallest_losses), "best")
-        print("Mean Cosine loss is: ", test_loss3/total)
+        print("Mean Cosine loss is: ", test_loss/total)
         print("Mean Angle loss is: ", mean_angle_loss)
         print("Mean SM loss is: ", test_loss2/total)
         Plot_Loss(config)

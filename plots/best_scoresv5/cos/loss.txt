@@ -1,0 +1,4 @@
+Mean Cosine loss is:  0.004772056536636643
+Mean Angle loss is:  11.199361771733706
+Mean Angle loss v2 is:  9.312465685262442
+Mean SM loss is:  0.10651568342613885
