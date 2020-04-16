@@ -137,16 +137,14 @@ def train(dataset, batch_size, first=False):
         pred_transform = model(im1_batch, im2_batch)
         if config['loss'] == 'cosine' or first:
             loss = loss_func(pred_transform, transform_batch, ones)
-            loss.backward()
+            sm_loss = loss_func2(pred_transform, transform_batch, points).item()
         else:
-            loss = loss_func(pred_transform, transform_batch, points)
-            loss.backward()
-
-        sm_loss = loss_func2(pred_transform, transform_batch, points)
-        
+            loss = loss_func2(pred_transform, transform_batch, points)
+            sm_loss = loss.item()
+        loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-        train_loss += sm_loss.item()
+        train_loss += sm_loss
 
         # if step % 100 == 0:
         #     print(pred_transform[:3])
@@ -185,12 +183,8 @@ def test(dataset, batch_size):
             obj_ids = batch["obj_id"]
             points_poses = batch["pose_matrix"][:,:3,:3]
             points = get_points(obj_ids, points_poses)
-            if config['loss'] == 'cosine':
-                loss = loss_func(pred_transform, transform_batch, ones)
-            elif config['loss'] == 'shapematch':
-                loss = loss_func(pred_transform, transform_batch, points)
-            else:
-                assert False
+            # if config['loss'] == 'cosine':
+            #     loss = loss_func(pred_transform, transform_batch, ones)
 
             sm_loss = loss_func2(pred_transform, transform_batch, points)
             test_loss += sm_loss.item()
@@ -212,7 +206,6 @@ def parse_args():
     parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str, required=True)
     args = parser.parse_args()
-    args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
     return args
 
 if __name__ == '__main__':
@@ -235,46 +228,54 @@ if __name__ == '__main__':
     """
     args = parse_args()
     config = YamlConfig(args.config)
+    dataset_name = args.dataset + "/"
+    args.dataset = os.path.join('/nfs/diskstation/projects/unsupervised_rbt', args.dataset)
     dataset = TensorDataset.open(args.dataset)
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    
+    prefix = "cos" if config['loss'] == "cosine" else "cos_sm"
+    prefix += "_blk" + str(config['n_blocks']) + "_emb" + str(config["embed_dim"])
+    prefix += "_reg" + str(config["reg"]) + "_drop" + str(config["dropout"])
+    loss_history = "results/" + dataset_name + prefix + ".p"
+    histdata = "results/" + dataset_name + prefix + "_histdata.txt"
+    loss_plot_fname = "plots/" + dataset_name + prefix + "_loss.png"
+    rot_plot_fname = "plots/" + dataset_name + prefix + "_rot.png"
+    best_epoch_dir = "models/" + dataset_name + prefix + "_best.pt"
+    print("fname prefix", prefix)
 
-    model = ResNetSiameseNetwork(config['pred_dim'], n_blocks=config['n_blocks'], embed_dim=config['embed_dim']).to(device)
+    model = ResNetSiameseNetwork(config['pred_dim'], config['n_blocks'], config['embed_dim'], config['dropout']).to(device)
     # model = InceptionSiameseNetwork(config['pred_dim']).to(device)
 
-    # point_clouds = pickle.load(open("cfg/tools/point_clouds", "rb"))
-    point_clouds = pickle.load(open("cfg/tools/point_clouds300", "rb"))
-    scales = pickle.load(open("cfg/tools/scales", "rb"))
-    # print(point_clouds[1])
+    # point_clouds = pickle.load(open("cfg/tools/data/point_clouds", "rb"))
+    point_clouds = pickle.load(open("cfg/tools/data/point_clouds300", "rb"))
+    scales = pickle.load(open("cfg/tools/data/scales", "rb"))
 
     # optimizer = optim.Adam(model.parameters())
-    optimizer = optim.Adam(model.parameters(), weight_decay=1e-7)
+    optimizer = optim.Adam(model.parameters(), lr=2e-3, weight_decay=10**(-1 * config['reg']))
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.9)
-    
+    loss_func = nn.CosineEmbeddingLoss()
+    loss_func2 = ShapeMatchLoss()
+
     if not args.test:
         if not os.path.exists(args.dataset + "/splits/train"):
-            obj_id_split = np.loadtxt("cfg/tools/train_split")
+            obj_id_split = np.loadtxt("cfg/tools/data/train_split")
             val_indices = []
             for i in range(dataset.num_datapoints):
                 if dataset.datapoint(i)["obj_id"] in obj_id_split:
                     val_indices.append(i)
 
             print("Created Train Split")
-            # dataset.make_split("train", train_pct=0.8)
             dataset.make_split("train", train_pct=0.8, val_indices= val_indices)
         if not os.path.exists(args.dataset + "/splits/train2"):
             dataset.make_split("train2", train_pct=0.8)
 
         train_losses, test_losses = [], []
         min_loss = 100000
-        loss_func = nn.CosineEmbeddingLoss()
-        loss_func2 = ShapeMatchLoss()
         # model.load_state_dict(torch.load("models/uniform30_1e7.pt"))
 
         for epoch in range(config['num_epochs']):
 
             train_loss = train(dataset, config['batch_size'], first = (epoch == 0))
-            if config['loss'] == 'shapematch' and epoch == 0:
-                loss_func = ShapeMatchLoss()
             test_loss = test(dataset, config['batch_size'])
             scheduler.step()
             train_losses.append(train_loss)
@@ -282,17 +283,17 @@ if __name__ == '__main__':
             print("Epoch %d, Train Loss = %f, Test Loss = %f" %
                   (epoch, train_loss, test_loss))
             pickle.dump({"train_loss": train_losses, "test_loss": test_losses,
-                        }, open(config['losses_f_name'], "wb"))
-            torch.save(model.state_dict(), config['final_epoch_dir'])
+                        }, open(loss_history, "wb"))
+            # torch.save(model.state_dict(), final_epoch_dir)
             if test_loss < min_loss:
-                torch.save(model.state_dict(), config['best_epoch_dir'])
+                torch.save(model.state_dict(), best_epoch_dir)
                 min_loss = test_loss
 
     else:
-        loss_func = nn.CosineEmbeddingLoss()
-        loss_func2 = ShapeMatchLoss()
-        # model.load_state_dict(torch.load(config['final_epoch_dir']))
-        model.load_state_dict(torch.load(config['test_epoch_dir']))
+        Plot_Loss(loss_history, loss_plot_fname)
+
+        # model.load_state_dict(torch.load(final_epoch_dir))
+        model.load_state_dict(torch.load(best_epoch_dir))
         # display_conv_layers(model)
         model.eval()
         test_loss, test_loss2, test_loss3, total = 0, 0, 0, 0
@@ -318,19 +319,16 @@ if __name__ == '__main__':
                 im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
                 transform_batch = Variable(torch.from_numpy(batch["quaternion"])).to(device)
                 pred_transform = model(im1_batch, im2_batch)
-                # print("True Quaternions:")
-                # print(transform_batch)
-                # print("Predicted Quaternions:")
-                # print(pred_transform)
+                # print("True Quaternions: {}, Predicted Quaternions: {}".format(transform_batch, pred_transform))
                 total += transform_batch.size(0)
 
                 loss = loss_func(pred_transform, transform_batch, ones).item()
-                # angle_loss = np.arccos(1-loss) * 180 / np.pi * 2 #Don't use, always underestimates error.
+                # angle_loss = np.arccos(1-loss) * 180 / np.pi * 2 # Don't use, always underestimates error.
                 
                 obj_ids = batch["obj_id"]
                 points_poses = batch["pose_matrix"][:,:3,:3]
                 points = get_points(obj_ids, points_poses)
-                loss2 = loss_func2(pred_transform, transform_batch, points).item()
+                sm_loss = loss_func2(pred_transform, transform_batch, points).item()
 
                 true_quaternions.extend(transform_batch.cpu().numpy())
                 pred_quaternions.extend(pred_transform.cpu().numpy())
@@ -339,15 +337,16 @@ if __name__ == '__main__':
                 angle = np.arccos(true_quat[3]) * 180 / np.pi * 2
                 # print(true_quat[3], angle)
                 losses.append(loss)
-                angle_vs_losses.append([angle,loss,loss2])
+                angle_vs_losses.append([angle,loss,sm_loss])
                 test_loss += loss
-                test_loss2 += loss2
+                test_loss2 += sm_loss
         np.savetxt(config['hist_data'], np.array(angle_vs_losses))
         mean_cosine_loss = test_loss/total
         mean_angle_loss = np.arccos(1-mean_cosine_loss)*180/np.pi*2
-        Plot_Angle_vs_Loss(true_quaternions, losses, mean_angle_loss, config['rotation_predictions_plot'])
+        Plot_Angle_vs_Loss(true_quaternions, losses, mean_angle_loss, rot_plot_fname)
         Plot_Small_Angle_Loss(true_quaternions, losses, mean_angle_loss)
         Plot_Axis_vs_Loss(true_quaternions, losses, mean_angle_loss)
+
         if args.worst_pred:
             biggest_losses = np.argsort(losses)[-5:-1]
             smallest_losses_idx = np.argsort(losses)
@@ -359,9 +358,9 @@ if __name__ == '__main__':
                     break
             Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
             Plot_Bad_Predictions(dataset, pred_quaternions, np.array(smallest_losses), "best")
+
         print("Mean Cosine loss is: ", test_loss/total)
         print("Mean Angle loss is: ", mean_angle_loss)
         print("Mean SM loss is: ", test_loss2/total)
-        Plot_Loss(config)
 
 

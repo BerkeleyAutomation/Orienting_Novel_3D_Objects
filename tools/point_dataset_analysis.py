@@ -328,8 +328,8 @@ if __name__ == "__main__":
             else:
                 print("no symmetry")
 
-    # np.savetxt("cfg/tools/scores_symmetry", np.array(scores_symmetry))
-    # pickle.dump(rot_similarity, open("cfg/tools/rot_similarity", "wb"))
-    # pickle.dump(scores_features, open("cfg/tools/scores_features", "wb"))
+    # np.savetxt("cfg/tools/data/scores_symmetry", np.array(scores_symmetry))
+    # pickle.dump(rot_similarity, open("cfg/tools/data/rot_similarity", "wb"))
+    # pickle.dump(scores_features, open("cfg/tools/data/scores_features", "wb"))
 
     dataset.flush()

@@ -354,8 +354,8 @@ if __name__ == "__main__":
                     # mse = np.linalg.norm(image1 - image2)
             # delete the object to make room for the next
             scene.remove_node(object_node)
-    np.savetxt("cfg/tools/scores_symmetry", np.array(scores_symmetry))
-    pickle.dump(rot_similarity, open("cfg/tools/rot_similarity", "wb"))
-    pickle.dump(scores_features, open("cfg/tools/scores_features", "wb"))
+    np.savetxt("cfg/tools/data/scores_symmetry", np.array(scores_symmetry))
+    pickle.dump(rot_similarity, open("cfg/tools/data/rot_similarity", "wb"))
+    pickle.dump(scores_features, open("cfg/tools/data/scores_features", "wb"))
 
     dataset.flush()

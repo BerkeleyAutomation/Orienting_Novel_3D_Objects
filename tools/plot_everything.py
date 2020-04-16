@@ -33,11 +33,11 @@ if __name__ == '__main__':
     plt.savefig("plots/test_curve_82.png")
     plt.close()
 
-
-    angle_loss_546_hybrid = np.loadtxt("results/546objv3_cos_sm_histdata.txt")
-    angle_loss_546_cosine = np.loadtxt("results/546objv3_cos_histdata.txt")
-    angle_loss_82_hybrid = np.loadtxt("results/best_scoresv5_cos_sm_histdata.txt")
-    angle_loss_82_cosine = np.loadtxt("results/best_scoresv5_cos_histdata.txt")
+    ### CHANGE
+    # angle_loss_546_hybrid = np.loadtxt("results/546objv3_cos_sm_histdata.txt") 
+    # angle_loss_546_cosine = np.loadtxt("results/546objv3_cos_histdata.txt")
+    # angle_loss_82_hybrid = np.loadtxt("results/best_scoresv5_cos_sm_histdata.txt")
+    # angle_loss_82_cosine = np.loadtxt("results/best_scoresv5_cos_histdata.txt")
 
     bins = 6
     width = 0.25

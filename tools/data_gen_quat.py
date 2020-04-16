@@ -115,7 +115,7 @@ if __name__ == "__main__":
     obj_id = 0
     data_point_counter = 0
 
-    # split = np.loadtxt('cfg/tools/train_split_546')
+    # split = np.loadtxt('cfg/tools/data/train_split_546')
 
     symmetries = [
         3, 3, 3, 0, 0, 3, 0.5, 1.5, 1, 3, 0, 1, 2, 3, 1, 0, 1, 3, 2, 2, 3, 3, 3, 3, 1, 0, 0, 1.5, 2, 2, 2, 3, 1, 1, 3, 0, 3, 1, 1, 2, 0.5, 3, 0, 1.5,
@@ -142,7 +142,7 @@ if __name__ == "__main__":
     dont_include = [555,310,304, 462, 243, 228, 313,592, 359, 763, 13, 634, 491, 621,466, 340, 227,653,464,89,596,306,177,353,83,184,230,650,90]
     objects_added = {}
     all_points, all_points300, all_scales = {}, {}, {}
-    scores = np.loadtxt("cfg/tools/final_scores")
+    scores = np.loadtxt("cfg/tools/data/final_scores")
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
@@ -285,10 +285,10 @@ if __name__ == "__main__":
     print("Obj ID to split on training and validation:")
     print(objects_added[:len(objects_added)//5])
     # if num_samples_per_obj > 20:
-    #     np.savetxt("cfg/tools/train_split", objects_added[:len(objects_added)//5])
-    #     np.savetxt("cfg/tools/test_split", objects_added[len(objects_added)//5:])
+    #     np.savetxt("cfg/tools/data/train_split", objects_added[:len(objects_added)//5])
+    #     np.savetxt("cfg/tools/data/test_split", objects_added[len(objects_added)//5:])
     # print(all_points)
-    # pickle.dump(all_points, open("cfg/tools/point_clouds", "wb"))
-    # pickle.dump(all_points300, open("cfg/tools/point_clouds300", "wb"))
-    # pickle.dump(all_scales, open("cfg/tools/scales", "wb"))
+    # pickle.dump(all_points, open("cfg/tools/data/point_clouds", "wb"))
+    # pickle.dump(all_points300, open("cfg/tools/data/point_clouds300", "wb"))
+    # pickle.dump(all_scales, open("cfg/tools/data/scales", "wb"))
     dataset.flush()

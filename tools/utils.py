@@ -133,11 +133,11 @@ def Plot_Datapoint(datapoint):
 def error2angle(err):
     return np.arccos(1-err) * 180 / np.pi * 2
 
-def Plot_Loss(config):
+def Plot_Loss(loss_history, loss_plot_fname):
     """Plots the training and validation loss, provided that there is a config file with correct
     location of data
     """
-    losses = pickle.load(open(config['losses_f_name'], "rb"))
+    losses = pickle.load(open(loss_history, "rb"))
     train_returns = np.array(losses["train_loss"])
     test_returns = np.array(losses["test_loss"])
 
@@ -152,7 +152,7 @@ def Plot_Loss(config):
     plt.ylabel("Loss")
     plt.title("Training Curve")
     plt.legend(loc='best')
-    plt.savefig(config['loss_plot_f_name'])
+    plt.savefig(loss_plot_fname)
     plt.close()
 
 def Plot_Angle_vs_Loss(quaternions, losses, mean_loss, fname, max_angle = 30):

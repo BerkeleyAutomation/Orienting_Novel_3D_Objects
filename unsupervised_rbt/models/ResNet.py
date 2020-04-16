@@ -12,7 +12,7 @@ class onerelu(nn.Module):
 
 
 class ResNetSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim, n_blocks = 1, embed_dim=1024, dropout=False):
+    def __init__(self, transform_pred_dim, n_blocks = 1, embed_dim=1024, dropout=6):
         super(ResNetSiameseNetwork, self).__init__()
         blocks = [item for item in [1] for i in range(n_blocks)]
         self.resnet = ResNet(BasicBlock, blocks, embed_dim, dropout=False)   # [1,1,1,1]
@@ -21,7 +21,7 @@ class ResNetSiameseNetwork(nn.Module):
         self.final_fc = nn.Linear(1000, transform_pred_dim)
         # self.final_fc1 = nn.Linear(1000, transform_pred_dim - 1)
         # self.final_fc2 = nn.Linear(1000, 1)
-        self.dropout = nn.Dropout(0.4) #0.6 for most
+        self.dropout = nn.Dropout(dropout / 10) #0.6 for most
         # self.bn1 = nn.BatchNorm1d(1000)
 
     def forward(self, input1, input2):

@@ -3,9 +3,9 @@ import pickle
 import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
-    scores_symmetry = np.loadtxt("cfg/tools/scores_symmetry")
-    scores_features = pickle.load(open("cfg/tools/scores_features", "rb"))
-    rot_similarity = pickle.load(open("cfg/tools/rot_similarity", "rb"))
+    scores_symmetry = np.loadtxt("cfg/tools/data/scores_symmetry")
+    scores_features = pickle.load(open("cfg/tools/data/scores_features", "rb"))
+    rot_similarity = pickle.load(open("cfg/tools/data/rot_similarity", "rb"))
     # print(len(scores_features))
     # print(len(scores_symmetry))
     scores = {}
@@ -40,7 +40,7 @@ if __name__ == "__main__":
     print("Elephant is ", final_scores[3])
     print("Symmetric object is ", final_scores[282])
     print("Symmetric object is ", final_scores[18])
-    np.savetxt("cfg/tools/final_scores",final_scores)
+    np.savetxt("cfg/tools/data/final_scores",final_scores)
     # print(list(indices))
     # for k in indices:
     #     try:
