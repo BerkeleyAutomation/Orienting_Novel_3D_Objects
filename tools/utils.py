@@ -10,7 +10,7 @@ from autolab_core import YamlConfig, RigidTransform
 def normalize(z):
     return z / np.linalg.norm(z)
 
-def Generate_Quaternion():
+def Generate_Quaternion(start=0, end=np.pi/6):
     """Generate a random quaternion with conditions.
     To avoid double coverage and limit our rotation space, 
     we make sure the real component is positive and have 
@@ -18,7 +18,7 @@ def Generate_Quaternion():
     """
     axis = np.random.normal(0, 1, 3)
     axis = axis / np.linalg.norm(axis) 
-    angle = np.random.uniform(0,np.pi/6)
+    angle = np.random.uniform(start,end)
     quat = Rotation.from_rotvec(axis * angle).as_quat()
     if quat[3] < 0:
         quat = -1 * quat
@@ -68,6 +68,14 @@ def Quaternion_to_Rotation(quaternion, center_of_mass):
     angle = np.linalg.norm(rotation_vector)
     axis = rotation_vector / angle
     return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
+
+def Rotation_to_Quaternion(rot_matrix):
+    """Take in an object's 4x4 pose matrix and return a quaternion
+    """
+    quat = Rotation.from_dcm(rot_matrix[:3,:3]).as_quat()
+    if quat[3] < 0:
+        quat = -quat
+    return quat
 
 def Generate_Random_TransformSO3(center_of_mass):
     """Create a matrix that will randomly rotate an object about an axis by a randomly sampled quaternion
@@ -218,7 +226,6 @@ def Plot_Axis_vs_Loss(quaternions, losses, mean_loss):
 
 def Quantize(images):
     return (images * 65535).astype(int)
-
 
 def addNoise(image, std=0.001):
     """Adds noise to image array.

@@ -29,99 +29,7 @@ import cv2
 from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork
 from unsupervised_rbt.losses.shapematch import ShapeMatchLoss
 from pyquaternion import Quaternion
-
-
-def normalize(z):
-    return z / np.linalg.norm(z)
-
-def Generate_Quaternion(angle1=0, angle2=np.pi/6):
-    """Generate a random quaternion with conditions.
-    To avoid double coverage and limit our rotation space, 
-    we make sure the real component is positive and have 
-    the greatest magnitude. Sample axes randomly. Sample degree uniformly
-    """
-    axis = np.random.normal(0, 1, 3)
-    axis = axis / np.linalg.norm(axis) 
-    angle = np.random.uniform(angle1,angle2)
-    quat = Rotation.from_rotvec(axis * angle).as_quat()
-    if quat[3] < 0:
-        quat = -1 * quat
-    # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
-    return quat
-
-def Generate_Quaternion_SO3():
-    """Generate a random quaternion with conditions.
-    To avoid double coverage and limit our rotation space, 
-    we make sure the real component is positive and have 
-    the greatest magnitude. We also limit rotations to less
-    than 60 degrees. We sample according to the following links:
-    https://www.euclideanspace.com/maths/geometry/rotations/conversions/quaternionToAngle/index.htm
-    http://planning.cs.uiuc.edu/node198.html
-    """
-    quat = np.zeros(4)
-    # while np.max(np.abs(quat)) < 0.866: # 60 degrees
-    # while np.max(np.abs(quat)) < 0.92388: # 45 degrees
-    while np.max(np.abs(quat)) < 0.96592:  # 30 degrees
-      uniforms = np.random.uniform(0, 1, 3)
-      one_minus_u1, u1 = np.sqrt(1 - uniforms[0]), np.sqrt(uniforms[0])
-      uniforms_pi = 2*np.pi*uniforms
-      quat = np.array(
-          [one_minus_u1 * np.sin(uniforms_pi[1]),
-           one_minus_u1 * np.cos(uniforms_pi[1]),
-           u1 * np.sin(uniforms_pi[2]),
-           u1 * np.cos(uniforms_pi[2])])
-
-    max_i = np.argmax(np.abs(quat))
-    quat[3], quat[max_i] = quat[max_i], quat[3]
-    if quat[3] < 0:
-        quat = -1 * quat
-    # print("Quaternion is ", 180/np.pi*np.linalg.norm(Rotation.from_quat(random_quat).as_rotvec()))
-    return quat
-
-def Quaternion_String(quat):
-    """Converts a 4 element quaternion to a string for printing
-    """
-    quat = np.round(quat, 3)
-    return str(quat[3]) + " + " + str(quat[0]) + "i + " + str(quat[1]) + "j + " + str(quat[2]) + "k"
-
-def Quaternion_to_Rotation(quaternion, center_of_mass):
-    """Take in an object's center of mass and a quaternion, and
-    return a rotation matrix.
-    """
-    rotation_vector = Rotation.from_quat(quaternion).as_rotvec()
-    angle = np.linalg.norm(rotation_vector)
-    axis = rotation_vector / angle
-    return RigidTransform.rotation_from_axis_and_origin(axis=axis, origin=center_of_mass, angle=angle).matrix
-
-def Rotation_to_Quaternion(rot_matrix):
-    """Take in an object's 4x4 pose matrix and return a quaternion
-    """
-    quat = Rotation.from_dcm(rot_matrix[:3,:3]).as_quat()
-    if quat[3] < 0:
-        quat = -quat
-    return quat
-
-def Generate_Random_Transform(center_of_mass):
-    """Create a matrix that will randomly rotate an object about an axis by a randomly sampled quaternion
-    """
-    quat = np.zeros(4)
-    uniforms = np.random.uniform(0, 1, 3)
-    one_minus_u1, u1 = np.sqrt(1 - uniforms[0]), np.sqrt(uniforms[0])
-    uniforms_pi = 2*np.pi*uniforms
-    quat = np.array(
-        [one_minus_u1 * np.sin(uniforms_pi[1]),
-        one_minus_u1 * np.cos(uniforms_pi[1]),
-        u1 * np.sin(uniforms_pi[2]),
-        u1 * np.cos(uniforms_pi[2])])
-
-    quat = normalize(quat)
-    return Quaternion_to_Rotation(quat, center_of_mass)
-
-def Generate_Random_Z_Transform(center_of_mass):
-    """Create a matrix that will randomly rotate an object about the z-axis by a random angle.
-    """
-    z_angle = 2*np.pi*np.random.random()
-    return RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=center_of_mass, angle=z_angle).matrix
+from tools.utils import *
 
 def Plot_Image(image, filename):
     """x
@@ -225,7 +133,9 @@ if __name__ == "__main__":
             # if obj_id != 4:
             #     continue
             #90 is twisty mug, 104 is golem, 241 is pharaoh, 351 is animal, 354 is chain mail
-            if obj_id not in [90, 104, 241, 351, 354]:
+            object_list = [90, 104, 241,351, 354, 304, 384,528,406,537,639,124,731,665,
+                            555,184,49,595,382,359,185,344] # 22 objects, 354 is not in best_scores 82
+            if obj_id not in object_list:
                 continue
             # if obj_id > 20:
             #     break
@@ -257,13 +167,13 @@ if __name__ == "__main__":
                 scene.remove_node(object_node)
                 continue
             
-            base_path = "controller/obj" + str(obj_id)
+            base_path = "controller/objects/obj" + str(obj_id)
 
             stbl_pose = stable_poses[0]
             center_of_mass_stbl = stbl_pose[:3,3]
             losses_obj = []
 
-            num_runs_per_obj = 1
+            num_runs_per_obj = 200
             max_iterations = 100
 
             for j in range(num_runs_per_obj):
@@ -310,10 +220,11 @@ if __name__ == "__main__":
                 for i in range(1,max_iterations):
                     ctr_of_mass = cur_pose_matrix[:3,3]
                     pred_quat = model(im1_batch,im2_batch).detach().cpu().numpy()[0]
-                    if pred_quat[3] >= 0.99996192306: # 1 degree
+                    # if pred_quat[3] >= 0.99996192306: # 1 degree
                     # if pred_quat[3] >= 0.9998476952: # 2 degrees
-                    # if pred_quat[3] >= np.cos(15/180*np.pi): # 6 degrees
-                        print("stopping criteria:", np.arccos(pred_quat[3]) * 180 /np.pi*2, pred_quat)
+                    # if pred_quat[3] >= np.cos(0.025/180*np.pi): # 0.5 degrees
+                    if pred_quat[3] >= 1: # 0 degrees
+                        # print("stopping criteria:", np.arccos(pred_quat[3]) * 180 /np.pi*2, pred_quat)
                         break
                     quat_reorder = np.array([pred_quat[3],pred_quat[0],pred_quat[1],pred_quat[2]])
                     pred_quat = Quaternion(quat_reorder)
@@ -339,7 +250,7 @@ if __name__ == "__main__":
                     # print(np.dot(q,quat_goal))
                     angle_error = np.arccos(np.abs(np.dot(quat_goal, q)))*180/np.pi*2
                     losses_j.append(angle_error)
-                print(np.round(losses_j,2)[::5])
+                # print(np.round(losses_j,2)[::5])
                 plt.plot(losses_j)
                 plt.title("Angle Difference Between Iteration Orientation and Goal Orientation")
                 plt.ylabel("Angle Difference (Degrees)")
@@ -350,6 +261,7 @@ if __name__ == "__main__":
             # delete the object to make room for the next
             scene.remove_node(object_node)
             losses.append(losses_obj)
+    print("Saving results to file")
     np.save("controller/results/losses", np.array(losses))
 
     # pickle.dump(all_points, open("cfg/tools/point_clouds", "wb"))

@@ -158,8 +158,8 @@ if __name__ == "__main__":
             #     continue
             # if obj_id not in best_obj_scores or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
             #     continue
-            if scores[obj_id-1] < 156.5:
-                continue
+            # if scores[obj_id-1] < 156.5:
+            #     continue
 
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
 
@@ -209,8 +209,7 @@ if __name__ == "__main__":
 
                     # Render image 1, which will be our original image with a random initial pose
                     # rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
-                    # rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
-                    rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
+                    rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
                     scene.set_pose(object_node, pose=rand_transform)
                     image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 

@@ -230,8 +230,8 @@ if __name__ == '__main__':
         546objv3: DR with pose sampling 0-45 degrees from stable pose
         best_scoresv4: No pose translation, no dr.
         best_scoresv5: DR with pose sampling 0-45 degrees from stable pose
-        546objv4: DR with background, Translation(+-0.02,+-0.02,0-0.2), uniform sampling from SO3, 300 rot
-        best_scoresv6: DR with background, Translation(+-0.02,+-0.02,0-0.2), uniform sampling from SO3, 300 rot
+        546objv4: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
+        best_scoresv6: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
     """
     args = parse_args()
     config = YamlConfig(args.config)
