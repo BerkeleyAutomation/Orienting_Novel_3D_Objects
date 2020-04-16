@@ -6,7 +6,6 @@ import torch
 import torchvision
 from autolab_core import YamlConfig, RigidTransform
 
-
 def normalize(z):
     return z / np.linalg.norm(z)
 

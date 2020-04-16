@@ -240,7 +240,7 @@ if __name__ == '__main__':
     histdata = "results/" + dataset_name + prefix + "_histdata.txt"
     loss_plot_fname = "plots/" + dataset_name + prefix + "_loss.png"
     rot_plot_fname = "plots/" + dataset_name + prefix + "_rot.png"
-    best_epoch_dir = "models/" + dataset_name + prefix + "_best.pt"
+    best_epoch_dir = "models/" + dataset_name + prefix + ".pt"
     print("fname prefix", prefix)
 
     model = ResNetSiameseNetwork(config['pred_dim'], config['n_blocks'], config['embed_dim'], config['dropout']).to(device)
@@ -340,7 +340,7 @@ if __name__ == '__main__':
                 angle_vs_losses.append([angle,loss,sm_loss])
                 test_loss += loss
                 test_loss2 += sm_loss
-        np.savetxt(config['hist_data'], np.array(angle_vs_losses))
+        np.savetxt(histdata, np.array(angle_vs_losses))
         mean_cosine_loss = test_loss/total
         mean_angle_loss = np.arccos(1-mean_cosine_loss)*180/np.pi*2
         Plot_Angle_vs_Loss(true_quaternions, losses, mean_angle_loss, rot_plot_fname)
