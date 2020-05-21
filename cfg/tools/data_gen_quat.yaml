@@ -71,7 +71,7 @@ state_space:
     objects:
       mesh_dir: /nfs/diskstation/objects/meshes/
       num_objects: 50
-      train_pct: 0.8
+      train_pct: 0.75
       stp_com_sigma: .0025
       stp_num_samples: 10
       # stp_num_samples: 10

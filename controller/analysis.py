@@ -4,9 +4,9 @@ import matplotlib.pyplot as plt
 
 if __name__ == "__main__":
     losses = np.load("controller/results/losses.npy")
-    test_546 = np.loadtxt("cfg/tools/train_split_546")
-    train_82 = np.loadtxt("cfg/tools/test_split_82")
-    test_82 = np.loadtxt("cfg/tools/train_split_82")
+    # test_546 = np.loadtxt("cfg/tools/train_split_546")
+    # train_82 = np.loadtxt("cfg/tools/test_split_82")
+    # test_82 = np.loadtxt("cfg/tools/train_split_82")
 
     # for i in test_546:
     #     if i in train_82 or i in test_82:
@@ -24,9 +24,8 @@ if __name__ == "__main__":
     plt.title("Controller Angle Error Evolution")
     plt.ylabel("Angle Difference (Degrees)")
     plt.xlabel("Iteration Number")
-    plt.savefig("controller/results/loss.png")
-    plt.xlim((0,losses.shape[1]))
     plt.ylim((0,30))
+    plt.savefig("controller/results/loss.png")
     plt.close()
 
     plt.hist(final_loss, bins=np.arange(0,30))

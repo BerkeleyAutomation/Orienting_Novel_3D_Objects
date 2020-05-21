@@ -67,7 +67,8 @@ def create_scene(data_gen=True):
     # camera = PerspectiveCamera(cam.yfov, znear=0.05, zfar=3.0,
     #                                aspectRatio=cam.aspect_ratio)
     camera = IntrinsicsCamera(cam.intrinsics.fx, cam.intrinsics.fy,
-                              cam.intrinsics.cx, cam.intrinsics.cy)
+                              cam.intrinsics.cx, cam.intrinsics.cy,
+                              znear=0.4, zfar=2)
     renderer.viewport_width = cam.width
     renderer.viewport_height = cam.height
 
@@ -173,20 +174,19 @@ if __name__ == "__main__":
             center_of_mass_stbl = stbl_pose[:3,3]
             losses_obj = []
 
-            num_runs_per_obj = 200
+            num_runs_per_obj = 100
             max_iterations = 100
 
             for j in range(num_runs_per_obj):
                 goal_pose_matrix = Generate_Random_Transform(center_of_mass_stbl) @ stbl_pose.copy()
                 ctr_of_mass = goal_pose_matrix[0:3, 3]
                 
-
                 Save_Poses(goal_pose_matrix, "goal")
 
                 # Render image 2, which will be the goal image of the object in a stable pose
                 scene.set_pose(object_node, pose=goal_pose_matrix)
                 image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                image2 = (image2*65535).astype(int)
+                # image2 = (image2*65535).astype(int)
                 Plot_Image(image2, base_path + "/images/goal.png")
 
                 # Render image 1, which will be 30 degrees away from the goal
@@ -196,21 +196,17 @@ if __name__ == "__main__":
 
                 scene.set_pose(object_node, pose=start_pose_matrix)
                 image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                image1 = (image1*65535).astype(int)
+                # image1 = (image1*65535).astype(int)
                 Plot_Image(image1, base_path + "/images/0.png")
 
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-                model = ResNetSiameseNetwork(4, n_blocks=1, embed_dim=1024).to(device)
-                model.load_state_dict(torch.load("models/546objv3_cos_best.pt"))
-                # model.load_state_dict(torch.load("models/546objv3_cos_best.pt"))
-                # model.load_state_dict(torch.load("models/546objv3_cos_best.pt"))
-                # model.load_state_dict(torch.load("models/546objv3_cos_best.pt"))
+                model = ResNetSiameseNetwork(4, n_blocks=1, embed_dim=1024, dropout=6).to(device)
+                model.load_state_dict(torch.load("models/546objv5/cos_sm_blk1_emb1024_reg7_drop4.pt"))
+                # model.load_state_dict(torch.load("models/546objv3/cos_sm_blk4_emb1024_reg7_drop4.pt"))
                 model.eval()
 
-                # I_s = cv2.imread(base_path +"/images/0.png", -1)
                 I_s = image1
                 # print(I_s.shape, I_s.min(), I_s.max())
-                # I_g = cv2.imread(base_path +"/images/goal.png", -1)
                 I_g = image2
                 im1_batch = torch.Tensor(torch.from_numpy(I_s).float()).to(device).unsqueeze(0).unsqueeze(0)
                 im2_batch = torch.Tensor(torch.from_numpy(I_g).float()).to(device).unsqueeze(0).unsqueeze(0)
@@ -236,7 +232,7 @@ if __name__ == "__main__":
                     Save_Poses(cur_pose_matrix, str(i))
                     scene.set_pose(object_node, pose=cur_pose_matrix)
                     cur_image = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                    cur_image = (cur_image*65535).astype(int)
+                    # cur_image = (cur_image*65535).astype(int)
                     if i < 20:
                         Plot_Image(cur_image, base_path + "/images/" + str(i) + ".png")
                     im1_batch = torch.Tensor(torch.from_numpy(cur_image).float()).to(device).unsqueeze(0).unsqueeze(0)

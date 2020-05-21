@@ -225,6 +225,7 @@ if __name__ == '__main__':
         best_scoresv5: DR with pose sampling 0-45 degrees from stable pose
         546objv4: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
         best_scoresv6: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
+        546objv5: DR with background, Translation(+-0.01,+-0.01,0-0.05), 45 degree from stable pose, 300 rot, z buffer (0.4,2)
     """
     args = parse_args()
     config = YamlConfig(args.config)
@@ -280,8 +281,8 @@ if __name__ == '__main__':
             scheduler.step()
             train_losses.append(train_loss)
             test_losses.append(test_loss)
-            print("Epoch %d, Train Loss = %f, Test Loss = %f" %
-                  (epoch, train_loss, test_loss))
+            print(("Epoch %d, Train Loss = %f, Test Loss = %f" %
+                  (epoch, train_loss, test_loss)) + " for " + prefix)
             pickle.dump({"train_loss": train_losses, "test_loss": test_losses,
                         }, open(loss_history, "wb"))
             # torch.save(model.state_dict(), final_epoch_dir)

@@ -139,14 +139,15 @@ def Plot_Loss(loss_history, loss_plot_fname):
     losses = pickle.load(open(loss_history, "rb"))
     train_returns = np.array(losses["train_loss"])
     test_returns = np.array(losses["test_loss"])
-
+    min_train = np.round(np.min(train_returns), 3)
+    min_test = np.round(np.min(test_returns), 3)
     # if config['loss'] == 'cosine':
     #     train_returns = np.arccos(1-train_returns) * 180 / np.pi * 2
     #     test_returns = np.arccos(1-test_returns) * 180 / np.pi * 2
     
     plt.figure(figsize=(10, 5))
-    plt.plot(np.arange(len(train_returns)) + 1, train_returns, label="Training Loss")
-    plt.plot(np.arange(len(test_returns)) + 1, test_returns, label="Testing Loss")
+    plt.plot(np.arange(len(train_returns)) + 1, train_returns, label="Training Loss, min: {}".format(min_train))
+    plt.plot(np.arange(len(test_returns)) + 1, test_returns, label="Testing Loss, min: {}".format(min_test))
     plt.xlabel("Training Iteration")
     plt.ylabel("Loss")
     plt.title("Training Curve")
