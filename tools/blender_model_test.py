@@ -18,9 +18,8 @@ if __name__ == '__main__':
     dataset = TensorDataset.open(os.path.join('/nfs/diskstation/projects/unsupervised_rbt', "elephant60"))
     config = "cfg/tools/unsup_rbt_train_quat.yaml"
     config = YamlConfig(config)
-    model = ResNetSiameseNetwork(config['pred_dim'], n_blocks=config['n_blocks'], embed_dim=config['embed_dim']).to(device)
-    model.load_state_dict(torch.load("models/564obj_1024.pt"))
-    # model.load_state_dict(torch.load("models/nosym47obj_512_best.pt"))
+    model = ResNetSiameseNetwork(4, n_blocks=1, embed_dim=1024, dropout=4).to(device)
+    model.load_state_dict(torch.load("models/546objv5/cos_sm_blk1_emb1024_reg7_drop4.pt"))
     model.eval()
 
     data_path = "/nfs/diskstation/shivin/shivin_exp"
@@ -31,21 +30,24 @@ if __name__ == '__main__':
     labels = np.loadtxt(labels_dir[2])
     dir_imgs_banana = [objects_dir[0]+ "_"+ str(i).zfill(4)+ ".png" for i in range(20)]
     dir_imgs_elephant = [objects_dir[2]+ "_"+ str(i).zfill(4)+ ".png" for i in range(20)]
-    imgs = np.array([[cv2.imread(img_dir, -1) / 65535 * 255] for img_dir in dir_imgs_elephant]).astype(int)
+    imgs = np.array([[cv2.imread(img_dir, -1)] for img_dir in dir_imgs_elephant]).astype(int)
     # for img in imgs[0]:
     #     for i in range(128):
     #         for j in range(128):
     #             if img[i][j] < 0.8:
     #                 img[i][j] = 0.3
-
-    print("Blender range:",imgs[0][0].max()/255, imgs[0][0].min()/255)
+    blender_table, blender_min = imgs[0][0].max()/65535, imgs[0][0].min()/65535
+    blender_max = (imgs[0][0][imgs[0][0] != imgs[0][0].max()]).max()/65535
+    print("Blender table:",blender_table, "Elephant min:", blender_min,"Elephant max:", blender_max )
 
     elephant = dataset.get_item_list([1])
-    elephant_img1 = (elephant['depth_image1'] * 255).astype(int)
-    elephant_img2 = (elephant['depth_image2'] * 255).astype(int)
+    elephant_img1 = (elephant['depth_image1'] * 65535).astype(int)
+    elephant_img2 = (elephant['depth_image2'] * 65535).astype(int)
     im1_batch = torch.Tensor(torch.from_numpy(elephant_img1).float()).to(device)
     im2_batch = torch.Tensor(torch.from_numpy(elephant_img2).float()).to(device)
-    print("Pyrender range:",elephant_img2[0].max()/255, elephant_img2[0].min()/255)
+    pyrender_table, pyrender_min = elephant_img2[0].max()/65535, elephant_img2[0].min()/65535
+    pyrender_max = (elephant_img2[0][elephant_img2[0] != elephant_img2[0].max()]).max()/65535
+    print("Pyrender table:",pyrender_table, "Elephant min:", pyrender_min,"Elephant max:", pyrender_max )
     print(model(im1_batch,im2_batch))
 
     imgs_batch = torch.Tensor(torch.from_numpy(imgs).float()).to(device)
