@@ -12,17 +12,16 @@ class onerelu(nn.Module):
 
 
 class ResNetSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim, n_blocks = 1, embed_dim=1024, dropout=6):
+    def __init__(self, transform_pred_dim, n_blocks = 1, embed_dim=1024, dropout=6, norm=True):
         super(ResNetSiameseNetwork, self).__init__()
         blocks = [item for item in [1] for i in range(n_blocks)]
         self.resnet = ResNet(BasicBlock, blocks, embed_dim, dropout=False)   # [1,1,1,1]
         self.fc_1 = nn.Linear(embed_dim*2, 1000) # was 200 before (but 50 achieves same result)
         self.fc_2 = nn.Linear(1000, 1000) #changed all from 1000
+        # self.fc_3 = nn.Linear(1000, 1000) 
         self.final_fc = nn.Linear(1000, transform_pred_dim)
-        # self.final_fc1 = nn.Linear(1000, transform_pred_dim - 1)
-        # self.final_fc2 = nn.Linear(1000, 1)
         self.dropout = nn.Dropout(dropout / 10) #0.6 for most
-        # self.bn1 = nn.BatchNorm1d(1000)
+        self.norm = norm
 
     def forward(self, input1, input2):
         output1 = self.resnet(input1)
@@ -30,13 +29,13 @@ class ResNetSiameseNetwork(nn.Module):
         output_concat = torch.cat((output1, output2), 1)
         output = self.dropout(F.leaky_relu(self.fc_1(output_concat)))
         output = self.dropout(F.leaky_relu(self.fc_2(output)))
-        
-        # output = F.relu(self.bn1(self.fc_1(output_concat)))
-        # output = F.relu(self.dropout(self.fc_2(output)))
-        
+        # output = self.dropout(F.leaky_relu(self.fc_3(output)))
+                
         output = self.final_fc(output)
         # print(output)
-        return F.normalize(output) #Normalize for Quaternion Regression
+        if self.norm:
+            output = F.normalize(output)
+        return output #Normalize for Quaternion Regression
 
 class LinearEmbeddingClassifier(nn.Module):
     def __init__(self, config, num_classes, embed_dim=200, dropout=False, init=False):

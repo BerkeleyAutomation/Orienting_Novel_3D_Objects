@@ -39,7 +39,7 @@ if __name__ == '__main__':
     blender_table, blender_min = imgs[0][0].max()/65535, imgs[0][0].min()/65535
     blender_max = (imgs[0][0][imgs[0][0] != imgs[0][0].max()]).max()/65535
     print("Blender table:",blender_table, "Elephant min:", blender_min,"Elephant max:", blender_max )
-
+    print(imgs[0][0])
     elephant = dataset.get_item_list([1])
     elephant_img1 = (elephant['depth_image1'] * 65535).astype(int)
     elephant_img2 = (elephant['depth_image2'] * 65535).astype(int)
@@ -47,14 +47,14 @@ if __name__ == '__main__':
     im2_batch = torch.Tensor(torch.from_numpy(elephant_img2).float()).to(device)
     pyrender_table, pyrender_min = elephant_img2[0].max()/65535, elephant_img2[0].min()/65535
     pyrender_max = (elephant_img2[0][elephant_img2[0] != elephant_img2[0].max()]).max()/65535
-    print("Pyrender table:",pyrender_table, "Elephant min:", pyrender_min,"Elephant max:", pyrender_max )
-    print(model(im1_batch,im2_batch))
-
+    print("Pyrender table:", pyrender_table, "Elephant min:", pyrender_min,"Elephant max:",pyrender_max)
+    print("Prediction on First Image:" , model(im1_batch,im2_batch).detach().cpu().numpy())
     imgs_batch = torch.Tensor(torch.from_numpy(imgs).float()).to(device)
     print(imgs_batch.size())
     imgs1, imgs2 = imgs_batch[::2],imgs_batch[1::2]
-
+    print("Predictions:")
     print(model(imgs1,imgs2))
+    print("Ground Truth:")
     print(labels)
 
     plt.figure()

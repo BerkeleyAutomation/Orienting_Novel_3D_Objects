@@ -5,6 +5,43 @@ from scipy.spatial.transform import Rotation
 import torch
 import torchvision
 from autolab_core import YamlConfig, RigidTransform
+from pyquaternion import Quaternion
+import cv2
+
+
+def get_points(obj_ids, points_poses, point_clouds, scales, device):
+    """obj_ids: (batch,)
+    points_poses: (batch, 3, 3)
+    point_clouds: dict of (3, ?)
+    scales: dict of ints
+    """
+    pc1, pc2 = point_clouds[obj_ids[0]]/scales[obj_ids[0]]*10, point_clouds[obj_ids[-1]]/scales[obj_ids[-1]]*10
+    n1, n2 = pc1.shape[1], pc2.shape[1]
+
+    if obj_ids[0] != obj_ids[-1]:
+        # print("Changing objects this batch!")
+        if n1 != n2:
+            num_points = min((n1,n2))
+            indices1, indices2 = np.random.choice(n1, num_points, replace=False), np.random.choice(n2, num_points, replace=False)
+            pc1, pc2 = pc1.T[indices1].T, pc2.T[indices2].T
+        b1, b2 = np.sum(obj_ids == obj_ids[0]), np.sum(obj_ids == obj_ids[-1])
+        points1, points2 = np.tile(pc1, (b1,1,1)), np.tile(pc2, (b2,1,1))
+        # print(points1.shape, points2.shape)
+        points = np.concatenate((points1, points2))
+    else:
+        points = np.tile(pc1, (obj_ids.shape[0],1,1))
+    
+    points, points_poses = torch.Tensor(points).to(device), torch.Tensor(points_poses).to(device)
+    points = torch.bmm(points_poses, points)
+    return points
+
+def get_points300(obj_ids, points_poses, point_clouds, scales, device):
+    points = [point_clouds[obj_id] / scales[obj_id] * 10 for obj_id in obj_ids]
+    # print(batch["pose_matrix"][0])
+    points = [points_poses[i] @ points[i] for i in range(len(obj_ids))]
+    points = torch.Tensor(points).to(device)
+    # print(points[:,:5])
+    return points
 
 def normalize(z):
     return z / np.linalg.norm(z)
@@ -76,6 +113,10 @@ def Rotation_to_Quaternion(rot_matrix):
         quat = -quat
     return quat
 
+def Quat_to_Lie(q):
+    omega, _ = cv2.Rodrigues(Quaternion_to_Rotation(q, np.zeros(3))[:3,:3])    
+    return omega.flatten()
+
 def Generate_Random_TransformSO3(center_of_mass):
     """Create a matrix that will randomly rotate an object about an axis by a randomly sampled quaternion
     """
@@ -110,24 +151,28 @@ def Generate_Random_Z_Transform(center_of_mass):
     z_angle = 2*np.pi*np.random.random()
     return RigidTransform.rotation_from_axis_and_origin(axis=[0, 0, 1], origin=center_of_mass, angle=z_angle).matrix
 
-def Plot_Datapoint(datapoint):
+def Plot_Datapoint(image1, image2, quat):
     """Takes in a datapoint of our Tensor Dataset, and plots its two images for visualizing their 
     iniitial pose and rotation.
     """
     plt.figure(figsize=(14, 7))
     plt.subplot(121)
-    fig1 = plt.imshow(datapoint["depth_image1"][:, :, 0], cmap='gray', vmin = 0.7)
-    plt.title('Stable pose')
+    mask = np.where(image1 < 0.7999)
+    fig1 = plt.imshow(image1, cmap='gray', vmax = np.max(image1[mask[0], mask[1]]) + 0.02)
+    plt.title('Initial pose')
     plt.subplot(122)
-    fig2 = plt.imshow(datapoint["depth_image2"][:, :, 0], cmap='gray')
+    mask = np.where(image2 < 0.7999)
+    fig2 = plt.imshow(image2, cmap='gray', vmax = np.max(image2[mask[0], mask[1]]) + 0.02)
     fig1.axes.get_xaxis().set_visible(False)
     fig1.axes.get_yaxis().set_visible(False)
     fig2.axes.get_xaxis().set_visible(False)
     fig2.axes.get_yaxis().set_visible(False)
-    plt.title('After Rigid Transformation: ' + Quaternion_String(datapoint["quaternion"]))
-    plt.show()
+    plt.title('After Rigid Transformation: ' + Quaternion_String(quat))
+    # print("Plotting?")
+    # plt.show()
     # plt.savefig("pictures/allobj/obj" + str(datapoint['obj_id']) + ".png")
-    # plt.close()
+    plt.savefig("plots/test.png")
+    plt.close()
 
 def error2angle(err):
     return np.arccos(1-err) * 180 / np.pi * 2
@@ -148,6 +193,8 @@ def Plot_Loss(loss_history, loss_plot_fname):
     plt.figure(figsize=(10, 5))
     plt.plot(np.arange(len(train_returns)) + 1, train_returns, label="Training Loss, min: {}".format(min_train))
     plt.plot(np.arange(len(test_returns)) + 1, test_returns, label="Testing Loss, min: {}".format(min_test))
+    plt.ylim(min_train, np.max(train_returns))
+    # plt.ylim(min_train, 0.14)
     plt.xlabel("Training Iteration")
     plt.ylabel("Loss")
     plt.title("Training Curve")
@@ -155,42 +202,69 @@ def Plot_Loss(loss_history, loss_plot_fname):
     plt.savefig(loss_plot_fname)
     plt.close()
 
-def Plot_Angle_vs_Loss(quaternions, losses, mean_loss, fname, max_angle = 30):
+def Plot_Angle_vs_Loss(angle_vs_losses, fname, loss="shapematch", max_angle=30):
     bins = max_angle // 5
     rotation_angles = [[] for i in range(bins)]
-    for q,l in zip(quaternions, losses):
-        rot_vec = Rotation.from_quat(q).as_rotvec()
-        rot_angle = np.linalg.norm(rot_vec) * 180 / np.pi
-        bin_num = np.min((int(rot_angle // 5), bins-1))
-        rotation_angles[bin_num].append(l)
+    mean_loss = 0
+    for angle,l,sm in angle_vs_losses:
+        bin_num = np.min((int(angle // 5), bins-1))
+        if loss == "cosine":
+            rotation_angles[bin_num].append(l)
+            mean_loss += l
+        else:
+            rotation_angles[bin_num].append(sm)
+            mean_loss += sm
 
-    mean_losses = [error2angle(np.mean(ra)) for ra in rotation_angles]
-    errors = [error2angle(np.std(ra)) for ra in rotation_angles]
-    labels = [str(i) + "-" + str(i+5) for i in range(0,max_angle,5)]
+    mean_loss = mean_loss / len(angle_vs_losses)
+
+    if loss == "cosine":
+        mean_losses = [error2angle(np.mean(ra)) for ra in rotation_angles]
+        errors = [error2angle(np.std(ra)) for ra in rotation_angles]
+        labels = [str(i) + "-" + str(i+5) for i in range(0,max_angle,5)]
+        mean_loss = error2angle(mean_loss)
+    else:
+        mean_losses = [np.mean(ra) for ra in rotation_angles]
+        errors = [np.std(ra) for ra in rotation_angles]
+        labels = [str(i) + "-" + str(i+5) for i in range(0,max_angle,5)]
 
     plt.figure(figsize=(10,5))
     plt.bar(labels, mean_losses, yerr = errors)
-    plt.axhline(mean_loss, c = 'r')
-    plt.xlabel("Rotation Angle (Degrees)")
-    plt.ylabel("Angle Loss (Degrees)")
+    plt.axhline(mean_loss, c='r')
     plt.ylim(0.0, (np.max(mean_losses)+np.max(errors))*1.1)
     plt.title("Loss vs Rotation Angle")
-    plt.savefig(fname)
+    plt.xlabel("Rotation Angle (Degrees)")
+    # print("Plot_Loss Mean is:", mean_loss)
+
+    if loss == "cosine":
+        plt.ylabel("Angle Loss (Degrees)")
+        plt.savefig(fname[:-4]+"_cos.png")
+    else:
+        plt.ylabel("Shape-Match Loss")
+        plt.savefig(fname)
     plt.close()
 
-def Plot_Small_Angle_Loss(quaternions, losses, mean_loss):
-    bins = 10
+def Plot_Small_Angle_Loss(angle_vs_losses, loss = "shapematch"):
+    bins, mean_loss = 10, 0
     rotation_angles = [[] for i in range(bins)]
-    for q,l in zip(quaternions, losses):
-        rot_vec = Rotation.from_quat(q).as_rotvec()
-        rot_angle = np.linalg.norm(rot_vec) * 180 / np.pi
-        if rot_angle <= 10:
-            bin_num = np.min((int(rot_angle), bins-1))
-            rotation_angles[bin_num].append(l)
+    for angle,l,sm in angle_vs_losses:
+        if angle <= 10:
+            bin_num = np.min((int(angle), bins-1))
+            if loss == "cosine":
+                rotation_angles[bin_num].append(l)
+                mean_loss += l
+            else:
+                rotation_angles[bin_num].append(sm)
+                mean_loss += sm
+    mean_loss = mean_loss / len(angle_vs_losses)
 
-    mean_losses = [error2angle(np.mean(ra)) for ra in rotation_angles]
-    errors = [error2angle(np.std(ra)) for ra in rotation_angles]
-    labels = [str(i) + "-" + str(i+1) for i in range(0,bins,1)]
+    if loss == "cosine":
+        mean_losses = [error2angle(np.mean(ra)) for ra in rotation_angles]
+        errors = [error2angle(np.std(ra)) for ra in rotation_angles]
+        labels = [str(i) + "-" + str(i+1) for i in range(0, 10)]
+    else:
+        mean_losses = [np.mean(ra) for ra in rotation_angles]
+        errors = [np.std(ra) for ra in rotation_angles]
+        labels = [str(i) + "-" + str(i+1) for i in range(0, 10)]
 
     plt.figure(figsize=(10,5))
     plt.bar(labels, mean_losses, yerr = errors)
@@ -224,8 +298,8 @@ def Plot_Axis_vs_Loss(quaternions, losses, mean_loss):
     plt.savefig("plots/axes_loss.png")
     plt.close()
 
-def Quantize(images):
-    return (images * 65535).astype(int)
+def Quantize(img):
+    return (img * 65535).astype(int)
 
 def addNoise(image, std=0.001):
     """Adds noise to image array.

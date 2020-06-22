@@ -527,9 +527,9 @@ class TensorDataset(object):
             # should be batch_size x n_channels x 128 x 128 (n_channels should be 1 for depth images)
             "depth_image1" : np.expand_dims(np.array([self.datapoint(i)["depth_image1"][:, :, -1] for i in indices]), axis=1), 
             "depth_image2" : np.expand_dims(np.array([self.datapoint(i)["depth_image2"][:, :, -1] for i in indices]), axis=1), 
-            # "transform"    : np.array([self.datapoint(i)["transform_id"] for i in indices]),
-            "quaternion"    : np.array([self.datapoint(i)["quaternion"] for i in indices]),
-            "pose_matrix"    : np.array([self.datapoint(i)["pose_matrix"] for i in indices]),
+            "quaternion"   : np.array([self.datapoint(i)["quaternion"] for i in indices]),
+            "lie"          : np.array([self.datapoint(i)["lie"] for i in indices]),
+            "pose_matrix"  : np.array([self.datapoint(i)["pose_matrix"] for i in indices]),
             "obj_id"       : np.array([self.datapoint(i)["obj_id"] for i in indices])
         }
 

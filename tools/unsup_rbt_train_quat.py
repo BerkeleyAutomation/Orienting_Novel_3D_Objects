@@ -20,7 +20,7 @@ from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
 from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork
 from unsupervised_rbt.losses.shapematch import ShapeMatchLoss
-from perception import DepthImage, RgbdImage
+# from perception import DepthImage, RgbdImage
 
 from tools.data_gen_quat import create_scene
 from tools.utils import *
@@ -87,14 +87,6 @@ def Plot_Predicted_Rotation(datapoint, predicted_quat):
             scene.set_pose(object_node, pose=new_pose)
             return renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
-def get_points(obj_ids, points_poses):
-    points = [point_clouds[obj_id] / scales[obj_id] * 10 for obj_id in obj_ids]
-    # print(batch["pose_matrix"][0])
-    points = [points_poses[i] @ points[i] for i in range(len(obj_ids))]
-    points = torch.Tensor(points).to(device)
-    # print(points[:,:5])
-    return points
-
 def train(dataset, batch_size, first=False):
     '''Train model specified in main and return training loss and classification accuracy'''
     model.train()
@@ -132,7 +124,7 @@ def train(dataset, batch_size, first=False):
         #         plt.show()
         obj_ids = batch["obj_id"]
         points_poses = batch["pose_matrix"][:,:3,:3]
-        points = get_points(obj_ids, points_poses)
+        points = get_points(obj_ids, points_poses, point_clouds, scales, device)
 
         pred_transform = model(im1_batch, im2_batch)
         if config['loss'] == 'cosine' or first:
@@ -182,7 +174,7 @@ def test(dataset, batch_size):
 
             obj_ids = batch["obj_id"]
             points_poses = batch["pose_matrix"][:,:3,:3]
-            points = get_points(obj_ids, points_poses)
+            points = get_points(obj_ids, points_poses, point_clouds, scales, device)
             # if config['loss'] == 'cosine':
             #     loss = loss_func(pred_transform, transform_batch, ones)
 
@@ -224,8 +216,9 @@ if __name__ == '__main__':
         best_scoresv4: No pose translation, no dr.
         best_scoresv5: DR with pose sampling 0-45 degrees from stable pose
         546objv4: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
-        best_scoresv6: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
-        546objv5: DR with background, Translation(+-0.01,+-0.01,0-0.05), 45 degree from stable pose, 300 rot, z buffer (0.4,2)
+        best_scoresv6: DR with background, Translation +-(0.01,0.01,0.05), 45 degree from stable pose, 2000 rot, z buffer (0.4,2)
+        546objv5: DR with background, Translation +-(0.01,0.01,0.05), 45 degree from stable pose, 300 rot, z buffer (0.4,2)
+        872obj: DR with background, Translation +-(0.01,0.01,0.05), also in I^g, SO3 sampling, 200 rot, z buffer (0.4,2)
     """
     args = parse_args()
     config = YamlConfig(args.config)
@@ -247,19 +240,19 @@ if __name__ == '__main__':
     model = ResNetSiameseNetwork(config['pred_dim'], config['n_blocks'], config['embed_dim'], config['dropout']).to(device)
     # model = InceptionSiameseNetwork(config['pred_dim']).to(device)
 
-    # point_clouds = pickle.load(open("cfg/tools/data/point_clouds", "rb"))
-    point_clouds = pickle.load(open("cfg/tools/data/point_clouds300", "rb"))
+    point_clouds = pickle.load(open("cfg/tools/data/point_clouds", "rb"))
+    # point_clouds = pickle.load(open("cfg/tools/data/point_clouds300", "rb"))
     scales = pickle.load(open("cfg/tools/data/scales", "rb"))
 
     # optimizer = optim.Adam(model.parameters())
     optimizer = optim.Adam(model.parameters(), lr=2e-3, weight_decay=10**(-1 * config['reg']))
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.9)
+    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.95)
     loss_func = nn.CosineEmbeddingLoss()
     loss_func2 = ShapeMatchLoss()
 
     if not args.test:
         if not os.path.exists(args.dataset + "/splits/train"):
-            obj_id_split = np.loadtxt("cfg/tools/data/train_split")
+            obj_id_split = np.loadtxt("cfg/tools/data/train_split872")
             val_indices = []
             for i in range(dataset.num_datapoints):
                 if dataset.datapoint(i)["obj_id"] in obj_id_split:
@@ -299,7 +292,7 @@ if __name__ == '__main__':
         model.eval()
         test_loss, test_loss2, test_loss3, total = 0, 0, 0, 0
 
-        # test_indices = dataset.split('train')[1][:1000]
+        # test_indices = dataset.split('train')[1][:3200]
         test_indices = dataset.split('train')[1]
         # test_indices = dataset.split('train2')[1]
         n_test = len(test_indices)
@@ -324,11 +317,11 @@ if __name__ == '__main__':
                 total += transform_batch.size(0)
 
                 loss = loss_func(pred_transform, transform_batch, ones).item()
-                # angle_loss = np.arccos(1-loss) * 180 / np.pi * 2 # Don't use, always underestimates error.
-                
+                # angle_loss = error2angle(loss) # Don't use, always underestimates error.
+
                 obj_ids = batch["obj_id"]
                 points_poses = batch["pose_matrix"][:,:3,:3]
-                points = get_points(obj_ids, points_poses)
+                points = get_points(obj_ids, points_poses, point_clouds, scales, device)
                 sm_loss = loss_func2(pred_transform, transform_batch, points).item()
 
                 true_quaternions.extend(transform_batch.cpu().numpy())
@@ -341,11 +334,13 @@ if __name__ == '__main__':
                 angle_vs_losses.append([angle,loss,sm_loss])
                 test_loss += loss
                 test_loss2 += sm_loss
+                # test_loss3 += angle_loss
         np.savetxt(histdata, np.array(angle_vs_losses))
         mean_cosine_loss = test_loss/total
         mean_angle_loss = np.arccos(1-mean_cosine_loss)*180/np.pi*2
-        Plot_Angle_vs_Loss(true_quaternions, losses, mean_angle_loss, rot_plot_fname)
-        Plot_Small_Angle_Loss(true_quaternions, losses, mean_angle_loss)
+        Plot_Angle_vs_Loss(angle_vs_losses, rot_plot_fname, 'shapematch', max_angle=30)
+        # Plot_Angle_vs_Loss(angle_vs_losses, rot_plot_fname, 'cosine')
+        Plot_Small_Angle_Loss(angle_vs_losses)
         Plot_Axis_vs_Loss(true_quaternions, losses, mean_angle_loss)
 
         if args.worst_pred:
