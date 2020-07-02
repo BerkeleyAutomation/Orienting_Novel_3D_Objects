@@ -112,16 +112,6 @@ def train(dataset, batch_size, first=False):
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
         transform_batch = Variable(torch.from_numpy(batch["quaternion"])).to(device)
-        # if step > 20:
-        #     for i in range(batch_size):
-        #         plt.subplot(121)
-        #         depth_image_show1 = depth_image1[i][0]
-        #         plt.imshow(depth_image_show1, cmap='gray')
-        #         plt.subplot(122)
-        #         depth_image_show2 = depth_image2[i][0]
-        #         plt.imshow(depth_image_show2, cmap='gray')
-        #         plt.title('Transform: {}'.format(transform_batch[i]))
-        #         plt.show()
         obj_ids = batch["obj_id"]
         points_poses = batch["pose_matrix"][:,:3,:3]
         points = get_points(obj_ids, points_poses, point_clouds, scales, device)
@@ -218,7 +208,7 @@ if __name__ == '__main__':
         546objv4: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
         best_scoresv6: DR with background, Translation +-(0.01,0.01,0.05), 45 degree from stable pose, 2000 rot, z buffer (0.4,2)
         546objv5: DR with background, Translation +-(0.01,0.01,0.05), 45 degree from stable pose, 300 rot, z buffer (0.4,2)
-        872obj: DR with background, Translation +-(0.01,0.01,0.05), also in I^g, SO3 sampling, 200 rot, z buffer (0.4,2)
+        872obj: DR with background, Translation +-(0.01,0.01,0.05), also in I^g, SO3 sampling, 200 rot, z buffer (0.4,2), 60 degrees
     """
     args = parse_args()
     config = YamlConfig(args.config)
@@ -252,7 +242,7 @@ if __name__ == '__main__':
 
     if not args.test:
         if not os.path.exists(args.dataset + "/splits/train"):
-            obj_id_split = np.loadtxt("cfg/tools/data/train_split872")
+            obj_id_split = np.loadtxt("cfg/tools/data/train_split_872")
             val_indices = []
             for i in range(dataset.num_datapoints):
                 if dataset.datapoint(i)["obj_id"] in obj_id_split:
@@ -330,7 +320,7 @@ if __name__ == '__main__':
                 true_quat = transform_batch.cpu().numpy()[0]
                 angle = np.arccos(true_quat[3]) * 180 / np.pi * 2
                 # print(true_quat[3], angle)
-                losses.append(loss)
+                losses.append(sm_loss)
                 angle_vs_losses.append([angle,loss,sm_loss])
                 test_loss += loss
                 test_loss2 += sm_loss
@@ -338,7 +328,7 @@ if __name__ == '__main__':
         np.savetxt(histdata, np.array(angle_vs_losses))
         mean_cosine_loss = test_loss/total
         mean_angle_loss = np.arccos(1-mean_cosine_loss)*180/np.pi*2
-        Plot_Angle_vs_Loss(angle_vs_losses, rot_plot_fname, 'shapematch', max_angle=30)
+        Plot_Angle_vs_Loss(angle_vs_losses, rot_plot_fname, 'shapematch', max_angle=config['max_angle'])
         # Plot_Angle_vs_Loss(angle_vs_losses, rot_plot_fname, 'cosine')
         Plot_Small_Angle_Loss(angle_vs_losses)
         Plot_Axis_vs_Loss(true_quaternions, losses, mean_angle_loss)

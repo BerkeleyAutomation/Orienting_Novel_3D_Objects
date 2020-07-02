@@ -172,8 +172,8 @@ if __name__ == "__main__":
             # load object mesh
             mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
             points = mesh.vertices
-            # if not points.shape[0] < 300:
-            #     continue
+            if points.shape[0] < 300:
+                continue
             # print(points.shape)
             # all_scales[obj_id] = mesh.scale
             # all_points[obj_id] = points.T
@@ -181,12 +181,12 @@ if __name__ == "__main__":
             #     points_clone = np.copy(points)
             #     np.random.shuffle(points_clone)
             #     all_points300[obj_id] = points_clone[:300].T
-            if points.shape[0] >= 1000:
-                points_clone = np.copy(points)
-                np.random.shuffle(points_clone)
-                all_points[obj_id] = points_clone[:1000].T
-            else:
-                all_points[obj_id] = points.T
+            # if points.shape[0] >= 1000:
+            #     points_clone = np.copy(points)
+            #     np.random.shuffle(points_clone)
+            #     all_points[obj_id] = points_clone[:1000].T
+            # else:
+            #     all_points[obj_id] = points.T
 
             obj_mesh = Mesh.from_trimesh(mesh)
             object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
@@ -208,21 +208,22 @@ if __name__ == "__main__":
                 scene.remove_node(object_node)
                 continue
 
-            most_stable_pose_matrix = stable_poses[0]
+            # most_stable_pose_matrix = stable_poses[0]
             for j in range(num_samples_per_obj):
+                most_stable_pose_matrix = stable_poses[j % len(stable_poses)]
                 # Use first stable pose of the object for center of mass
                 # print(pose_matrix[:,3])
                 pose_matrix = most_stable_pose_matrix.copy()
                 pose_matrix[:2,3] += np.random.uniform(-0.01,0.01,2)
-                pose_matrix[2,3] += np.random.uniform(0.1,0.14)
+                pose_matrix[2,3] += np.random.uniform(0,0.05)
                 # print(pose_matrix[:,3])
 
                 ctr_of_mass = pose_matrix[0:3, 3]
 
                 # Render image 1, which will be our original image with a random initial pose
                 # rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
-                rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
-                # rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
+                # rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
+                rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
 
                 scene.set_pose(object_node, pose=rand_transform)
                 image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
@@ -240,11 +241,11 @@ if __name__ == "__main__":
                 #     plt.close()
 
                 # Render image 2, which will be image 1 rotated according to our specification
-                random_quat = Generate_Quaternion(end = np.pi/3)
+                random_quat = Generate_Quaternion(end = np.pi/6)
                 quat_str = Quaternion_String(random_quat)
 
-                rand_transform[:2,3] += np.random.uniform(-0.01,0.01,2)
-                rand_transform[2,3] += np.random.uniform(-0.02,0.03)
+                # rand_transform[:2,3] += np.random.uniform(-0.01,0.01,2)
+                # rand_transform[2,3] += np.random.uniform(-0.02,0.03)
                 ctr_of_mass = rand_transform[0:3, 3]
 
                 new_pose = Quaternion_to_Rotation(random_quat, ctr_of_mass) @ rand_transform
@@ -303,11 +304,11 @@ if __name__ == "__main__":
     print("Added ", data_point_counter, " datapoints to dataset from ", len(objects_added), "objects")
     print("Obj ID to split on training and validation:")
     print(objects_added[:len(objects_added)//5])
-    if num_samples_per_obj > 0:
-        np.savetxt("cfg/tools/data/train_split872", objects_added[:len(objects_added)//5])
-        np.savetxt("cfg/tools/data/test_split872", objects_added[len(objects_added)//5:])
+    # if num_samples_per_obj > 0:
+    #     np.savetxt("cfg/tools/data/train_split872", objects_added[:len(objects_added)//5])
+    #     np.savetxt("cfg/tools/data/test_split872", objects_added[len(objects_added)//5:])
     # print(all_points)
-    pickle.dump(all_points, open("cfg/tools/data/point_clouds", "wb"))
+    # pickle.dump(all_points, open("cfg/tools/data/point_clouds", "wb"))
     # pickle.dump(all_points300, open("cfg/tools/data/point_clouds300", "wb"))
     # pickle.dump(all_scales, open("cfg/tools/data/scales", "wb"))
     dataset.flush()

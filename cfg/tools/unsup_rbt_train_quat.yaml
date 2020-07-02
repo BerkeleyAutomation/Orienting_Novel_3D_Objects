@@ -3,8 +3,9 @@ batch_size: 50
 num_epochs: 100
 # loss: cosine
 loss: shapematch
-n_blocks: 4
-embed_dim: 2048
+n_blocks: 1
+embed_dim: 1024
 reg: 7
 dropout: 5
+max_angle: 30
 #REMEMBER FOR FC TUNING CHANGE POINT CLOUD

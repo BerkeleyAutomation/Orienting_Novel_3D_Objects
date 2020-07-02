@@ -1,5 +1,5 @@
 debug: 0
-num_samples_per_obj: 1
+num_samples_per_obj: 300
 noise: 0
 
 # dataset params
@@ -114,8 +114,8 @@ state_space:
 
     # intrinsics. See https://github.com/BerkeleyAutomation/sd-maskrcnn/blob/master/sd_maskrcnn/envs/random_variables.py
     focal_length:
-      min: 400 # Was 535 for CASE first submission
-      max: 400
+      min: 535 # Was 535 for CASE first submission
+      max: 535
     delta_optical_center:
       min: 0
       max: 0

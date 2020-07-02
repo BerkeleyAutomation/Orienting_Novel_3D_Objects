@@ -2,12 +2,14 @@ import numpy as np
 import argparse
 import os
 import itertools
+import open3d as o3d
 import torch
 import torch.nn as nn
 import torchvision
 import torch.optim as optim
 from torch.autograd import Variable
 import pickle
+import copy
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
 from tqdm import tqdm
@@ -26,7 +28,6 @@ from pyrender import (Scene, IntrinsicsCamera, Mesh,
                       Viewer, OffscreenRenderer, RenderFlags, Node)
 import cv2
 import visualization as vis
-import open3d as o3d
 
 def orb_feature(img1, img2): #img1,2 depth images from pyrender
     img1, img2 = img1-img1.min(), img2-img2.min()
@@ -126,9 +127,9 @@ def pointcloud(depth, fx, background=0.7999):
     points = np.vstack((world_x, world_y, world_z)).T # Shape (n, 3)
     # print(points)
 
-    return points
+    return (points-np.mean(points,0)) * 1000
 
-def predict_icp(img1, img2):
+def predict(img1, img2):
     quats = []
 
     for i1, i2 in zip(img1,img2):
@@ -148,72 +149,82 @@ def predict_icp(img1, img2):
         # vis.Visualizer3D.points(pts1)
         # vis.Visualizer3D.show()
 
-        # plt.imshow(img1[0])
-
+        # plt.imshow(i1)
         # fig = plt.figure()
         # ax = Axes3D(fig)
         # ax.scatter(pc1[:,0], pc1[:,1], pc1[:,2])
         # ax.scatter(pc2[:,0], pc2[:,1], pc2[:,2])
         # ax.scatter(pc3[:,0], pc3[:,1], pc3[:,2])
-
         # ax.view_init(elev=90, azim=270)
         # plt.show()
 
-        # plt.imshow(img2[0])
+        # plt.imshow(i2)
         # fig = plt.figure()
         # ax = Axes3D(fig)
         # ax.scatter(pc2[:,0], pc2[:,1], pc2[:,2])
+        # ax.view_init(elev=90, azim=270)
         # plt.show()
 
         quats.append(pred_transform)
     return np.array(quats)
 
-def predict(img1, img2):
-    def preprocess_point_cloud(pcd, voxel_size):
-        print(":: Downsample with a voxel size %.3f." % voxel_size)
-        pcd_down = pcd.voxel_down_sample(voxel_size)
+def draw_registration_result(source, target, transformation):
+    source_temp = copy.deepcopy(source)
+    target_temp = copy.deepcopy(target)
+    source_temp.paint_uniform_color([1, 0.706, 0])
+    target_temp.paint_uniform_color([0, 0.651, 0.929])
+    source_temp.transform(transformation)
+    o3d.visualization.draw_geometries([source_temp, target_temp])
 
-        radius_normal = voxel_size * 2
-        print(":: Estimate normal with search radius %.3f." % radius_normal)
-        pcd_down.estimate_normals(
-            o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
+def preprocess_point_cloud(pcd, voxel_size):
+    # print(":: Downsample with a voxel size %.3f." % voxel_size)
+    pcd_down = pcd.voxel_down_sample(voxel_size)
+    pcd_down = pcd
 
-        radius_feature = voxel_size * 5
-        print(":: Compute FPFH feature with search radius %.3f." % radius_feature)
-        pcd_fpfh = o3d.registration.compute_fpfh_feature(
-            pcd_down,
-            o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
-        return pcd_down, pcd_fpfh
+    radius_normal = voxel_size * 2
+    # print(":: Estimate normal with search radius %.3f." % radius_normal)
+    pcd_down.estimate_normals(
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, max_nn=30))
 
-    def prepare_dataset(pc1, pc2, voxel_size):
-        print(":: Load two point clouds and disturb initial pose.")
-        # source = o3d.io.read_point_cloud("../../TestData/ICP/cloud_bin_0.pcd")
-        # target = o3d.io.read_point_cloud("../../TestData/ICP/cloud_bin_1.pcd")
-        source = o3d.geometry.PointCloud()
-        source.points = o3d.utility.Vector3dVector(pc1)
-        target = o3d.geometry.PointCloud()
-        target.points = o3d.utility.Vector3dVector(pc2)
+    radius_feature = voxel_size * 5
+    # print(":: Compute FPFH feature with search radius %.3f." % radius_feature)
+    pcd_fpfh = o3d.registration.compute_fpfh_feature(
+        pcd_down,
+        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, max_nn=100))
+    return pcd_down, pcd_fpfh
 
-        trans_init = np.asarray([[0.0, 0.0, 1.0, 0.0], [1.0, 0.0, 0.0, 0.0],
-                                [0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 1.0]])
-        source.transform(trans_init)
-        draw_registration_result(source, target, np.identity(4))
+def array_to_open3d(pc1, pc2):
+    source = o3d.geometry.PointCloud()
+    source.points = o3d.utility.Vector3dVector(pc1)
+    target = o3d.geometry.PointCloud()
+    target.points = o3d.utility.Vector3dVector(pc2)
+    o3d.io.write_point_cloud("results/" + dataset_name + "pc1.ply", source)
+    o3d.io.write_point_cloud("results/" + dataset_name + "pc2.ply", target)
+    source = o3d.io.read_point_cloud("results/" + dataset_name + "pc1.ply")
+    target = o3d.io.read_point_cloud("results/" + dataset_name + "pc2.ply")
+    return source, target
 
-        source_down, source_fpfh = preprocess_point_cloud(source, voxel_size)
-        target_down, target_fpfh = preprocess_point_cloud(target, voxel_size)
-        return source, target, source_down, target_down, source_fpfh, target_fpfh
+def prepare_dataset(pc1, pc2, voxel_size):
+    source, target = array_to_open3d(pc1, pc2)
+    # draw_registration_result(source, target, np.identity(4))
 
-    def execute_fast_global_registration(source_down, target_down, source_fpfh,
-                                     target_fpfh, voxel_size):
+    source_down, source_fpfh = preprocess_point_cloud(source, voxel_size)
+    target_down, target_fpfh = preprocess_point_cloud(target, voxel_size)
+    # draw_registration_result(source_down, target_down, np.identity(4))
+    return source, target, source_down, target_down, source_fpfh, target_fpfh
+
+def execute_fast_global_registration(source_down, target_down, source_fpfh,
+                                        target_fpfh, voxel_size):
     distance_threshold = voxel_size * 0.5
-    print(":: Apply fast global registration with distance threshold %.3f" \
-            % distance_threshold)
+    # print(":: Apply fast global registration with distance threshold %.3f" \
+    #         % distance_threshold)
     result = o3d.registration.registration_fast_based_on_feature_matching(
         source_down, target_down, source_fpfh, target_fpfh,
         o3d.registration.FastGlobalRegistrationOption(
             maximum_correspondence_distance=distance_threshold))
     return result
 
+def predicta(img1, img2):
     quats = []
 
     for i1, i2 in zip(img1,img2):
@@ -221,38 +232,38 @@ def predict(img1, img2):
         pc1 = pointcloud(i1, 535)
         pc2 = pointcloud(i2, 535)
 
-        voxel_size = 0.001  # means 1mm for the dataset
+        voxel_size = 0.05  # means 5cm for the dataset
         source, target, source_down, target_down, source_fpfh, target_fpfh = prepare_dataset(pc1, pc2, voxel_size)
-        result_ransac = execute_global_registration(source_down, target_down,
+        # source_down.scale(1 / np.max(source_down.get_max_bound() - source_down.get_min_bound()), center=source_down.get_center())
+        # target_down.scale(1 / np.max(target_down.get_max_bound() - target_down.get_min_bound()), center=target_down.get_center())
+
+        result_fgr = execute_fast_global_registration(source_down, target_down,
                                             source_fpfh, target_fpfh,
                                             voxel_size)
 
-        pred_transform_matrix = result_ransac.transformation
+        pred_transform_matrix = result_fgr.transformation
+        # print(pred_transform_matrix)
+        # draw_registration_result(source_down, target_down,result_fgr.transformation)
         pred_transform = Rotation_to_Quaternion(pred_transform_matrix)
+        # print(pred_transform)
         pc1_trimesh = trimesh.points.PointCloud(pc1)
         pc1_trimesh.apply_transform(pred_transform_matrix)
         pc3 = pc1_trimesh.vertices
-        # pts1 = BagOfPoints(pc1.T,"Is")
-        # pts2 = BagOfPoints(pc2.T,"Ig")
-        # vis.Visualizer3D.figure()
-        # vis.Visualizer3D.points(pts1)
-        # vis.Visualizer3D.show()
 
-        # plt.imshow(img1[0])
-
+        # plt.imshow(i1)
         # fig = plt.figure()
         # ax = Axes3D(fig)
-        # ax.scatter(pc1[:,0], pc1[:,1], pc1[:,2])
+        # # ax.scatter(pc1[:,0], pc1[:,1], pc1[:,2])
         # ax.scatter(pc2[:,0], pc2[:,1], pc2[:,2])
         # ax.scatter(pc3[:,0], pc3[:,1], pc3[:,2])
-
         # ax.view_init(elev=90, azim=270)
         # plt.show()
 
-        # plt.imshow(img2[0])
+        # plt.imshow(i2)
         # fig = plt.figure()
         # ax = Axes3D(fig)
         # ax.scatter(pc2[:,0], pc2[:,1], pc2[:,2])
+        # ax.view_init(elev=90, azim=270)
         # plt.show()
 
         quats.append(pred_transform)
@@ -353,12 +364,12 @@ if __name__ == '__main__':
             # print("True Quaternions: {}, Predicted Quaternions: {}".format(transform_batch, pred_transform))
             total += transform_batch.size(0)
             loss = loss_func(pred_transform, transform_batch, ones).item()
-            # angle_loss = np.arccos(1-loss) * 180 / np.pi * 2 # Don't use, always underestimates error.
-            
+
             obj_ids = batch["obj_id"]
             points_poses = batch["pose_matrix"][:,:3,:3]
             points = get_points(obj_ids, points_poses, point_clouds, scales, device)
             sm_loss = loss_func2(pred_transform, transform_batch, points).item()
+            # print(sm_loss)
 
             true_quaternions.extend(transform_batch.cpu().numpy())
             pred_quaternions.extend(pred_transform.cpu().numpy())
@@ -367,6 +378,7 @@ if __name__ == '__main__':
             angle = np.arccos(true_quat[3]) * 180 / np.pi * 2
             # print(true_quat[3], angle)
             # losses.append(loss)
+
             losses.append(sm_loss)
             angle_vs_losses.append([angle,loss,sm_loss])
             test_loss += loss
