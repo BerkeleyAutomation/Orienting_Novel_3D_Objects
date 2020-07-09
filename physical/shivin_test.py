@@ -46,8 +46,6 @@ class YamlObjLoader(object):
         return self.load(key)
 
 class Task:
-    # Take a photo of the workspace, select a point (pixel) to grasp, and grasp the point
-
     def __init__(self, robot, calib_dir):
         self.robot = robot
         # self.gripper = self.robot.grippers[0] # This is the Parallel Jaw of the YuMi
@@ -93,41 +91,48 @@ class Task:
         self.sensor.start()
 
     def capture_image(self, frame=0):
-        logger.info('Capturing image %d' %(frame))
-        color, depth, ir = self.sensor.frames()
+        logger.info('Capturing depth image %d' %(frame))
+        color, depth, _ = self.sensor.frames()
+        # depth = depth.inpaint()
+        depth.save('ros_phoxi/depth_%d.png' %(frame))
+        color.save('ros_phoxi/color_%d.png' %(frame))
 
-        # save processed images
-        if self.workspace is None:
-            depth.save('ros_phoxi/depth_%d.png' %(frame))
-            color.save('ros_phoxi/color_%d.png' %(frame))
-            self.sensor._webcam.start()
-            webcam, _, _ = self.sensor._webcam.frames()
-            webcam.save('ros_phoxi/webcam_%d.png' %(frame))
-            self.sensor._webcam.stop()
-        else:
-            depth.save('ros_phoxi/depth_%d.png' %(frame))
-            # deproject into 3D world coordinates
-            point_cloud_cam = self.camera_intr.deproject(depth)
-            point_cloud_cam.remove_zero_points()
-            point_cloud_world = self.T_camera_world * point_cloud_cam
-            seg_point_cloud_world, _ = point_cloud_world.box_mask(self.workspace)
-            
-            raw_depth_path = os.path.join(self.save_dir, 'raw_depth_%d.npy' %(frame))
-            np.save(raw_depth_path, depth.data)
+        foreground = color.foreground_mask(120, use_hsv=False)
+        fg = color.mask_binary(foreground)
+        fg.save('ros_phoxi/foreground_hsv_%d.png' %(frame))
 
-            # compute the segmask for points above the box
-            seg_point_cloud_cam = self.T_camera_world.inverse() * seg_point_cloud_world
-            depth_im_seg = self.camera_intr.project_to_image(seg_point_cloud_cam)
-            segmask = depth_im_seg.to_binary()
+        segment = fg.segment_kmeans(1,3)
+        seg1 = fg.mask_binary(segment.segment_mask(1))
+        seg2 = fg.mask_binary(segment.segment_mask(2))
+        # seg3 = fg.mask_binary(segment.segment_mask(3))
+        seg1.save('ros_phoxi/segment_1.png')
+        seg2.save('ros_phoxi/segment_2.png')
+        # seg3.save('ros_phoxi/segment_3.png')
 
-            # rescale segmask
-            if self.rescale_factor != 1.0:
-                segmask = segmask.resize(rescale_factor, interp='nearest')
-            
-            # save segmask
-            depth_im_seg.save('ros_phoxi/segdepth_%d.png' %(frame))
 
-            segmask.save('ros_phoxi/segmask_%d.png' %(frame))
+        # depth.save('ros_phoxi/depth_%d.png' %(frame))
+        # # deproject into 3D world coordinates
+        # point_cloud_cam = self.camera_intr.deproject(depth)
+        # point_cloud_cam.remove_zero_points()
+        # point_cloud_world = self.T_camera_world * point_cloud_cam
+        # seg_point_cloud_world, _ = point_cloud_world.box_mask(self.workspace)
+        
+        # raw_depth_path = os.path.join(self.save_dir, 'raw_depth_%d.npy' %(frame))
+        # np.save(raw_depth_path, depth.data)
+
+        # # compute the segmask for points above the box
+        # seg_point_cloud_cam = self.T_camera_world.inverse() * seg_point_cloud_world
+        # depth_im_seg = self.camera_intr.project_to_image(seg_point_cloud_cam)
+        # segmask = depth_im_seg.to_binary()
+
+        # # rescale segmask
+        # if self.rescale_factor != 1.0:
+        #     segmask = segmask.resize(rescale_factor, interp='nearest')
+        
+        # # save segmask
+        # depth_im_seg.save('ros_phoxi/segdepth_%d.png' %(frame))
+
+        # segmask.save('ros_phoxi/segmask_%d.png' %(frame))
     
     def move(self):
         """params: all in frame of object --> world
