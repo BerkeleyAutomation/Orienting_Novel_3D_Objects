@@ -1,0 +1,70 @@
+type: YuMi
+params:
+  name: yumi
+  pose:
+    type: RigidTransform
+    params:
+      from_frame: robot
+      to_frame: world
+      rotation: [
+        [1.0, 0.0, 0.0],
+        [0.0, 1.0, 0.0],
+        [0.0, 0.0, 1.0]
+      ]
+      translation: [0.0, 0.0, 0.0]
+  grippers:
+    - !include ../grippers/yumi_metal_spline.yaml
+    - !include ../grippers/yumi_suction.yaml
+  driver:
+    type: YuMiDriver
+    params:
+      debug: 0
+      arm_type: local
+      unreachable_poses: /mnt/data/diskstation/unreachable_poses
+      reset_on_start: 1
+
+      # Control Params
+      approach_dist: 0.075
+      #approach_height: 0.2
+      approach_height: 0.28
+      drop_height: 0.4
+      timeout: 3.0
+
+      standard_velocity: 800
+      standard_zoning: fine
+      approach_velocity: 200
+      approach_zoning: fine
+      max_speed_dist_ratio: 1000
+
+      drop_mode: container
+      feasibility_check_mode: ik
+      eef_step: 0.025
+      jump_threshold: 0.0
+      min_plan_fraction: 0.99
+      traj_len: 5
+      ik_timeout: 0.1
+
+      left_config:
+        grippers:
+          - yumi_metal_spline
+        kinematically_feasible_region:
+          min:
+            - 0.32
+            - -0.175
+            - -0.005
+          max:
+            - 0.58
+            - 0.25
+            - 0.1
+      right_config:
+        grippers:
+          - yumi_suction
+        kinematically_feasible_region:
+          min:
+            - 0.32
+            - -0.25
+            - -0.005
+          max:
+            - 0.58
+            - 0.175
+            - 0.1
