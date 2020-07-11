@@ -1,5 +1,5 @@
 debug: 0
-num_samples_per_obj: 300
+num_samples_per_obj: 200
 noise: 0
 
 # dataset params
@@ -74,7 +74,7 @@ state_space:
     objects:
       mesh_dir: /nfs/diskstation/objects/meshes/
       num_objects: 50
-      train_pct: 0.75
+      train_pct: 0.8
       stp_com_sigma: .0025
       stp_num_samples: 10
       # stp_num_samples: 10
@@ -114,8 +114,8 @@ state_space:
 
     # intrinsics. See https://github.com/BerkeleyAutomation/sd-maskrcnn/blob/master/sd_maskrcnn/envs/random_variables.py
     focal_length:
-      min: 535 # Was 535 for CASE first submission
-      max: 535
+      min: 300 # Was 535 for CASE first submission, 400 for 0.1-0.15 above, 300 for 0.2-0.25 above
+      max: 300
     delta_optical_center:
       min: 0
       max: 0

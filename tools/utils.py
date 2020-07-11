@@ -9,6 +9,7 @@ from pyquaternion import Quaternion
 import cv2
 
 
+
 def get_points(obj_ids, points_poses, point_clouds, scales, device):
     """obj_ids: (batch,)
     points_poses: (batch, 3, 3)
@@ -301,11 +302,13 @@ def Plot_Axis_vs_Loss(quaternions, losses, mean_loss):
 def Quantize(img):
     return (img * 65535).astype(int)
 
-def addNoise(image, std=0.001):
-    """Adds noise to image array.
+def Zero_BG(image):
+    """Zeroes out all background pixels
     """
-    noise = np.random.normal(0, std, image.shape)
-    return image + noise
+    image_new = image.copy()
+    mask = image_new == np.max(image_new)
+    image_new[mask] = 0
+    return image_new
 
 def display_conv_layers(model):
     def imshow(img):

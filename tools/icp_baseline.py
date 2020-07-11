@@ -28,6 +28,126 @@ from pyrender import (Scene, IntrinsicsCamera, Mesh,
                       Viewer, OffscreenRenderer, RenderFlags, Node)
 import cv2
 import visualization as vis
+from py_goicp import GoICP, POINT3D, ROTNODE, TRANSNODE;
+
+def pointcloud(depth, fx, background=0.7999):
+    """
+    From: https://github.com/mmatl/pyrender/issues/14
+    """
+    fy = fx # assume aspectRatio is one.
+    height = depth.shape[0]
+    width = depth.shape[1]
+    mask = np.where(depth < background)
+    
+    x = mask[1]
+    y = mask[0]
+    
+    normalized_x = (x.astype(np.float32) - width * 0.5) / width
+    normalized_y = ((height - y).astype(np.float32) - height * 0.5) / height
+    
+    world_x = normalized_x * depth[y, x] / fx
+    world_y = normalized_y * depth[y, x] / fy
+    world_z = 0.8 - depth[y, x]
+    # ones = np.ones(world_z.shape[0], dtype=np.float32)
+
+    # points = np.vstack((world_x, world_y, world_z, ones)).T
+    points = np.vstack((world_x, world_y, world_z)).T # Shape (n, 3)
+    # print(points)
+
+    return (points-np.mean(points,0)) * 1000
+
+def predict(img1, img2):
+    quats = []
+
+    for i1, i2 in zip(img1,img2):
+        # print(i1,i2)
+        pc1 = pointcloud(i1, 535)
+        pc2 = pointcloud(i2, 535)
+
+        pred_transform_matrix = trimesh.registration.icp(pc1, pc2)[0]
+        # pred_transform_matrix = trimesh.registration.icp(pc1,pc2, initial = pred_transform_matrix)[0]
+        pred_transform = Rotation_to_Quaternion(pred_transform_matrix)
+        pc1_trimesh = trimesh.points.PointCloud(pc1)
+        pc1_trimesh.apply_transform(pred_transform_matrix)
+        pc3 = pc1_trimesh.vertices
+
+        # plt.imshow(i1)
+        Plot_ICP([pc1, pc2, pc3])
+        # plt.imshow(i2)
+        Plot_ICP([pc2])
+
+        quats.append(pred_transform)
+    return np.array(quats)
+
+def scale_pointcloud(pc):
+    pc = pc - np.mean(pc, axis=0)
+    pc = pc / np.max(np.linalg.norm(pc, axis=1))
+    return pc
+
+def predict_goicp(img1, img2):
+    def loadPointCloud(pc):
+        pc = pc.astype(float)
+        p3dlist = []
+        for x,y,z in pc:
+            pt = POINT3D(x,y,z)
+            p3dlist.append(pt)
+        return pc.shape[0], p3dlist
+
+    quats = []
+    for i1, i2 in zip(img1,img2):
+        pc1 = scale_pointcloud(pointcloud(i1, 535))
+        pc2 = scale_pointcloud(pointcloud(i2, 535))
+
+        goicp = GoICP()
+        goicp = GoICP()
+        # rNode = ROTNODE()
+        # tNode = TRANSNODE()
+        # rNode.a = -3.1416
+        # rNode.b = -3.1416
+        # rNode.c = -3.1416
+        # rNode.w = 6.2832
+        # tNode.x = -0.5
+        # tNode.y = -0.5
+        # tNode.z = -0.5
+        # tNode.w = 1.0
+
+        goicp.MSEThresh = 0.001
+        goicp.trimFraction = 0.4
+
+        Nm, a_points = loadPointCloud(pc1)
+        Nd, b_points = loadPointCloud(pc2)
+        goicp.loadModelAndData(Nm, a_points, Nd, b_points)
+        goicp.setDTSizeAndFactor(300, 2.0)
+        # goicp.setInitNodeRot(rNode)
+        # goicp.setInitNodeTrans(tNode)
+
+        goicp.BuildDT()
+        goicp.Register()
+        # print(goicp.optimalRotation()) # A python list of 3x3 is returned with the optimal rotation
+        # print(goicp.optimalTranslation())# A python list of 1x3 is returned with the optimal translation
+        pred_transform_matrix = np.array(goicp.optimalRotation())
+        pred_transform = Rotation_to_Quaternion(pred_transform_matrix)
+        # pc1_trimesh = trimesh.points.PointCloud(pc1)
+        # pc1_trimesh.apply_transform(pred_transform_matrix)
+        # pc3 = pc1_trimesh.vertices
+
+        # plt.imshow(i1)
+        # Plot_ICP([pc1, pc2, pc3])
+        # plt.imshow(i2)
+        # Plot_ICP([pc2])
+
+        quats.append(pred_transform)
+    return np.array(quats)
+
+def Plot_ICP(pointclouds):
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    for pc in pointclouds:
+        ax.scatter(pc[:,0], pc[:,1], pc[:,2])
+    ax.view_init(elev=90, azim=270)
+    # plt.show()
+    plt.savefig("plots/test.png")
+    plt.close()
 
 def orb_feature(img1, img2): #img1,2 depth images from pyrender
     img1, img2 = img1-img1.min(), img2-img2.min()
@@ -101,71 +221,6 @@ def predict_old(img1, img2):
             quats.append(pred_transform)
         else:
             quats.append(np.array([0,0,0,1]))
-    return np.array(quats)
-
-def pointcloud(depth, fx, background=0.7999):
-    """
-    From: https://github.com/mmatl/pyrender/issues/14
-    """
-    fy = fx # assume aspectRatio is one.
-    height = depth.shape[0]
-    width = depth.shape[1]
-    mask = np.where(depth < background)
-    
-    x = mask[1]
-    y = mask[0]
-    
-    normalized_x = (x.astype(np.float32) - width * 0.5) / width
-    normalized_y = ((height - y).astype(np.float32) - height * 0.5) / height
-    
-    world_x = normalized_x * depth[y, x] / fx
-    world_y = normalized_y * depth[y, x] / fy
-    world_z = 0.8 - depth[y, x]
-    # ones = np.ones(world_z.shape[0], dtype=np.float32)
-
-    # points = np.vstack((world_x, world_y, world_z, ones)).T
-    points = np.vstack((world_x, world_y, world_z)).T # Shape (n, 3)
-    # print(points)
-
-    return (points-np.mean(points,0)) * 1000
-
-def predict(img1, img2):
-    quats = []
-
-    for i1, i2 in zip(img1,img2):
-        # print(i1,i2)
-        pc1 = pointcloud(i1, 535)
-        pc2 = pointcloud(i2, 535)
-
-        pred_transform_matrix = trimesh.registration.icp(pc1, pc2)[0]
-        # pred_transform_matrix = trimesh.registration.icp(pc1,pc2, initial = pred_transform_matrix)[0]
-        pred_transform = Rotation_to_Quaternion(pred_transform_matrix)
-        pc1_trimesh = trimesh.points.PointCloud(pc1)
-        pc1_trimesh.apply_transform(pred_transform_matrix)
-        pc3 = pc1_trimesh.vertices
-        # pts1 = BagOfPoints(pc1.T,"Is")
-        # pts2 = BagOfPoints(pc2.T,"Ig")
-        # vis.Visualizer3D.figure()
-        # vis.Visualizer3D.points(pts1)
-        # vis.Visualizer3D.show()
-
-        # plt.imshow(i1)
-        # fig = plt.figure()
-        # ax = Axes3D(fig)
-        # ax.scatter(pc1[:,0], pc1[:,1], pc1[:,2])
-        # ax.scatter(pc2[:,0], pc2[:,1], pc2[:,2])
-        # ax.scatter(pc3[:,0], pc3[:,1], pc3[:,2])
-        # ax.view_init(elev=90, azim=270)
-        # plt.show()
-
-        # plt.imshow(i2)
-        # fig = plt.figure()
-        # ax = Axes3D(fig)
-        # ax.scatter(pc2[:,0], pc2[:,1], pc2[:,2])
-        # ax.view_init(elev=90, azim=270)
-        # plt.show()
-
-        quats.append(pred_transform)
     return np.array(quats)
 
 def draw_registration_result(source, target, transformation):
@@ -341,7 +396,7 @@ if __name__ == '__main__':
 
     test_loss, test_loss2, test_loss3, total = 0, 0, 0, 0
 
-    test_indices = dataset.split('train')[1][:10000]
+    test_indices = dataset.split('train')[1][:100]
     # test_indices = dataset.split('train')[1]
     # test_indices = dataset.split('train2')[1]
     n_test = len(test_indices)
@@ -360,8 +415,9 @@ if __name__ == '__main__':
             transform_batch = Variable(torch.from_numpy(batch["quaternion"])).to(device)
 
             pred_transform = predict(im1_batch[:,0], im2_batch[:,0]) # shape is (batch_size, 1, 128,128)
+            # pred_transform = predict_goicp(im1_batch[:,0], im2_batch[:,0]) # shape is (batch_size, 1, 128,128)
             pred_transform = Variable(torch.from_numpy(pred_transform)).float().to(device)
-            # print("True Quaternions: {}, Predicted Quaternions: {}".format(transform_batch, pred_transform))
+            print("True Quaternions: {}, Predicted Quaternions: {}".format(transform_batch, pred_transform))
             total += transform_batch.size(0)
             loss = loss_func(pred_transform, transform_batch, ones).item()
 

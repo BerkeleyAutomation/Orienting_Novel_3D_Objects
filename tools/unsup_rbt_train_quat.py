@@ -29,10 +29,22 @@ import trimesh
 from pyrender import (Scene, IntrinsicsCamera, Mesh,
                       Viewer, OffscreenRenderer, RenderFlags, Node)
 
-def Plot_Bad_Predictions(dataset, predicted_quats, indices, name = "worst"):
-    """Takes in the dataset, predicted quaternions, and indices of the 
+def Plot_Bad_Predictions(dataset, predicted_quats, losses, name = "worst"):
+    """Takes in the dataset, predicted quaternions, and losses of the 
     worst predictions in the validation set
     """
+    if name == "worst":
+        indices = np.argsort(losses)[-5:-1]
+    elif name == "best":
+        smallest_losses_idx = np.argsort(losses)
+        smallest_losses = []
+        for i in smallest_losses_idx:
+            if true_quaternions[i][3] < 0.975:
+                smallest_losses.append(i)
+            if len(smallest_losses) >= 5:
+                break
+        indices = np.array(smallest_losses)
+    
     for i in indices:
         datapoint = dataset.get_item_list(test_indices[i:i+1])
         predicted_quat = predicted_quats[i]
@@ -52,9 +64,12 @@ def Plot_Bad_Predictions(dataset, predicted_quats, indices, name = "worst"):
         fig2.axes.get_yaxis().set_visible(False)
         fig3.axes.get_xaxis().set_visible(False)
         fig3.axes.get_yaxis().set_visible(False)
-        plt.savefig("plots/worst_preds/" + name + "_pred_" + str(datapoint['obj_id'][0]) + "_"
-        + str(1- np.dot(predicted_quat, datapoint['quaternion'].flatten()))[2:5])
-        print(1 - np.dot(predicted_quat, datapoint['quaternion'].flatten()))
+        plt.savefig("plots/worst_preds/" + name + "_pred_" + 
+                        str(datapoint['obj_id'][0]) + "_" + str(losses[i])[2:5])
+        print(losses[i])
+        # plt.savefig("plots/worst_preds/" + name + "_pred_" + str(datapoint['obj_id'][0]) + "_"
+        # + str(1- np.dot(predicted_quat, datapoint['quaternion'].flatten()))[2:5])
+        # print(1 - np.dot(predicted_quat, datapoint['quaternion'].flatten()))
         # plt.show()
         plt.close()
 
@@ -123,9 +138,17 @@ def train(dataset, batch_size, first=False):
         else:
             loss = loss_func2(pred_transform, transform_batch, points)
             sm_loss = loss.item()
+
+        # loss = loss / 4
+        # loss.backward()
+        # if step % 4 == 3 or step == n_train_steps - 1:
+        #     optimizer.step()
+        #     optimizer.zero_grad()
+
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
+
         train_loss += sm_loss
 
         # if step % 100 == 0:
@@ -208,7 +231,8 @@ if __name__ == '__main__':
         546objv4: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
         best_scoresv6: DR with background, Translation +-(0.01,0.01,0.05), 45 degree from stable pose, 2000 rot, z buffer (0.4,2)
         546objv5: DR with background, Translation +-(0.01,0.01,0.05), 45 degree from stable pose, 300 rot, z buffer (0.4,2)
-        872obj: DR with background, Translation +-(0.01,0.01,0.05), also in I^g, SO3 sampling, 200 rot, z buffer (0.4,2), 60 degrees
+        872obj: DR with background, Translation +-(0.01,0.01,0.05) 200 rot, z buffer (0.4,2), 30 degrees
+        872obj next: DR with background, Translation +-(0.01,0.01,0.05), also in I^g, SO3 sampling, 200 rot, z buffer (0.4,2), 60 degrees
     """
     args = parse_args()
     config = YamlConfig(args.config)
@@ -334,16 +358,8 @@ if __name__ == '__main__':
         Plot_Axis_vs_Loss(true_quaternions, losses, mean_angle_loss)
 
         if args.worst_pred:
-            biggest_losses = np.argsort(losses)[-5:-1]
-            smallest_losses_idx = np.argsort(losses)
-            smallest_losses = []
-            for i in smallest_losses_idx:
-                if true_quaternions[i][3] < 0.975:
-                    smallest_losses.append(i)
-                if len(smallest_losses) >= 5:
-                    break
-            Plot_Bad_Predictions(dataset, pred_quaternions, biggest_losses)
-            Plot_Bad_Predictions(dataset, pred_quaternions, np.array(smallest_losses), "best")
+            Plot_Bad_Predictions(dataset, pred_quaternions, losses)
+            Plot_Bad_Predictions(dataset, pred_quaternions, losses, "best")
 
         print("Mean Cosine loss is: ", test_loss/total)
         print("Mean Angle loss is: ", mean_angle_loss)

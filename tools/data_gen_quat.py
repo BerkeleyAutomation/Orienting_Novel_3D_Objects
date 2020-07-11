@@ -101,7 +101,6 @@ if __name__ == "__main__":
     tensor_config = config['dataset']['tensors']
     dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/" + name_gen_dataset + "/", tensor_config)
     datapoint = dataset.datapoint_template
-
     scene, renderer = create_scene()
     dataset_name_list = ['3dnet', 'thingiverse', 'kit']
     mesh_dir = config['state_space']['heap']['objects']['mesh_dir']
@@ -118,34 +117,6 @@ if __name__ == "__main__":
 
     # split = np.loadtxt('cfg/tools/data/train_split_546')
 
-    symmetries = [
-        3, 3, 3, 0, 0, 3, 0.5, 1.5, 1, 3, 0, 1, 2, 3, 1, 0, 1, 3, 2, 2, 3, 3, 3, 3, 1, 0, 0, 1.5, 2, 2, 2, 3, 1, 1, 3, 0, 
-        3, 1, 1, 2, 0.5, 3, 0, 1.5, 1, 1, 3, 1, 0, 1.5, 2.5, 1, 0, 3, 3, 0, 3, 3, 1.5, 2, 3, 1.5, 3, 2, 3, 1.5, 3, 1, 2, 
-        3, 3, 2, 1, 3, 1, 3, 0.5, 2, 1, 0.5, 1.5, 3, 2, 2, 2, 2, 2, 3, 2, 2, 3, 0, 3, 3, 3, 2, 0, 1, 2, 3, 3, 3, 3, 0, 3, 
-        0, 3, 3, 3, 2, 1.5, 3, 1, 3, 3, 3, 3, 3, 0, 3, 0, 3, 1, 0, 3, 3, 2, 0, 3, 3, 3, 2, 1, 3, 1.5, 3, 3, 0, 3, 2, 2, 2, 
-        2, 2, 2, 2, 2, 3, 0.5, 0, 2, 3, 2, 3, 3, 2, 3, 2, 2, 3, 2, 1.5, 3, 0.5, 3, 404, 2, 1.5, 2, 3, 3, 3, 3, 3, 3, 2, 2, 
-        3, 2, 3, 2, 2, 404, 2, 2, 2, 3, 2, 404, 3, 1.5, 0, 2, 0, 0, 2, 2, 2, 0, 0, 1, 1.5, 2, 2, 0, 1, 2, 2, 3, 3, 0, 2, 
-        0.5, 3, 3, 3, 404, 3, 3, 3, 3, 2, 2, 3, 0.5, 404, 2, 1, 1.5, 2.5, 0, 3, 1.5, 0, 0, 2.5, 3, 1.5, 666, 3, 0.5, 3, 3, 
-        0, 3, 404, 3, 3, 1.5, 3, 2.5, 2, 2, 3, 3, 1, 2, 2, 2, 999, 0.5, 3, 3, 3, 3, 0, 3, 0, 0.5, 2, 0.5, 0.5, 2, 2, 2.5, 
-        3, 3, 1, 2, 1, 1.5, 3, 2, 2, 3, 2, 1.5, 0.5, 0.5, 1, 3, 3, 0, 3, 1, 1, 1, 2.5, 3, 3, 3, 3, 2, 0, 3, 3, 3, 2, 404, 
-        666, 3, 2, 2, 2, 3, 3, 3, 1.5, 0, 2, 2, 2, 2, 3, 3, 3, 0, 3, 3, 3, 2, 0.5, 3, 3, 3, 0.5, 404, 2, 3, 0.5, 3, 3, 3, 
-        0, 3, 1, 3, 3, 3, 3, 0, 3, 404, 0.5, 3, 3, 2, 3, 2, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 2.5, 2, 3, 0, 2.5, 
-        0, 2, 0.5, 0.5, 3, 3, 3, 3, 3, 3, 3, 3, 3, 3, 666, 0, 3, 1, 0, 0.5, 0, 2, 2, 3, 0, 3, 2, 1, 3, 3, 3, 3, 404, 3, 3, 
-        2, 3, 3, 1, 404, 3, 3, 0, 2, 1.5, 2, 404, 3, 2, 2, 2, 2, 0, 0, 0, 0, 1, 0, 1.5, 0, 3, 3, 3, 3, 3, 2, 3, 1.5, 0, 1.5, 
-        3, 3, 2, 1, 2, 1.5, 0, 2, 1.5, 2, 0, 3, 3, 0, 1.5, 0, 3, 3, 1.5, 1.5, 3, 3, 3, 3, 2, 3, 3, 3, 3, 1.5, 0, 3, 3, 3, 
-        3, 3, 404, 3, 2, 2, 2, 1, 1, 3, 3, 0, 2, 1.5, 1.5, 1.5, 1.5, 2, 3, 3, 666, 404, 3, 3, 3, 0.5, 1.5, 1.5, 0, 3, 3, 
-        3, 2, 3, 3, 3, 2, 3, 3, 3, 0, 3, 2, 2, 3, 2, 2, 1, 1.5, 3, 3, 1.5, 1.5, 2, 0, 3, 2, 2, 2, 3, 1, 1.5, 1.5, 1.5, 3, 
-        1.5, 1.5, 3, 2, 1.5, 3, 3, 2, 1.5, 3, 3, 3, 404, 3, 0, 3, 2, 3, 3, 3, 2, 2, 404, 3, 2, 3, 3, 3, 2, 2, 1.5, 3, 2, 
-        3, 3, 3, 3, 3, 0, 2, 2, 3, 3, 3, 3, 1, 0, 0, 0, 3, 1.5, 3, 1.5, 3, 3, 1.5, 1.5, 3, 2, 1.5, 0.5, 3, 3, 2, 3, 2, 3, 
-        2, 1.5, 0, 1.5, 0, 3, 2, 2, 1, 0, 3, 0, 1.5, 3, 3, 3, 3, 3, 2, 1.5, 3, 3, 3, 3, 404, 3, 2, 1.5, 3, 3, 1, 3, 3, 3, 
-        3, 1.5, 3]
-    best_obj = [index +1 for index, value in enumerate(symmetries) if value == 0]
-    best_obj_scores = [327, 423, 490, 555, 438, 421, 496, 553, 113, 566, 272, 310, 150, 304, 462, 346, 556, 243, 4, 
-    530, 427, 228, 313, 592, 639, 244, 359, 594, 608, 763, 16, 660, 13, 731, 634, 205, 491, 523, 621, 466, 104, 256, 
-    26, 382, 340, 834, 260, 227, 653, 464, 89, 737, 596, 306, 766, 399, 231, 177, 544, 726, 353, 83, 184, 655, 455, 
-    230, 351, 650, 90, 235]
-    # best_obj_scores += [5]
-    dont_include = [555,310,304, 462, 243, 228, 313,592, 359, 763, 13, 634, 491, 621,466, 340, 227,653,464,89,596,306,177,353,83,184,230,650,90]
     objects_added = {}
     all_points, all_points300, all_scales = {}, {}, {}
     scores = np.loadtxt("cfg/tools/data/final_scores")
@@ -172,8 +143,8 @@ if __name__ == "__main__":
             # load object mesh
             mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
             points = mesh.vertices
-            if points.shape[0] < 300:
-                continue
+            # if points.shape[0] < 300:
+            #     continue
             # print(points.shape)
             # all_scales[obj_id] = mesh.scale
             # all_points[obj_id] = points.T
@@ -215,7 +186,7 @@ if __name__ == "__main__":
                 # print(pose_matrix[:,3])
                 pose_matrix = most_stable_pose_matrix.copy()
                 pose_matrix[:2,3] += np.random.uniform(-0.01,0.01,2)
-                pose_matrix[2,3] += np.random.uniform(0,0.05)
+                pose_matrix[2,3] += np.random.uniform(0.2,0.25)
                 # print(pose_matrix[:,3])
 
                 ctr_of_mass = pose_matrix[0:3, 3]
@@ -228,17 +199,16 @@ if __name__ == "__main__":
                 scene.set_pose(object_node, pose=rand_transform)
                 image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
-                # if j == 0:
-                #     image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
-                #     fig1 = plt.imshow(image1)
-                #     fig1.axes.get_xaxis().set_visible(False)
-                #     fig1.axes.get_yaxis().set_visible(False)
-                #     plt.show()
-                #     if obj_id in split:
-                #         plt.savefig("pictures/rgb_images/symmetric546/test/obj" + str(obj_id) + ".png")
-                #     else:
-                #         plt.savefig("pictures/rgb_images/symmetric546/train/obj" + str(obj_id) + ".png")
-                #     plt.close()
+                # image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
+                # fig1 = plt.imshow(image1)
+                # fig1.axes.get_xaxis().set_visible(False)
+                # fig1.axes.get_yaxis().set_visible(False)
+                # plt.show()
+                # if obj_id in split:
+                #     plt.savefig("pictures/rgb_images/symmetric546/test/obj" + str(obj_id) + ".png")
+                # else:
+                #     plt.savefig("pictures/rgb_images/symmetric546/train/obj" + str(obj_id) + ".png")
+                # plt.close()
 
                 # Render image 2, which will be image 1 rotated according to our specification
                 random_quat = Generate_Quaternion(end = np.pi/6)
@@ -246,7 +216,7 @@ if __name__ == "__main__":
 
                 # rand_transform[:2,3] += np.random.uniform(-0.01,0.01,2)
                 # rand_transform[2,3] += np.random.uniform(-0.02,0.03)
-                ctr_of_mass = rand_transform[0:3, 3]
+                # ctr_of_mass = rand_transform[0:3, 3]
 
                 new_pose = Quaternion_to_Rotation(random_quat, ctr_of_mass) @ rand_transform
                 scene.set_pose(object_node, pose=new_pose)
@@ -280,8 +250,13 @@ if __name__ == "__main__":
                         # print(np.sum(image_cut >= 0.200001), segmask_size)
                         break
                     iteration += 1
-                # mse = np.linalg.norm(image1 - image2)
-                # image_cut, image2 = addNoise(image_cut, config['noise']), addNoise(image2, config['noise'])
+
+                image_cut, image2 = Zero_BG(image_cut), Zero_BG(image2)
+
+                plt.imshow(image_cut, cmap='gray', vmin = np.min(image_cut[image_cut != 0]))
+                plt.savefig("plots/test.png")
+                plt.close()
+
                 datapoint = dataset.datapoint_template
                 datapoint["depth_image1"] = np.expand_dims(image_cut, -1)
                 datapoint["depth_image2"] = np.expand_dims(image2, -1)
