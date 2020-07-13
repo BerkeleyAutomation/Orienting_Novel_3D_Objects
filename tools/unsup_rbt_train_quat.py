@@ -119,10 +119,10 @@ def train(dataset, batch_size, first=False):
 
     for step in tqdm(range(n_train_steps)):
         batch = dataset.get_item_list(train_indices[step*batch_size: (step+1)*batch_size])
-        # depth_image1 = Quantize(batch["depth_image1"])
-        # depth_image2 = Quantize(batch["depth_image2"])
-        depth_image1 = batch["depth_image1"]
-        depth_image2 = batch["depth_image2"]
+        depth_image1 = Quantize(batch["depth_image1"])
+        depth_image2 = Quantize(batch["depth_image2"])
+        # depth_image1 = batch["depth_image1"]
+        # depth_image2 = batch["depth_image2"]
 
         im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
         im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
@@ -176,8 +176,10 @@ def test(dataset, batch_size):
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
             batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
-            depth_image1 = batch["depth_image1"]
-            depth_image2 = batch["depth_image2"]
+            depth_image1 = Quantize(batch["depth_image1"])
+            depth_image2 = Quantize(batch["depth_image2"])
+            # depth_image1 = batch["depth_image1"]
+            # depth_image2 = batch["depth_image2"]
 
             im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
             im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
@@ -229,10 +231,10 @@ if __name__ == '__main__':
         best_scoresv4: No pose translation, no dr.
         best_scoresv5: DR with pose sampling 0-45 degrees from stable pose
         546objv4: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
-        best_scoresv6: DR with background, Translation +-(0.01,0.01,0.05), 45 degree from stable pose, 2000 rot, z buffer (0.4,2)
         546objv5: DR with background, Translation +-(0.01,0.01,0.05), 45 degree from stable pose, 300 rot, z buffer (0.4,2)
-        872obj: DR with background, Translation +-(0.01,0.01,0.05) 200 rot, z buffer (0.4,2), 30 degrees
-        872obj next: DR with background, Translation +-(0.01,0.01,0.05), also in I^g, SO3 sampling, 200 rot, z buffer (0.4,2), 60 degrees
+        872obj: Translation +-(0.01,0.01,0.18-0.23), 200 rot, Zeroed DR, SO3
+        872objv2: DR background Translation +-(0.01,0.01,0.18-0.23), SP45, 200 rot, z buffer (0.4,2)
+        best_scoresv6: 100 objects, 1500 rot, Translation ^, SO3, Zeroed DR
     """
     args = parse_args()
     config = YamlConfig(args.config)
@@ -267,6 +269,7 @@ if __name__ == '__main__':
     if not args.test:
         if not os.path.exists(args.dataset + "/splits/train"):
             obj_id_split = np.loadtxt("cfg/tools/data/train_split_872")
+            # obj_id_split = np.loadtxt("cfg/tools/data/train_split_100")
             val_indices = []
             for i in range(dataset.num_datapoints):
                 if dataset.datapoint(i)["obj_id"] in obj_id_split:
@@ -320,8 +323,10 @@ if __name__ == '__main__':
         with torch.no_grad():
             for step in tqdm(range(n_test_steps)):
                 batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
-                depth_image1 = batch["depth_image1"]
-                depth_image2 = batch["depth_image2"]
+                # depth_image1 = batch["depth_image1"]
+                # depth_image2 = batch["depth_image2"]
+                depth_image1 = Quantize(batch["depth_image1"])
+                depth_image2 = Quantize(batch["depth_image2"])
 
                 im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
                 im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)

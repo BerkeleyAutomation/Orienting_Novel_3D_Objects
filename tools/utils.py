@@ -300,7 +300,7 @@ def Plot_Axis_vs_Loss(quaternions, losses, mean_loss):
     plt.close()
 
 def Quantize(img):
-    return (img * 65535).astype(int)
+    return (img * 65535).astype(int) / 65535
 
 def Zero_BG(image):
     """Zeroes out all background pixels
@@ -308,6 +308,8 @@ def Zero_BG(image):
     image_new = image.copy()
     mask = image_new == np.max(image_new)
     image_new[mask] = 0
+    mask2 = np.random.randint(16,112,(2,100))
+    image_new[mask2[0], mask2[1]] = 0
     return image_new
 
 def display_conv_layers(model):

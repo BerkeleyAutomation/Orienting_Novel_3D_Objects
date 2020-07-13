@@ -66,6 +66,7 @@ def create_scene(data_gen=True):
             '../data/objects/plane/pose.tf',
         )
     )
+    table_mesh.visual = table_mesh.visual.to_color()
     table_mesh.visual.vertex_colors = [[0 for c in r] for r in table_mesh.visual.vertex_colors]
     table_mesh = Mesh.from_trimesh(table_mesh)
     table_node = Node(mesh=table_mesh, matrix=table_tf.matrix)
@@ -114,7 +115,8 @@ if __name__ == "__main__":
 
     obj_id = 0
     data_point_counter = 0
-
+    # scales = pickle.load(open("cfg/tools/data/scales", "rb"))
+    # print(max(scales.values()), min(scales.values()))
     # split = np.loadtxt('cfg/tools/data/train_split_546')
 
     objects_added = {}
@@ -125,26 +127,26 @@ if __name__ == "__main__":
             obj_id += 1
             # if obj_id != 4:
             #     continue
-            # if obj_id > 20:
-            #     break
             # dataset.flush()
             # sys.exit(0)
             # if obj_id > len(symmetries) or obj_id not in best_obj: # or symmetries[obj_id-1] != 0:
             #     continue
             # if (obj_id not in best_obj_scores and obj_id not in best_obj) or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
             #     continue
-            # if obj_id not in best_obj_scores or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
-            #     continue
-            # if scores[obj_id-1] < 156.5:
-            #     continue
+            if scores[obj_id-1] < 156.5:
+                continue
 
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
 
             # load object mesh
             mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
             points = mesh.vertices
-            # if points.shape[0] < 300:
-            #     continue
+            if mesh.scale > 0.25:
+                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.25/mesh.scale))
+            if mesh.scale < 0.2:
+                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.2/mesh.scale))
+            if not points.shape[0] < 300:
+                continue
             # print(points.shape)
             # all_scales[obj_id] = mesh.scale
             # all_points[obj_id] = points.T
@@ -186,15 +188,15 @@ if __name__ == "__main__":
                 # print(pose_matrix[:,3])
                 pose_matrix = most_stable_pose_matrix.copy()
                 pose_matrix[:2,3] += np.random.uniform(-0.01,0.01,2)
-                pose_matrix[2,3] += np.random.uniform(0.2,0.25)
+                pose_matrix[2,3] += np.random.uniform(0.18,0.23)
                 # print(pose_matrix[:,3])
 
                 ctr_of_mass = pose_matrix[0:3, 3]
 
                 # Render image 1, which will be our original image with a random initial pose
                 # rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
-                # rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
-                rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
+                rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
+                # rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
 
                 scene.set_pose(object_node, pose=rand_transform)
                 image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
@@ -244,7 +246,7 @@ if __name__ == "__main__":
                     # plt.show()
                     # plt.savefig("pictures/com_test/obj" + str(obj_id) + "segmask.png")
                     # plt.close()
-                    if iteration % 1000 == 999:
+                    if iteration % 100 == 99:
                         threshold -= 0.05
                     if np.sum(image_cut <= 1 - 0.20001) >= 0.7 * segmask_size:
                         # print(np.sum(image_cut >= 0.200001), segmask_size)
@@ -254,6 +256,7 @@ if __name__ == "__main__":
                 image_cut, image2 = Zero_BG(image_cut), Zero_BG(image2)
 
                 plt.imshow(image_cut, cmap='gray', vmin = np.min(image_cut[image_cut != 0]))
+                # plt.imshow(image_cut, cmap='gray', vmax= 0.6)
                 plt.savefig("plots/test.png")
                 plt.close()
 
