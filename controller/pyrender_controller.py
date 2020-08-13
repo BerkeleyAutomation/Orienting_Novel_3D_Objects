@@ -36,11 +36,11 @@ def Plot_Image(image, filename):
     """
     # cv2.imwrite(filename, image)
     fname2 = filename[:-4] + "_plt.png"
-    fig1 = plt.imshow(image, cmap='gray')
+    fig1 = plt.imshow(image, cmap='gray', vmin=np.min(image[image != 0])-0.03)
     fig1.axes.get_xaxis().set_visible(False)
     fig1.axes.get_yaxis().set_visible(False)
-    plt.show()
     plt.savefig(fname2)
+    # plt.show()
     plt.close()
 
 def Save_Poses(pose_matrix ,index):
@@ -90,6 +90,7 @@ def create_scene(data_gen=True):
             '../data/objects/plane/pose.tf',
         )
     )
+    table_mesh.visual = table_mesh.visual.to_color()
     table_mesh.visual.vertex_colors = [[0 for c in r] for r in table_mesh.visual.vertex_colors]
     table_mesh = Mesh.from_trimesh(table_mesh)
     table_node = Node(mesh=table_mesh, matrix=table_tf.matrix)
@@ -133,9 +134,12 @@ if __name__ == "__main__":
             obj_id += 1
             # if obj_id != 4:
             #     continue
-            #90 is twisty mug, 104 is golem, 241 is pharaoh, 351 is animal, 354 is chain mail
-            object_list = [90, 104, 241,351, 354, 304, 384,528,406,537,639,124,731,665,
-                            555,184,49,595,382,359,185,344] # 22 objects, 354 is not in best_scores 82
+            #90 is twisty mug, 104 is golem, 241 is pharaoh, 351 is cat, 354 is chain mail
+            object_list = [90,104,241,351]
+            # object_list = [49,90, 104, 124, 184, 185, 241, 304, 344, 351, 359, 382, 384, 406, 414, 528, 537, 555, 595, 639, 665, 731] #22 objects
+            num_runs_per_obj = 1
+            max_iterations = 20
+
             if obj_id not in object_list:
                 continue
             # if obj_id > 20:
@@ -147,6 +151,10 @@ if __name__ == "__main__":
             # load object mesh
             mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
             points = mesh.vertices
+            if mesh.scale > 0.25:
+                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.25/mesh.scale))
+            if mesh.scale < 0.2:
+                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.2/mesh.scale))
 
             obj_mesh = Mesh.from_trimesh(mesh)
             object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
@@ -171,23 +179,23 @@ if __name__ == "__main__":
             base_path = "controller/objects/obj" + str(obj_id)
 
             stbl_pose = stable_poses[0]
+
             center_of_mass_stbl = stbl_pose[:3,3]
             losses_obj = []
 
-            num_runs_per_obj = 100
-            max_iterations = 100
-
             for j in range(num_runs_per_obj):
-                goal_pose_matrix = Generate_Random_Transform(center_of_mass_stbl) @ stbl_pose.copy()
-                ctr_of_mass = goal_pose_matrix[0:3, 3]
+                pose_matrix = stbl_pose.copy()
+                pose_matrix[:2, 3] += np.random.uniform(-0.01, 0.01, 2)
+                pose_matrix[2,3] += np.random.uniform(0.18,0.23)
+                ctr_of_mass = pose_matrix[0:3, 3]
+
+                goal_pose_matrix = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
                 
                 Save_Poses(goal_pose_matrix, "goal")
 
                 # Render image 2, which will be the goal image of the object in a stable pose
                 scene.set_pose(object_node, pose=goal_pose_matrix)
-                image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                # image2 = (image2*65535).astype(int)
-                Plot_Image(image2, base_path + "/images/goal.png")
+                I_g = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
                 # Render image 1, which will be 30 degrees away from the goal
                 rot_quat = Generate_Quaternion(29.9 /180 *np.pi,np.pi/6)
@@ -195,25 +203,25 @@ if __name__ == "__main__":
                 Save_Poses(start_pose_matrix, "0")
 
                 scene.set_pose(object_node, pose=start_pose_matrix)
-                image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-                # image1 = (image1*65535).astype(int)
-                Plot_Image(image1, base_path + "/images/0.png")
+                I_s = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                I_s, I_g = Quantize(Zero_BG(I_s)), Quantize(Zero_BG(I_g))
+
+                Plot_Image(I_g, base_path + "/images/goal.png")
+                Plot_Image(I_s, base_path + "/images/0.png")
 
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
                 model = ResNetSiameseNetwork(4, n_blocks=1, embed_dim=1024, dropout=6).to(device)
-                model.load_state_dict(torch.load("models/546objv5/cos_sm_blk1_emb1024_reg7_drop4.pt"))
+                model.load_state_dict(torch.load("models/872obj/cos_sm_blk1_emb1024_reg9_drop4.pt"))
                 # model.load_state_dict(torch.load("models/546objv3/cos_sm_blk4_emb1024_reg7_drop4.pt"))
                 model.eval()
 
-                I_s = image1
                 # print(I_s.shape, I_s.min(), I_s.max())
-                I_g = image2
                 im1_batch = torch.Tensor(torch.from_numpy(I_s).float()).to(device).unsqueeze(0).unsqueeze(0)
                 im2_batch = torch.Tensor(torch.from_numpy(I_g).float()).to(device).unsqueeze(0).unsqueeze(0)
                 # print(im1_batch.size())
                 cur_pose_matrix = np.loadtxt(base_path +"/poses/matrix_0.txt")
                 total_iters = 1
-                for i in range(1,max_iterations):
+                for i in range(1,max_iterations+2):
                     ctr_of_mass = cur_pose_matrix[:3,3]
                     pred_quat = model(im1_batch,im2_batch).detach().cpu().numpy()[0]
                     # if pred_quat[3] >= 0.99996192306: # 1 degree
@@ -232,6 +240,7 @@ if __name__ == "__main__":
                     Save_Poses(cur_pose_matrix, str(i))
                     scene.set_pose(object_node, pose=cur_pose_matrix)
                     cur_image = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+                    cur_image = Quantize(Zero_BG(cur_image))
                     # cur_image = (cur_image*65535).astype(int)
                     if i < 20:
                         Plot_Image(cur_image, base_path + "/images/" + str(i) + ".png")

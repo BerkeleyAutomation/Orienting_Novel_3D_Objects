@@ -47,16 +47,18 @@ def Plot_Bad_Predictions(dataset, predicted_quats, losses, name = "worst"):
     
     for i in indices:
         datapoint = dataset.get_item_list(test_indices[i:i+1])
-        predicted_quat = predicted_quats[i]
+        predicted_quat, image1, image2 = predicted_quats[i], datapoint["depth_image1"][0][0], datapoint["depth_image2"][0][0]
+        plt.rc('text', usetex=True)
         plt.figure(figsize=(15,5))
         plt.subplot(131)
-        fig1 = plt.imshow(datapoint["depth_image1"][0][0], cmap='gray', vmin=np.min(datapoint["depth_image1"][0][0]))
-        plt.title('Stable pose')
+        fig1 = plt.imshow(image1, cmap='gray', vmin=np.min(image1[image1 != 0])-0.05)
+        plt.title(r"$I^s$")
         plt.subplot(132)
-        fig2 = plt.imshow(datapoint["depth_image2"][0][0], cmap='gray')
+        fig2 = plt.imshow(image2, cmap='gray', vmin=np.min(image2[image2 != 0])-0.05)
         plt.title('True Quat: ' + Quaternion_String(datapoint["quaternion"][0]))
         plt.subplot(133)
-        fig3 = plt.imshow(Plot_Predicted_Rotation(datapoint, predicted_quat), cmap='gray')
+        image3 = Plot_Predicted_Rotation(datapoint, predicted_quat)
+        fig3 = plt.imshow(image3, cmap='gray', vmin=np.min(image3[image3 != 0])-0.05)
         plt.title('Pred Quat: ' + Quaternion_String(predicted_quat))
         fig1.axes.get_xaxis().set_visible(False)
         fig1.axes.get_yaxis().set_visible(False)
@@ -92,6 +94,11 @@ def Plot_Predicted_Rotation(datapoint, predicted_quat):
 
             # load object mesh
             mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
+            if mesh.scale > 0.25:
+                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.25/mesh.scale))
+            if mesh.scale < 0.2:
+                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.2/mesh.scale))
+
             obj_mesh = Mesh.from_trimesh(mesh)
             object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
             scene.add_node(object_node)
@@ -100,7 +107,8 @@ def Plot_Predicted_Rotation(datapoint, predicted_quat):
 
             new_pose = Quaternion_to_Rotation(predicted_quat, ctr_of_mass) @ pose_matrix
             scene.set_pose(object_node, pose=new_pose)
-            return renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+            image = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+            return Zero_BG(image, DR = False)
 
 def train(dataset, batch_size, first=False):
     '''Train model specified in main and return training loss and classification accuracy'''

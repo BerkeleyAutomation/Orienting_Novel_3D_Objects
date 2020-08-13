@@ -122,19 +122,21 @@ if __name__ == "__main__":
     objects_added = {}
     all_points, all_points300, all_scales = {}, {}, {}
     scores = np.loadtxt("cfg/tools/data/final_scores")
+    # split_872 = np.loadtxt("cfg/tools/data/train_split_872")
+
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
-            # if obj_id != 4:
-            #     continue
+            if obj_id != 2: #4 elephant, 90 twisty mug, 2 donut
+                continue
             # dataset.flush()
             # sys.exit(0)
             # if obj_id > len(symmetries) or obj_id not in best_obj: # or symmetries[obj_id-1] != 0:
             #     continue
             # if (obj_id not in best_obj_scores and obj_id not in best_obj) or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
             #     continue
-            if scores[obj_id-1] < 156.5:
-                continue
+            # if scores[obj_id-1] < 156.5:
+            #     continue
 
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
 
@@ -145,8 +147,8 @@ if __name__ == "__main__":
                 mesh.apply_transform(trimesh.transformations.scale_and_translate(0.25/mesh.scale))
             if mesh.scale < 0.2:
                 mesh.apply_transform(trimesh.transformations.scale_and_translate(0.2/mesh.scale))
-            if not points.shape[0] < 300:
-                continue
+            # if not points.shape[0] < 300:
+            #     continue
             # print(points.shape)
             # all_scales[obj_id] = mesh.scale
             # all_points[obj_id] = points.T
@@ -194,17 +196,16 @@ if __name__ == "__main__":
                 ctr_of_mass = pose_matrix[0:3, 3]
 
                 # Render image 1, which will be our original image with a random initial pose
-                # rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
-                rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
+                rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
+                # rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
                 # rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
 
                 scene.set_pose(object_node, pose=rand_transform)
                 image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
                 # image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
-                # fig1 = plt.imshow(image1)
-                # fig1.axes.get_xaxis().set_visible(False)
-                # fig1.axes.get_yaxis().set_visible(False)
+                # plt.imshow(image1)
+                # plt.axis('off')
                 # plt.show()
                 # if obj_id in split:
                 #     plt.savefig("pictures/rgb_images/symmetric546/test/obj" + str(obj_id) + ".png")
@@ -225,7 +226,7 @@ if __name__ == "__main__":
                 image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
                 image_cut = image1
-
+                Plot_Image(Zero_BG(image1, False))
                 #Generate cuts
                 segmask_size = np.sum(image1 <= 1 - 0.20001)
                 grip = [0,0]
@@ -240,25 +241,16 @@ if __name__ == "__main__":
                     image_cut = image1.copy()
                     image_cut[mask] = np.max(image1)
                     # print(slope)
-                    # plt.imshow(image_cut, cmap='gray')
-                    # fig1.axes.get_xaxis().set_visible(False)
-                    # fig1.axes.get_yaxis().set_visible(False)
-                    # plt.show()
-                    # plt.savefig("pictures/com_test/obj" + str(obj_id) + "segmask.png")
-                    # plt.close()
                     if iteration % 100 == 99:
                         threshold -= 0.05
                     if np.sum(image_cut <= 1 - 0.20001) >= 0.7 * segmask_size:
                         # print(np.sum(image_cut >= 0.200001), segmask_size)
                         break
                     iteration += 1
-
+                Plot_Image(Zero_BG(image_cut, False), "test2.png")
                 image_cut, image2 = Zero_BG(image_cut), Zero_BG(image2)
-
-                plt.imshow(image_cut, cmap='gray', vmin = np.min(image_cut[image_cut != 0]))
-                # plt.imshow(image_cut, cmap='gray', vmax= 0.6)
-                plt.savefig("plots/test.png")
-                plt.close()
+                Plot_Image(image_cut, "test3.png")
+                Plot_Image(image2, "test4.png")
 
                 datapoint = dataset.datapoint_template
                 datapoint["depth_image1"] = np.expand_dims(image_cut, -1)

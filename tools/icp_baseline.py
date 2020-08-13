@@ -37,7 +37,8 @@ def pointcloud(depth, fx, background=0.7999):
     fy = fx # assume aspectRatio is one.
     height = depth.shape[0]
     width = depth.shape[1]
-    mask = np.where(depth < background)
+    # mask = np.where(depth < background)
+    mask = np.where(depth != 0)
     
     x = mask[1]
     y = mask[0]
@@ -61,20 +62,22 @@ def predict(img1, img2):
 
     for i1, i2 in zip(img1,img2):
         # print(i1,i2)
-        pc1 = pointcloud(i1, 535)
-        pc2 = pointcloud(i2, 535)
-
-        pred_transform_matrix = trimesh.registration.icp(pc1, pc2)[0]
+        pc1 = pointcloud(i1, 300, background=0.1)
+        pc2 = pointcloud(i2, 300, background=0.1)
+        try:
+            pred_transform_matrix = trimesh.registration.icp(pc1, pc2)[0]
+        except:
+            pred_transform_matrix = np.eye(4)
         # pred_transform_matrix = trimesh.registration.icp(pc1,pc2, initial = pred_transform_matrix)[0]
         pred_transform = Rotation_to_Quaternion(pred_transform_matrix)
-        pc1_trimesh = trimesh.points.PointCloud(pc1)
-        pc1_trimesh.apply_transform(pred_transform_matrix)
-        pc3 = pc1_trimesh.vertices
+        # pc1_trimesh = trimesh.points.PointCloud(pc1)
+        # pc1_trimesh.apply_transform(pred_transform_matrix)
+        # pc3 = pc1_trimesh.vertices
 
         # plt.imshow(i1)
-        Plot_ICP([pc1, pc2, pc3])
+        # Plot_ICP([pc1, pc2, pc3])
         # plt.imshow(i2)
-        Plot_ICP([pc2])
+        # Plot_ICP([pc2])
 
         quats.append(pred_transform)
     return np.array(quats)
@@ -387,8 +390,8 @@ if __name__ == '__main__':
     if not os.path.exists(args.dataset + "/splits/train2"):
         dataset.make_split("train2", train_pct=0.8)
 
-    # point_clouds = pickle.load(open("cfg/tools/data/point_clouds", "rb"))
-    point_clouds = pickle.load(open("cfg/tools/data/point_clouds300", "rb"))
+    point_clouds = pickle.load(open("cfg/tools/data/point_clouds", "rb"))
+    # point_clouds = pickle.load(open("cfg/tools/data/point_clouds300", "rb"))
     scales = pickle.load(open("cfg/tools/data/scales", "rb"))
 
     loss_func = nn.CosineEmbeddingLoss()
@@ -396,8 +399,8 @@ if __name__ == '__main__':
 
     test_loss, test_loss2, test_loss3, total = 0, 0, 0, 0
 
-    test_indices = dataset.split('train')[1][:100]
-    # test_indices = dataset.split('train')[1]
+    # test_indices = dataset.split('train')[1][:100]
+    test_indices = dataset.split('train')[1]
     # test_indices = dataset.split('train2')[1]
     n_test = len(test_indices)
     batch_size = 1
@@ -417,7 +420,7 @@ if __name__ == '__main__':
             pred_transform = predict(im1_batch[:,0], im2_batch[:,0]) # shape is (batch_size, 1, 128,128)
             # pred_transform = predict_goicp(im1_batch[:,0], im2_batch[:,0]) # shape is (batch_size, 1, 128,128)
             pred_transform = Variable(torch.from_numpy(pred_transform)).float().to(device)
-            print("True Quaternions: {}, Predicted Quaternions: {}".format(transform_batch, pred_transform))
+            # print("True Quaternions: {}, Predicted Quaternions: {}".format(transform_batch, pred_transform))
             total += transform_batch.size(0)
             loss = loss_func(pred_transform, transform_batch, ones).item()
 

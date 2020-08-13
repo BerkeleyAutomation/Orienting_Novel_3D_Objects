@@ -2,7 +2,7 @@ pred_dim: 4
 batch_size: 64
 num_epochs: 100
 # loss: cosine
-loss: shapematch
+loss: shapemsatch
 n_blocks: 1
 embed_dim: 1024
 reg: 9
