@@ -9,3 +9,22 @@ sensors:
             device_id: 0
         calib_dir: /nfs/diskstation/calib/
 
+workspace:
+    min_pt:
+     - 0.3
+     - -0.2
+     - 0.18
+    max_pt:
+     - 0.4
+     - 0
+     - 0.4
+
+     #Full above table
+    # min_pt:
+    #  - 0.21
+    #  - -0.425
+    #  - 0.18
+    # max_pt:
+    #  - 0.645
+    #  - 0.425
+    #  - 0.4
