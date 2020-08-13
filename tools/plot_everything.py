@@ -5,11 +5,7 @@ import pickle
 if __name__ == '__main__':
 
     YAXIS = 'angle'
-
-    ### CHANGE
-    histdata_cos = np.loadtxt("results/CASE/best_scoresv5/cos/best_scoresv5_cos_histdata.txt") 
-    histdata_hybrid = np.loadtxt("results/CASE/best_scoresv5/cos_sm/best_scoresv5_cos_sm_histdata.txt")
-    histdata_icp = np.loadtxt("results/546objv3/icp_histdata.txt")
+    # YAXIS = 'sm'
 
     bins = 6
     width = 0.25
@@ -38,6 +34,9 @@ if __name__ == '__main__':
         return mean_losses, errors, x_loc
 
     if YAXIS == "angle":
+        histdata_cos = np.loadtxt("results/best_scoresv6/cos_blk1_emb1024_reg9_drop4_histdata.txt")
+        histdata_hybrid = np.loadtxt("results/best_scoresv6/cos_sm_blk1_emb1024_reg9_drop4_histdata.txt")
+        histdata_icp = np.loadtxt("results/best_scoresv6/icp_histdata.txt")
         mean_losses_hybrid, errors_hybrid, x_loc_hybrid = process_histdata(histdata_hybrid, "angle", 0)
         mean_losses_cos, errors_cos, x_loc_cos = process_histdata(histdata_cos, "angle", width)
         mean_losses_icp, errors_icp, x_loc_icp = process_histdata(histdata_icp, "angle", width*2)
@@ -48,16 +47,20 @@ if __name__ == '__main__':
         plt.bar(x_loc_cos, mean_losses_cos, yerr = errors_cos, width=width, label = "Mean Loss")
         plt.bar(x_loc_icp, mean_losses_icp, yerr = errors_icp, width=width, label = "ICP")
         # plt.axhline(mean_loss, c = 'r')
-        plt.xlabel("Rotation Angle (Degrees)")
-        plt.ylabel("Mean Angle Error (Degrees)")
+        plt.xlabel("Rotation Angle (Degrees)", fontsize=17)
+        plt.ylabel("Mean Angle Error (Degrees)", fontsize=17)
         # plt.ylim(0.0, (np.max(mean_losses)+np.max(errors))*1.1)
         plt.xticks([r + width*3/2 for r in range(6)], labels)
-        plt.title("Mean Angle Error vs Rotation Angle on Non-Symmetric Dataset")
+        plt.title("Mean Angle Error vs Rotation Angle on Non-Symmetric Dataset", fontsize=17)
         plt.legend(loc="best")
+        plt.ylim(0,45)
         plt.savefig("plots/angle_loss.png")
         plt.close()
 
     else:
+        histdata_cos = np.loadtxt("results/872obj/cos_blk1_emb1024_reg9_drop4_histdata.txt")
+        histdata_hybrid = np.loadtxt("results/872obj/cos_sm_blk1_emb1024_reg9_drop4_histdata.txt")
+        histdata_icp = np.loadtxt("results/872obj/icp_histdata.txt")
         mean_losses_hybrid, errors_hybrid, x_loc_hybrid = process_histdata(histdata_hybrid, "sm", 0)
         mean_losses_cos, errors_cos, x_loc_cos = process_histdata(histdata_cos, "sm", width)
         mean_losses_icp, errors_icp, x_loc_icp = process_histdata(histdata_icp, "sm", width*2)
@@ -68,12 +71,13 @@ if __name__ == '__main__':
         plt.bar(x_loc_cos, mean_losses_cos, yerr = errors_cos, width=width, label = "Mean Loss")
         plt.bar(x_loc_icp, mean_losses_icp, yerr = errors_icp, width=width, label = "ICP")
         # plt.axhline(mean_loss, c = 'r')
-        plt.xlabel("Rotation Angle (Degrees)")
-        plt.ylabel("Mean Angle Error (Degrees)")
+        plt.xlabel("Rotation Angle (Degrees)", fontsize=17)
+        plt.ylabel("Shape-Match Loss", fontsize=17)
         # plt.ylim(0.0, (np.max(mean_losses)+np.max(errors))*1.1)
         plt.xticks([r + width*3/2 for r in range(6)], labels)
-        plt.title("Shape-Match Loss vs Rotation Angle on Full Dataset")
+        plt.title("Shape-Match Loss vs Rotation Angle on Full Dataset", fontsize=17)
         plt.legend(loc="best")
+        plt.ylim(0,0.6)
         plt.savefig("plots/sm_loss.png")
         plt.close()
 

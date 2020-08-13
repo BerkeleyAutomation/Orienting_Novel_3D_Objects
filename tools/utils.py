@@ -9,6 +9,24 @@ from pyquaternion import Quaternion
 import cv2
 from perception import CameraIntrinsics, RgbdSensorFactory, Image, DepthImage
 
+def Plot_Image(img, fname="test.png"):
+    plt.imshow(img, cmap='gray', vmin = np.min(img[img != 0])*0.9)
+    plt.axis('off')
+    # plt.show()
+    plt.savefig("plots/" + fname)
+    plt.close()    
+
+def Zero_BG(image, DR = True):
+    """Zeroes out all background pixels
+    """
+    image_new = image.copy()
+    mask = image_new == np.max(image_new)
+    image_new[mask] = 0
+    if DR:
+        mask2 = np.random.randint(16,112,(2,100))
+        image_new[mask2[0], mask2[1]] = 0
+    return image_new
+
 def get_points(obj_ids, points_poses, point_clouds, scales, device):
     """obj_ids: (batch,)
     points_poses: (batch, 3, 3)
@@ -231,15 +249,15 @@ def Plot_Angle_vs_Loss(angle_vs_losses, fname, loss="shapematch", max_angle=30):
     plt.bar(labels, mean_losses, yerr = errors)
     plt.axhline(mean_loss, c='r')
     plt.ylim(0.0, (np.max(mean_losses)+np.max(errors))*1.1)
-    plt.title("Loss vs Rotation Angle")
-    plt.xlabel("Rotation Angle (Degrees)")
+    plt.title("Loss vs Rotation Angle", fontsize=20)
+    plt.xlabel("Rotation Angle (Degrees)", fontsize=20)
     # print("Plot_Loss Mean is:", mean_loss)
 
     if loss == "cosine":
-        plt.ylabel("Angle Loss (Degrees)")
+        plt.ylabel("Angle Loss (Degrees)", fontsize=20)
         plt.savefig(fname[:-4]+"_cos.png")
     else:
-        plt.ylabel("Shape-Match Loss")
+        plt.ylabel("Shape-Match Loss", fontsize=20)
         plt.savefig(fname)
     plt.close()
 
@@ -300,16 +318,6 @@ def Plot_Axis_vs_Loss(quaternions, losses, mean_loss):
 
 def Quantize(img):
     return (img * 65535).astype(int) / 65535
-
-def Zero_BG(image):
-    """Zeroes out all background pixels
-    """
-    image_new = image.copy()
-    mask = image_new == np.max(image_new)
-    image_new[mask] = 0
-    mask2 = np.random.randint(16,112,(2,100))
-    image_new[mask2[0], mask2[1]] = 0
-    return image_new
 
 def display_conv_layers(model):
     def imshow(img):
