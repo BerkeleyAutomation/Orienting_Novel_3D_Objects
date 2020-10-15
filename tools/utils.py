@@ -7,6 +7,18 @@ import torchvision
 from autolab_core import YamlConfig, RigidTransform
 from pyquaternion import Quaternion
 import cv2
+from mpl_toolkits.mplot3d import Axes3D
+
+def Plot_PC(pointclouds, filename = "plots/test.png"):
+    fig = plt.figure()
+    ax = Axes3D(fig)
+    for pc in pointclouds:
+        ax.scatter(pc[:,0], pc[:,1], pc[:,2])
+    ax.view_init(elev=90, azim=270) #topdown like camera
+    # ax.view_init(elev=45, azim=270)
+    # plt.show()
+    plt.savefig(filename)
+    plt.close()
 
 def Plot_Image(img, fname="test.png"):
     plt.imshow(img, cmap='gray', vmin = np.min(img[img != 0])*0.9)
@@ -18,11 +30,12 @@ def Plot_Image(img, fname="test.png"):
 def Zero_BG(image, DR = True):
     """Zeroes out all background pixels
     """
+    height = image.shape[0]
     image_new = image.copy()
     mask = image_new == np.max(image_new)
     image_new[mask] = 0
     if DR:
-        mask2 = np.random.randint(16,112,(2,100))
+        mask2 = np.random.randint(height // 8, (height // 8) * 7, (2,400)) #100 for 128x128
         image_new[mask2[0], mask2[1]] = 0
     return image_new
 
@@ -170,7 +183,7 @@ def Generate_Random_Z_Transform(center_of_mass):
 
 def Plot_Datapoint(image1, image2, quat):
     """Takes in a datapoint of our Tensor Dataset, and plots its two images for visualizing their 
-    iniitial pose and rotation.
+    initial pose and rotation.
     """
     plt.figure(figsize=(14, 7))
     plt.subplot(121)

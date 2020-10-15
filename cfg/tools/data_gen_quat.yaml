@@ -1,23 +1,23 @@
 debug: 0
-num_samples_per_obj: 2
+num_samples_per_obj: 1000
 noise: 0
 
 # dataset params
 dataset:
   tensors:
-    datapoints_per_file: 100
+    datapoints_per_file: 128 # Was 100
     fields:
       obj_id:
         dtype: uint32
       depth_image1:
         dtype: float32
-        height: 128
-        width: 128
+        height: 256
+        width: 256
         channels: 1
       depth_image2:
         dtype: float32
-        height: 128
-        width: 128
+        height: 256
+        width: 256
         channels: 1
       quaternion:
         dtype: float32
@@ -77,13 +77,11 @@ state_space:
       train_pct: 0.8
       stp_com_sigma: .0025
       stp_num_samples: 10
-      # stp_num_samples: 10
-      stp_min_prob: .06
+      stp_min_prob: .08
       object_keys:
         thingiverse: all
         3dnet: all
         kit: all
-
       planar_translation:
         min:
           - 0
@@ -91,16 +89,13 @@ state_space:
         max:
           - 0
           - 0
-
       scale:
         min:
           - 1.0
         max: 
           - 1.0
-
       center_of_mass:
         sigma: 0.0
-
       density: 4000
 
   camera:
@@ -114,7 +109,7 @@ state_space:
 
     # intrinsics. See https://github.com/BerkeleyAutomation/sd-maskrcnn/blob/master/sd_maskrcnn/envs/random_variables.py
     focal_length:
-      min: 300 # Was 535 for CASE first submission, 400 for 0.1-0.15 above, 300 for 0.2-0.25 above
+      min: 300 # Was 535 for CASE first submission, 400 for 0.1-0.15 above, 300 for 0.18-0.23 above, 600 for 256x256
       max: 300
     delta_optical_center:
       min: 0

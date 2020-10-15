@@ -5,7 +5,7 @@ This script generates data for the self-supervised rotation prediction task
 from autolab_core import YamlConfig, RigidTransform, TensorDataset
 from scipy.spatial.transform import Rotation
 import os
-
+import time
 # Use this if you are SSH
 os.environ["PYOPENGL_PLATFORM"] = 'egl'
 # os.environ["PYOPENGL_PLATFORM"] = 'osmesa'
@@ -127,41 +127,36 @@ if __name__ == "__main__":
     for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
         for mesh_filename in mesh_list:
             obj_id += 1
-            if obj_id != 2: #4 elephant, 90 twisty mug, 2 donut
-                continue
+            # if obj_id != 2: #4 elephant, 90 twisty mug, 2 donut
+            #     continue
             # dataset.flush()
             # sys.exit(0)
-            # if obj_id > len(symmetries) or obj_id not in best_obj: # or symmetries[obj_id-1] != 0:
-            #     continue
-            # if (obj_id not in best_obj_scores and obj_id not in best_obj) or obj_id in dont_include: # or symmetries[obj_id-1] != 0:
-            #     continue
             # if scores[obj_id-1] < 156.5:
             #     continue
 
             print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
+            start_time = time.time()
 
             # load object mesh
             mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
             points = mesh.vertices
             if mesh.scale > 0.25:
-                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.25/mesh.scale))
+                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.25/mesh.scale)) #Final submission was 0.25
             if mesh.scale < 0.2:
-                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.2/mesh.scale))
+                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.2/mesh.scale)) #Final submission was 0.2
             # if not points.shape[0] < 300:
             #     continue
             # print(points.shape)
             # all_scales[obj_id] = mesh.scale
-            # all_points[obj_id] = points.T
+            all_points[obj_id] = points.T
             # if points.shape[0] >= 300:
             #     points_clone = np.copy(points)
             #     np.random.shuffle(points_clone)
             #     all_points300[obj_id] = points_clone[:300].T
-            # if points.shape[0] >= 1000:
+            # if points.shape[0] >= 500:
             #     points_clone = np.copy(points)
             #     np.random.shuffle(points_clone)
-            #     all_points[obj_id] = points_clone[:1000].T
-            # else:
-            #     all_points[obj_id] = points.T
+            #     all_points[obj_id] = points_clone[:500].T
 
             obj_mesh = Mesh.from_trimesh(mesh)
             object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
@@ -172,16 +167,16 @@ if __name__ == "__main__":
             # scene.add(pyrender.PointLight(color=[1.0, 1.0, 1.0], intensity=2.0), pose=light_pose) # for rgb?
 
             # calculate stable poses
-            stable_poses, _ = mesh.compute_stable_poses(
-                sigma=obj_config['stp_com_sigma'],
-                n_samples=obj_config['stp_num_samples'],
-                threshold=obj_config['stp_min_prob']
-            )
-
-            if len(stable_poses) == 0:
-                print("No Stable Poses")
-                scene.remove_node(object_node)
-                continue
+            # stable_poses, _ = mesh.compute_stable_poses(
+            #     sigma=obj_config['stp_com_sigma'],
+            #     n_samples=obj_config['stp_num_samples'],
+            #     threshold=obj_config['stp_min_prob']
+            # )
+            # if len(stable_poses) == 0:
+            #     print("No Stable Poses")
+            #     scene.remove_node(object_node)
+            #     continue
+            stable_poses = [np.eye(4)]
 
             # most_stable_pose_matrix = stable_poses[0]
             for j in range(num_samples_per_obj):
@@ -196,22 +191,14 @@ if __name__ == "__main__":
                 ctr_of_mass = pose_matrix[0:3, 3]
 
                 # Render image 1, which will be our original image with a random initial pose
-                rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
-                # rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
+                # rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
+                rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
                 # rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
 
                 scene.set_pose(object_node, pose=rand_transform)
                 image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
                 # image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
-                # plt.imshow(image1)
-                # plt.axis('off')
-                # plt.show()
-                # if obj_id in split:
-                #     plt.savefig("pictures/rgb_images/symmetric546/test/obj" + str(obj_id) + ".png")
-                # else:
-                #     plt.savefig("pictures/rgb_images/symmetric546/train/obj" + str(obj_id) + ".png")
-                # plt.close()
 
                 # Render image 2, which will be image 1 rotated according to our specification
                 random_quat = Generate_Quaternion(end = np.pi/6)
@@ -226,18 +213,19 @@ if __name__ == "__main__":
                 image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
                 image_cut = image1
-                Plot_Image(Zero_BG(image1, False))
                 #Generate cuts
+                height = image_cut.shape[0]
                 segmask_size = np.sum(image1 <= 1 - 0.20001)
                 grip = [0,0]
                 while image1[grip[0]][grip[1]] > 1-0.20001:
-                    grip = np.random.randint(0,128,2)
+                    grip = np.random.randint(0,height,2)
                 iteration, threshold = 0, 0.7
                 while True:
                     slope = np.random.uniform(-1,1,2)
                     slope = slope[1]/np.max([slope[0], 1e-8])
-                    xx, yy = np.meshgrid(np.arange(0,128), np.arange(0,128))
-                    mask = (np.abs(yy-grip[1] - slope*(xx-grip[0])) <= (4/0.7*threshold)*(np.abs(slope)+1))
+                    xx, yy = np.meshgrid(np.arange(0,height), np.arange(0,height))
+                    thiccness = 4 / 0.7 * threshold if image1.shape[0] == 128 else 8 / 0.7 * threshold
+                    mask = (np.abs(yy-grip[1] - slope*(xx-grip[0])) <= thiccness * (np.abs(slope)+1))
                     image_cut = image1.copy()
                     image_cut[mask] = np.max(image1)
                     # print(slope)
@@ -247,10 +235,10 @@ if __name__ == "__main__":
                         # print(np.sum(image_cut >= 0.200001), segmask_size)
                         break
                     iteration += 1
-                Plot_Image(Zero_BG(image_cut, False), "test2.png")
                 image_cut, image2 = Zero_BG(image_cut), Zero_BG(image2)
-                Plot_Image(image_cut, "test3.png")
-                Plot_Image(image2, "test4.png")
+                if config['debug']:
+                    Plot_Image(image_cut, "test.png")
+                    Plot_Image(image2, "test2.png")
 
                 datapoint = dataset.datapoint_template
                 datapoint["depth_image1"] = np.expand_dims(image_cut, -1)
@@ -266,7 +254,8 @@ if __name__ == "__main__":
                 dataset.add(datapoint)
                 objects_added[obj_id] = 1
 
-            print("Added object ", obj_id, " and overall datapoints are: ", data_point_counter)
+            print("Added object", obj_id, "and overall datapoints are:", data_point_counter, 
+                                "in", round(time.time() - start_time, 2), "seconds")
             # delete the object to make room for the next
             scene.remove_node(object_node)
     objects_added = np.array(list(objects_added.keys()),dtype=int)

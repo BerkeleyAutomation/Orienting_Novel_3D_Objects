@@ -147,9 +147,9 @@ def train(dataset, batch_size, first=False):
             loss = loss_func2(pred_transform, transform_batch, points)
             sm_loss = loss.item()
 
-        # loss = loss / 4
+        # loss = loss / 3
         # loss.backward()
-        # if step % 4 == 3 or step == n_train_steps - 1:
+        # if step % 3 == 2 or step == n_train_steps - 1:
         #     optimizer.step()
         #     optimizer.zero_grad()
 
@@ -240,9 +240,10 @@ if __name__ == '__main__':
         best_scoresv5: DR with pose sampling 0-45 degrees from stable pose
         546objv4: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
         546objv5: DR with background, Translation +-(0.01,0.01,0.05), 45 degree from stable pose, 300 rot, z buffer (0.4,2)
-        872obj: Translation +-(0.01,0.01,0.18-0.23), 200 rot, Zeroed DR, SO3
-        872objv2: DR background Translation +-(0.01,0.01,0.18-0.23), SP45, 200 rot, z buffer (0.4,2)
+        872obj: Translation +-(0.01,0.01,0.18-0.23), 200 rot, Zeroed DR, SO3, z buffer (0.4,2), Scaled mesh sizes
         best_scoresv6: 100 objects, 1500 rot, Translation ^, SO3, Zeroed DR
+        872objv2: Above, but with 512 rot 
+        872objv3: Above, but with 256x256 dimension, 512 rot 
     """
     args = parse_args()
     config = YamlConfig(args.config)
@@ -261,7 +262,8 @@ if __name__ == '__main__':
     best_epoch_dir = "models/" + dataset_name + prefix + ".pt"
     print("fname prefix", prefix)
 
-    model = ResNetSiameseNetwork(config['pred_dim'], config['n_blocks'], config['embed_dim'], config['dropout']).to(device)
+    model = ResNetSiameseNetwork(config['pred_dim'], config['n_blocks'], 
+            config['embed_dim'], config['dropout'], image_dim=config['image_dim']).to(device)
     # model = InceptionSiameseNetwork(config['pred_dim']).to(device)
 
     point_clouds = pickle.load(open("cfg/tools/data/point_clouds", "rb"))
@@ -280,6 +282,7 @@ if __name__ == '__main__':
             # obj_id_split = np.loadtxt("cfg/tools/data/train_split_100")
             val_indices = []
             for i in range(dataset.num_datapoints):
+                print(i) if i % 200 == 0 else 1
                 if dataset.datapoint(i)["obj_id"] in obj_id_split:
                     val_indices.append(i)
 
@@ -307,7 +310,6 @@ if __name__ == '__main__':
             if test_loss < min_loss:
                 torch.save(model.state_dict(), best_epoch_dir)
                 min_loss = test_loss
-
     else:
         Plot_Loss(loss_history, loss_plot_fname)
 
@@ -367,8 +369,8 @@ if __name__ == '__main__':
         mean_angle_loss = np.arccos(1-mean_cosine_loss)*180/np.pi*2
         Plot_Angle_vs_Loss(angle_vs_losses, rot_plot_fname, 'shapematch', max_angle=config['max_angle'])
         # Plot_Angle_vs_Loss(angle_vs_losses, rot_plot_fname, 'cosine')
-        Plot_Small_Angle_Loss(angle_vs_losses)
-        Plot_Axis_vs_Loss(true_quaternions, losses, mean_angle_loss)
+        # Plot_Small_Angle_Loss(angle_vs_losses)
+        # Plot_Axis_vs_Loss(true_quaternions, losses, mean_angle_loss)
 
         if args.worst_pred:
             Plot_Bad_Predictions(dataset, pred_quaternions, losses)

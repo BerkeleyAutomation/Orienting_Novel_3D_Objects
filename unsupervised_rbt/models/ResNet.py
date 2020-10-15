@@ -2,26 +2,18 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-class onerelu(nn.Module):
-    def __init__(self):
-        super(onerelu, self).__init__()
-    def forward(self, input):
-        for i in input:
-            i = torch.Tensor
-        return 
-
-
 class ResNetSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim, n_blocks = 1, embed_dim=1024, dropout=6, norm=True):
+    def __init__(self, transform_pred_dim, num_blocks = 1, embed_dim=1024, dropout=4, norm=True, image_dim = 128):
         super(ResNetSiameseNetwork, self).__init__()
-        blocks = [item for item in [1] for i in range(n_blocks)]
-        self.resnet = ResNet(BasicBlock, blocks, embed_dim, dropout=False)   # [1,1,1,1]
+        self.resnet = ResNet(BasicBlock, num_blocks, embed_dim, image_dim=image_dim)   # [1,1,1,1]
         self.fc_1 = nn.Linear(embed_dim*2, 1000) # was 200 before (but 50 achieves same result)
         self.fc_2 = nn.Linear(1000, 1000) #changed all from 1000
         # self.fc_3 = nn.Linear(1000, 1000) 
         self.final_fc = nn.Linear(1000, transform_pred_dim)
-        self.dropout = nn.Dropout(dropout / 10) #0.6 for most
+        self.dropout = nn.Dropout(dropout / 10) #0.4 for most
         self.norm = norm
+        self.bn1 = nn.BatchNorm1d(1000)
+        self.bn2 = nn.BatchNorm1d(1000)
 
     def forward(self, input1, input2):
         output1 = self.resnet(input1)
@@ -29,7 +21,8 @@ class ResNetSiameseNetwork(nn.Module):
         output_concat = torch.cat((output1, output2), 1)
         output = self.dropout(F.leaky_relu(self.fc_1(output_concat), 0.02))
         output = self.dropout(F.leaky_relu(self.fc_2(output), 0.02))
-        # output = self.dropout(F.leaky_relu(self.fc_3(output)))
+        # output = F.leaky_relu(self.bn1(self.fc_1(output_concat)), 0.02)
+        # output = F.leaky_relu(self.bn2(self.fc_2(output)), 0.02)
                 
         output = self.final_fc(output)
         # print(output)
@@ -87,82 +80,85 @@ class ResNetObjIdPred(nn.Module):
 class BasicBlock(nn.Module):
     expansion = 1
 
-    def __init__(self, in_planes, planes, stride=1):
+    def __init__(self, in_planes, planes, strides=[1,1]):
         super(BasicBlock, self).__init__()
-        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=stride, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=strides[0], padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(planes)
-        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=strides[1], padding=1, bias=False)
         self.bn2 = nn.BatchNorm2d(planes)
 
         self.shortcut = nn.Sequential()
-        if stride != 1 or in_planes != self.expansion*planes:
+        if strides[0] != 1 or in_planes != self.expansion*planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=stride, bias=False),
+                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=strides[0]*strides[1], bias=False),
                 nn.BatchNorm2d(self.expansion*planes)
             )
 
     def forward(self, x):
-        out = F.relu(self.conv1(self.bn1(x)))
-        out = self.conv2(self.bn2(out))
+        out = F.relu(self.bn1(self.conv1(x)))
+        out = self.bn2(self.conv2(out))
         out += self.shortcut(x)
         out = F.relu(out)
         return out
 
 class ResNet(nn.Module):
-    def __init__(self, block, num_blocks, num_output=200, dropout=False):
+    def __init__(self, block, num_blocks, num_output=200, image_dim = 128):
         super(ResNet, self).__init__()
         self.in_planes = 64
-        self.n_blocks = len(num_blocks)
+        self.n_blocks = num_blocks
         
-        # dropout
-        if dropout:
-            self.p = 0.1
-        else:
-            self.p = 0
-        self.dropout2d = torch.nn.Dropout2d(p=self.p)
-
-        self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=1, padding=1, bias=False)
+        self.conv1 = nn.Conv2d(1, 64, kernel_size=3, stride=2, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
-        
-        if self.n_blocks == 1:
-            self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=4)
-            self.linear = nn.Linear(4096, num_output)
-        elif self.n_blocks == 2:
-            self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=2)
-            self.layer2 = self._make_layer(block, 64, num_blocks[1], stride=4)
-            self.linear = nn.Linear(1024, num_output)
-        elif self.n_blocks== 4:
-            self.layer1 = self._make_layer(block, 64, num_blocks[0], stride=1)
-            self.layer2 = self._make_layer(block, 64, num_blocks[1], stride=2)
-            self.layer3 = self._make_layer(block, 64, num_blocks[2], stride=2)
-            self.layer4 = self._make_layer(block, 64, num_blocks[3], stride=2)
-            self.linear = nn.Linear(4096, num_output)
-        else:
-            print("Error: number of blocks not in ResNet specification")
-            assert False
+        self.maxpool = nn.MaxPool2d(kernel_size=3, stride=2, padding=1)
 
-    def _make_layer(self, block, planes, num_blocks, stride):
-        strides = [stride] + [1]*(num_blocks-1)
-        layers = []
-        for stride in strides:
-            layers.append(block(self.in_planes, planes, stride))
-            self.in_planes = planes * block.expansion
-        return nn.Sequential(*layers)
+        if image_dim == 128:
+            if self.n_blocks == 1:
+                self.layer1 = self._make_layer(block, 64, strides=[2,1])
+                self.linear = nn.Linear(1024, num_output)
+            elif self.n_blocks == 2:
+                self.layer1 = self._make_layer(block, 64, strides=[1,1])
+                self.layer2 = self._make_layer(block, 64, strides=[2,1])
+                self.linear = nn.Linear(1024, num_output)
+            elif self.n_blocks == 3:
+                self.layer1 = self._make_layer(block, 64, strides=[1,1])
+                self.layer2 = self._make_layer(block, 64, strides=[2,1])
+                self.layer3 = self._make_layer(block, 64, strides=[2,1])
+                self.linear = nn.Linear(1024, num_output)
+            else:
+                print("Error: number of blocks not in ResNet specification")
+                assert False
+        elif image_dim == 256:
+            if self.n_blocks == 1:
+                self.layer1 = self._make_layer(block, 64, strides=[2,2])
+                self.linear = nn.Linear(4096, num_output)
+            elif self.n_blocks == 2:
+                self.layer1 = self._make_layer(block, 64, strides=[2,1])
+                self.layer2 = self._make_layer(block, 64, strides=[2,1])
+                self.linear = nn.Linear(4096, num_output)
+            elif self.n_blocks == 3:
+                self.layer1 = self._make_layer(block, 64, strides=[1,1])
+                self.layer2 = self._make_layer(block, 64, strides=[2,1])
+                self.layer3 = self._make_layer(block, 64, strides=[2,1])
+                self.linear = nn.Linear(4096, num_output)
+            else:
+                print("Error: number of blocks not in ResNet specification")
+                assert False
+
+    def _make_layer(self, block, planes, strides):
+        return nn.Sequential(block(self.in_planes, planes, strides))
 
     def forward_no_linear(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
+        out = self.maxpool(out)
         out = self.layer1(out)
-        out = self.dropout2d(out)
-        if self.n_blocks ==1:
+        if self.n_blocks == 1:
             return out
-        elif self.n_blocks ==2:  
+        elif self.n_blocks == 2:  
             out = self.layer2(out)
-            out = self.dropout2d(out)
             return out
-        elif self.n_blocks ==4:
+        elif self.n_blocks == 3:
+            out = self.layer2(out)
             out = self.layer3(out)
-            out = self.dropout2d(out)
-            out = self.layer4(out)
             return out
         return out
 

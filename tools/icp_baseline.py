@@ -74,7 +74,8 @@ def predict(img1, img2):
         # pc1_trimesh.apply_transform(pred_transform_matrix)
         # pc3 = pc1_trimesh.vertices
 
-        # plt.imshow(i1)
+        # Plot_Image(i1, "test.png")
+        # Plot_ICP([pc1], "plots/test2.png")
         # Plot_ICP([pc1, pc2, pc3])
         # plt.imshow(i2)
         # Plot_ICP([pc2])
@@ -141,16 +142,6 @@ def predict_goicp(img1, img2):
 
         quats.append(pred_transform)
     return np.array(quats)
-
-def Plot_ICP(pointclouds):
-    fig = plt.figure()
-    ax = Axes3D(fig)
-    for pc in pointclouds:
-        ax.scatter(pc[:,0], pc[:,1], pc[:,2])
-    ax.view_init(elev=90, azim=270)
-    # plt.show()
-    plt.savefig("plots/test.png")
-    plt.close()
 
 def orb_feature(img1, img2): #img1,2 depth images from pyrender
     img1, img2 = img1-img1.min(), img2-img2.min()
