@@ -7,6 +7,7 @@ import torchvision
 from autolab_core import YamlConfig, RigidTransform
 from pyquaternion import Quaternion
 import cv2
+<<<<<<< HEAD
 from mpl_toolkits.mplot3d import Axes3D
 
 def Plot_PC(pointclouds, filename = "plots/test.png"):
@@ -19,6 +20,9 @@ def Plot_PC(pointclouds, filename = "plots/test.png"):
     # plt.show()
     plt.savefig(filename)
     plt.close()
+=======
+from perception import CameraIntrinsics, RgbdSensorFactory, Image, DepthImage
+>>>>>>> 4f6fbf1a069652414e306b8f3dde37054b9904ba
 
 def Plot_Image(img, fname="test.png"):
     plt.imshow(img, cmap='gray', vmin = np.min(img[img != 0])*0.9)
@@ -68,7 +72,7 @@ def get_points(obj_ids, points_poses, point_clouds, scales, device):
 def get_points300(obj_ids, points_poses, point_clouds, scales, device):
     points = [point_clouds[obj_id] / scales[obj_id] * 10 for obj_id in obj_ids]
     # print(batch["pose_matrix"][0])
-    points = [points_poses[i] @ points[i] for i in range(len(obj_ids))]
+    points = [np.dot(points_poses[i], points[i]) for i in range(len(obj_ids))]
     points = torch.Tensor(points).to(device)
     # print(points[:,:5])
     return points

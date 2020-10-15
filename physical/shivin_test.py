@@ -8,15 +8,8 @@ import random
 import cv2
 import time
 import json
-import autolab_core.utils as utils
 from perception import CameraIntrinsics, RgbdSensorFactory, Image, DepthImage
-# from pixel_selector import PixelSelector
-from autolab_core import Point, Box, RigidTransform, YamlConfig, Logger
-# from ambidex.databases.postgres import YamlLoader, PostgresSchema
-# from ambidex.class_registry import postgres_base_cls_map, full_cls_list
-# from ambidex.envs.actions import Grasp3D
-# from grasp_utils import *
-# from image_utils import *
+from autolab_core import Box, RigidTransform, YamlConfig, Logger
 logger = Logger.get_logger('shivin_test.py')
 import yumipy
 import cv2
@@ -73,8 +66,8 @@ class Task:
         #                     np.array(phoxi_config['workspace']['max_pt']),
         #                     frame='world')
         x,y,z = self.gripper_home_pose.translation
-        self.workspace = Box(np.array([x-0.075, y-0.075,z]),
-                            np.array([x+0.075,y+0.075, z+0.2]), frame = "world")
+        self.workspace = Box(np.array([x-0.075, y-0.075,z-0.05]),
+                            np.array([x+0.075,y+0.075, z+0.15]), frame = "world")
 
         rospy.init_node('capture_test_images') #NOTE: this is required by the camera sensor classes
         Logger.reconfigure_root()
@@ -154,15 +147,20 @@ class Task:
         depth_seg.save('ros_phoxi/depth_seg_%d.png' %(frame))
         color_seg.save('ros_phoxi/color_seg_%d.png' %(frame))
 
-        # segment = color_seg.segment_kmeans(1,3)
-        # seg1 = color_seg.mask_binary(segment.segment_mask(1))
-        # seg2 = color_seg.mask_binary(segment.segment_mask(2))
-        # seg1.save('ros_phoxi/segment_1.png')
-        # seg2.save('ros_phoxi/segment_2.png')
-        color_mask = color_seg.foreground_mask(100, use_hsv=False)
-        color_seg2 = color_seg.mask_binary(color_mask, invert=True)
+        # color_mask = color_seg.foreground_mask(100, use_hsv=False)
+        # color_seg2 = color_seg.mask_binary(color_mask, invert=True)
+        # color_seg2.save('ros_phoxi/color_seg2_%d.png' %(frame))
+        # depth_seg2 = depth_seg.mask_binary(color_mask, invert=True)
+        # depth_seg2.save('ros_phoxi/depth_seg2_%d.png' %(frame))
+        color_mask = color_seg.segment_hsv(np.array([80,60,0]), np.array([120,255,255]))
+        # color_mask = color_seg.segment_hsv(np.array([90,60,0]), np.array([140,255,255]))
+        # color_mask = color_seg.segment_hsv(np.array([0,0,1]), np.array([140,255,70]))
+        # color_mask = color_seg.segment_hsv(np.array([0,100,1]), np.array([25,255,255]))
+        # color_mask = color_seg.segment_hsv(np.array([80,60,0]), np.array([120,255,255]))
+
+        color_seg2 = color_seg.mask_binary(color_mask, invert=False)
         color_seg2.save('ros_phoxi/color_seg2_%d.png' %(frame))
-        depth_seg2 = depth_seg.mask_binary(color_mask, invert=True)
+        depth_seg2 = depth_seg.mask_binary(color_mask, invert=False)
         depth_seg2.save('ros_phoxi/depth_seg2_%d.png' %(frame))
         ind = np.where(depth_seg2.data != 0)
         center_i, center_j = np.mean(ind[0]), np.mean(ind[1])
@@ -196,6 +194,4 @@ if __name__ == '__main__':
     task = Task('/nfs/diskstation/calib/phoxi')
     task.capture_image()
     # task.move()
-    # grasp, orientation, drop = task.plan_grasp_drop()
-    # task.grasp(grasp, orientation, drop)
     task.finish()
