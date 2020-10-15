@@ -7,7 +7,6 @@ import torchvision
 from autolab_core import YamlConfig, RigidTransform
 from pyquaternion import Quaternion
 import cv2
-<<<<<<< HEAD
 from mpl_toolkits.mplot3d import Axes3D
 
 def Plot_PC(pointclouds, filename = "plots/test.png"):
@@ -20,9 +19,7 @@ def Plot_PC(pointclouds, filename = "plots/test.png"):
     # plt.show()
     plt.savefig(filename)
     plt.close()
-=======
 from perception import CameraIntrinsics, RgbdSensorFactory, Image, DepthImage
->>>>>>> 4f6fbf1a069652414e306b8f3dde37054b9904ba
 
 def Plot_Image(img, fname="test.png"):
     plt.imshow(img, cmap='gray', vmin = np.min(img[img != 0])*0.9)
