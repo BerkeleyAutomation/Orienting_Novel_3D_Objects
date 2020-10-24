@@ -3,23 +3,36 @@ sensors:
         type: colorized_phoxi
         frame: phoxi
         phoxi_config:
-            device_name: 2018-02-020-LC3
+            # device_name: 2018-02-020-LC3
+            device_name: 1703005
             size: small
         webcam_config:
             device_id: 0
         calib_dir: /nfs/diskstation/calib/
 
+# Orienting Objects CASE Paper
+# workspace:
+#     min_pt:
+#      - 0.3
+#      - -0.2
+#      - 0.18
+#     max_pt:
+#      - 0.4
+#      - 0
+#      - 0.4
+
+# Stable Poses on floor
 workspace:
     min_pt:
-     - 0.3
-     - -0.2
-     - 0.18
+     - 0.13
+     - -0.425
+     - 0.01
     max_pt:
-     - 0.4
-     - 0
+     - 0.645
+     - 0.375
      - 0.4
 
-     #Full above table
+# Full above table
     # min_pt:
     #  - 0.21
     #  - -0.425
