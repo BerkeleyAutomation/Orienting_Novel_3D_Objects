@@ -114,10 +114,10 @@ class Task:
 
         return I_sg, center_i, center_j
     
-    def move(self, translation, euler):
+    def move(self, rot_transform):
         """params: all in frame of object --> world
         Moves gripper"""
-        self.robot.left.goto_pose_delta(translation, euler)
+        self.robot.left.goto_pose(rot_transform)
 
     def finish(self):
         # self.robot.left.open_gripper()
@@ -263,17 +263,3 @@ if __name__ == "__main__":
         plt.close()
         np.save(base_path + "/losses.npy",losses)
     task.finish()
-
-
-# def delta_move():
-    # core_euler = RigidTransform.rotation_from_quaternion(convert_quat(rot_quat, wxyz=False))
-    # print("Rotating by Euler Angles:", RigidTransform(core_euler).euler)
-    # def quat_to_euler(q):
-    #     x = np.arctan2(2*(q[3]*q[0]+q[1]*q[2]), 1 - 2*(q[1]*q[1]+q[0]*q[0]))
-    #     y = np.arcsin(2*(q[3]*q[1]-q[0]*q[2]))
-    #     z = np.arctan2(2*(q[3]*q[2]+q[1]*q[0]), 1 - 2*(q[1]*q[1]+q[2]*q[2]))
-    #     return (x*180/np.pi,y*180/np.pi,z*180/np.pi)  
-    # print("Rotating by Euler Angles:", quat_to_euler(rot_quat))
-
-    # task.move([0,0,0], Rotation.from_quat(rot_quat).as_euler('xyz', degrees=True))
-    # task.move([0,0,0], rot_quat.as_euler('xyz',degrees=True))
