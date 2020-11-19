@@ -1,4 +1,4 @@
-debug: 0
+debug: 1
 num_samples_per_obj: 1000
 noise: 0
 

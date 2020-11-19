@@ -241,7 +241,7 @@ if __name__ == '__main__':
         546objv4: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
         546objv5: DR with background, Translation +-(0.01,0.01,0.05), 45 degree from stable pose, 300 rot, z buffer (0.4,2)
         872obj: Translation +-(0.01,0.01,0.18-0.23), 200 rot, Zeroed DR, SO3, z buffer (0.4,2), Scaled mesh sizes
-        best_scoresv6: 100 objects, 1500 rot, Translation ^, SO3, Zeroed DR
+        best_scoresv6: 100 objects, 1500 rot, Translation as above, SO3, Zeroed DR
         872objv2: Above, but with 512 rot 
         872objv3: Above, but with 256x256 dimension, 512 rot 
     """
