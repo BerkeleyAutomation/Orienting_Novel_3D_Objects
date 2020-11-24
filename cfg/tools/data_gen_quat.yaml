@@ -1,5 +1,5 @@
-debug: 1
-num_samples_per_obj: 1000
+debug: 0
+num_samples_per_obj: 128
 noise: 0
 
 # dataset params
@@ -11,13 +11,13 @@ dataset:
         dtype: uint32
       depth_image1:
         dtype: float32
-        height: 256
-        width: 256
+        height: 128
+        width: 128
         channels: 1
       depth_image2:
         dtype: float32
-        height: 256
-        width: 256
+        height: 128
+        width: 128
         channels: 1
       quaternion:
         dtype: float32

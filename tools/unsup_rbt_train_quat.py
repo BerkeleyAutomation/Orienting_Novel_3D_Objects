@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork
+from unsupervised_rbt.models import ResNetSiameseNetwork, Se3TrackNet
 from unsupervised_rbt.losses.shapematch import ShapeMatchLoss
 # from perception import DepthImage, RgbdImage
 
@@ -262,8 +262,8 @@ if __name__ == '__main__':
     best_epoch_dir = "models/" + dataset_name + prefix + ".pt"
     print("fname prefix", prefix)
 
-    model = ResNetSiameseNetwork(config['pred_dim'], config['n_blocks'], 
-            config['embed_dim'], config['dropout'], image_dim=config['image_dim']).to(device)
+    model = ResNetSiameseNetwork(config['pred_dim'], config['n_blocks'], config['embed_dim'], 
+        config['dropout'], image_dim=config['image_dim'], split_resnet=config['split_resnet']).to(device)
     # model = InceptionSiameseNetwork(config['pred_dim']).to(device)
 
     point_clouds = pickle.load(open("cfg/tools/data/point_clouds", "rb"))
@@ -296,7 +296,8 @@ if __name__ == '__main__':
         # model.load_state_dict(torch.load("models/uniform30_1e7.pt"))
 
         for epoch in range(config['num_epochs']):
-
+            if config['lower_dropout']:
+                model.dropout.p = config['dropout'] * (1 - (epoch / config['num_epochs'])) / 10
             train_loss = train(dataset, config['batch_size'], first = (epoch == 0))
             test_loss = test(dataset, config['batch_size'])
             scheduler.step()
