@@ -36,8 +36,14 @@ def Zero_BG(image, DR = True):
     mask = image_new == np.max(image_new)
     image_new[mask] = 0
     if DR:
-        mask2 = np.random.randint(height // 8, (height // 8) * 7, (2,400)) #100 for 128x128
+        if height == 128:
+            mask2 = np.random.randint(height // 8, (height // 8) * 7, (2,100)) #100 for 128x128
+        elif height == 256:
+            mask2 = np.random.randint(height // 8, (height // 8) * 7, (2,400)) #100 for 128x128
+        else:
+            assert False, "Wrong Height"
         image_new[mask2[0], mask2[1]] = 0
+
     return image_new
 
 def get_points(obj_ids, points_poses, point_clouds, scales, device):

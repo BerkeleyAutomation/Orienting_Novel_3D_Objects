@@ -132,7 +132,7 @@ if __name__ == "__main__":
             mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
             obj_mesh_loader = MeshLoader(config['state_space']['heap']['objects']['mesh_dir'])
             adversarial_meshes = ["mini_dexnet~bar_clamp","mini_dexnet~vase", "mini_dexnet~endstop_holder", "mini_dexnet~pawn", "mini_dexnet~mount1", "mini_dexnet~pipe_connector", "mini_dexnet~gearbox"]
-            mesh = obj_mesh_loader.load(adversarial_meshes[1])
+            mesh = obj_mesh_loader.load(adversarial_meshes[4])
             points = mesh.vertices
             if mesh.scale > 0.25:
                 mesh.apply_transform(trimesh.transformations.scale_and_translate(0.25/mesh.scale)) #Final submission was 0.25

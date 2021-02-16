@@ -18,7 +18,7 @@ from tqdm import tqdm
 
 from autolab_core import YamlConfig, RigidTransform
 from unsupervised_rbt import TensorDataset
-from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork
+from unsupervised_rbt.models import ResNetSiameseNetwork, Se3TrackNet
 from unsupervised_rbt.losses.shapematch import ShapeMatchLoss
 # from perception import DepthImage, RgbdImage
 
@@ -241,7 +241,7 @@ if __name__ == '__main__':
         546objv4: DR with background, Translation(+-0.02,+-0.02,0-0.2), 45 degree from stable pose, 300 rot
         546objv5: DR with background, Translation +-(0.01,0.01,0.05), 45 degree from stable pose, 300 rot, z buffer (0.4,2)
         872obj: Translation +-(0.01,0.01,0.18-0.23), 200 rot, Zeroed DR, SO3, z buffer (0.4,2), Scaled mesh sizes
-        best_scoresv6: 100 objects, 1500 rot, Translation ^, SO3, Zeroed DR
+        best_scoresv6: 100 objects, 1500 rot, Translation as above, SO3, Zeroed DR
         872objv2: Above, but with 512 rot 
         872objv3: Above, but with 256x256 dimension, 512 rot 
     """
@@ -262,8 +262,8 @@ if __name__ == '__main__':
     best_epoch_dir = "models/" + dataset_name + prefix + ".pt"
     print("fname prefix", prefix)
 
-    model = ResNetSiameseNetwork(config['pred_dim'], config['n_blocks'], 
-            config['embed_dim'], config['dropout'], image_dim=config['image_dim']).to(device)
+    model = ResNetSiameseNetwork(config['pred_dim'], config['n_blocks'], config['embed_dim'], 
+        config['dropout'], image_dim=config['image_dim'], split_resnet=config['split_resnet']).to(device)
     # model = InceptionSiameseNetwork(config['pred_dim']).to(device)
 
     point_clouds = pickle.load(open("cfg/tools/data/point_clouds", "rb"))
@@ -296,7 +296,8 @@ if __name__ == '__main__':
         # model.load_state_dict(torch.load("models/uniform30_1e7.pt"))
 
         for epoch in range(config['num_epochs']):
-
+            if config['lower_dropout']:
+                model.dropout.p = config['dropout'] * (1 - (epoch / config['num_epochs'])) / 10
             train_loss = train(dataset, config['batch_size'], first = (epoch == 0))
             test_loss = test(dataset, config['batch_size'])
             scheduler.step()

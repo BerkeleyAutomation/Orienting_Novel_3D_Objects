@@ -235,7 +235,11 @@ if __name__ == "__main__":
                         # print(np.sum(image_cut >= 0.200001), segmask_size)
                         break
                     iteration += 1
-                image_cut, image2 = Zero_BG(image_cut), Zero_BG(image2)
+                # image_cut, image2 = Zero_BG(image_cut), Zero_BG(image2)
+                image_cut = Zero_BG(image_cut)
+                image2[image2 == np.max(image2)] = 0
+                image2[image2 != 0] = 0.8
+
                 if config['debug']:
                     Plot_Image(image_cut, "test.png")
                     Plot_Image(image2, "test2.png")
