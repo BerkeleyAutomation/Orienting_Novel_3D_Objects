@@ -2,59 +2,103 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
+class ConvBNSELU(nn.Sequential):
+		def __init__(self, C_in, C_out, kernel_size=3, stride=1, groups=1, bias=True, dilation=1):
+				padding = (kernel_size - 1) // 2
+				super(ConvBNSELU, self).__init__(
+						nn.Conv2d(C_in, C_out, kernel_size, stride, padding, groups=groups, bias=bias,dilation=dilation),
+						nn.BatchNorm2d(C_out),
+						nn.SELU(inplace=True)
+				)
+
 class ConvBNReLU(nn.Sequential):
 		def __init__(self, C_in, C_out, kernel_size=3, stride=1, groups=1, bias=True, dilation=1):
 				padding = (kernel_size - 1) // 2
 				super(ConvBNReLU, self).__init__(
 						nn.Conv2d(C_in, C_out, kernel_size, stride, padding, groups=groups, bias=bias,dilation=dilation),
 						nn.BatchNorm2d(C_out),
-						nn.SELU(inplace=True)
+						nn.ReLU(inplace=True)
 				)
 
+class ResnetBasicBlock(nn.Module):
+    def __init__(self, inplanes, planes, stride=1, bias=False):
+        super().__init__()
+        self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=bias)
+        self.bn1 = nn.BatchNorm2d(planes)
+        self.relu = nn.ReLU(inplace=False)
+        self.conv2 = nn.Conv2d(planes, planes, kernel_size=3, stride=1, padding=1, bias=bias)
+        self.bn2 = nn.BatchNorm2d(planes)
+        self.shortcut = nn.Sequential()
+        if stride > 1:
+            self.shortcut = nn.Sequential(
+                nn.Conv2d(inplanes, planes, kernel_size=1, stride=stride, bias=bias),
+                nn.BatchNorm2d(planes))
+
+    def forward(self, x):
+        identity = x
+
+        out = self.conv1(x)
+        out = self.bn1(out)
+        out = self.relu(out)
+
+        out = self.conv2(out)
+        out = self.bn2(out)
+
+        out += self.shortcut(x)
+        out = self.relu(out)
+        return out
+
+class FeatureNet(nn.Module):
+    def __init__(self):
+        super(FeatureNet, self).__init__()
+        self.conv1 = ConvBNReLU(C_in=1,C_out=64,kernel_size=3,stride=2, bias=False) #SE3 is 4->64, 7x7, stride 2
+        # self.pool1 = nn.MaxPool2d(kernel_size=2,stride=2,padding=0)
+        # self.pool1 = nn.MaxPool2d(kernel_size=3,stride=2,padding=1)
+        self.conv2 = ResnetBasicBlock(64,64,bias=False, stride=2)
+    
+    def forward(self, x):
+        out = self.conv1(x)
+        # out = self.pool1(out)
+        out = self.conv2(out)
+        return out
+
 class ResNetSiameseNetwork(nn.Module):
-    def __init__(self, transform_pred_dim, num_blocks = 1, embed_dim=1024, dropout=4, norm=True, image_dim = 128, split_resnet = False):
+    def __init__(self, split_resnet = False):
         super(ResNetSiameseNetwork, self).__init__()
-        self.resnet = ResNet(BasicBlock, num_blocks, embed_dim, image_dim=image_dim)   # [1,1,1,1]
-        self.resnet2 = ResNet(BasicBlock, num_blocks, embed_dim, image_dim=image_dim)
-        self.fc_1 = nn.Linear(embed_dim*2, 1000) # was 200 before (but 50 achieves same result)
-        self.fc_2 = nn.Linear(1000, 1000) #changed all from 1000
-        # self.fc_3 = nn.Linear(1000, 1000) 
-        self.final_fc = nn.Linear(1000, transform_pred_dim)
-        self.dropout = nn.Dropout(dropout / 10) #0.4 for most
-        self.norm = norm
-        self.bn1 = nn.BatchNorm1d(1000)
-        self.bn2 = nn.BatchNorm1d(1000)
+        self.resnet = FeatureNet()
+        if split_resnet:
+            self.resnet2 = FeatureNet()
         self.split_resnet = split_resnet
 
-        # self.conv1 = ConvBNReLU(128,256,stride=2)
-        # self.conv2 = BasicBlock(256,256)
-        # self.conv3 = ConvBNReLU(256,256,stride=2)
-        # self.conv4 = BasicBlock(256,256)
-        # self.pool = nn.AdaptiveAvgPool2d((4,4))
+        self.conv1 = ConvBNReLU(128,256,stride=2)
+        self.conv2 = ResnetBasicBlock(256,256)
+        self.conv3 = ConvBNReLU(256,256,stride=2)
+        self.conv4 = ResnetBasicBlock(256,256)
+        self.conv5 = ConvBNReLU(256,256,stride=2)
+        self.conv6 = ResnetBasicBlock(256,256)
+        self.pool = nn.AdaptiveAvgPool2d((2,2))
+        self.final_fc = nn.Linear(1024,4)
 
     def forward(self, input1, input2):
         output1 = self.resnet(input1)
         output2 = self.resnet2(input2) if self.split_resnet else self.resnet(input2)
         output_concat = torch.cat((output1, output2), 1)
-        output = self.dropout(F.leaky_relu(self.fc_1(output_concat), 0.02))
-        output = self.dropout(F.leaky_relu(self.fc_2(output), 0.02))
 
-        # output = self.conv1(output_concat)
-        # output = self.conv2(output)
-        # output = self.conv3(output)
-        # output = self.conv4(output)
-        # output = self.pool(output)
-        # output = output.reshape(output.shape[0],-1)
+        output = self.conv1(output_concat)
+        output = self.conv2(output)
+        output = self.conv3(output)
+        output = self.conv4(output)
+        output = self.conv5(output)
+        output = self.conv6(output)
+        output = self.pool(output)
+        output = output.reshape(output.shape[0],-1)
                 
         output = self.final_fc(output)
         # print(output)
-        if self.norm:
-            output = F.normalize(output)
-        return output #Normalize for Quaternion Regression
+        output = F.normalize(output)
+        return output
 
 class BasicBlock(nn.Module):
-    expansion = 1
-
     def __init__(self, in_planes, planes, strides=[1,1]):
         super(BasicBlock, self).__init__()
         self.conv1 = nn.Conv2d(in_planes, planes, kernel_size=3, stride=strides[0], padding=1, bias=False)
@@ -63,11 +107,10 @@ class BasicBlock(nn.Module):
         self.bn2 = nn.BatchNorm2d(planes)
 
         self.shortcut = nn.Sequential()
-        if strides[0] + strides[1] != 2 or in_planes != self.expansion*planes:
+        if strides[0] + strides[1] != 2 or in_planes != planes:
             self.shortcut = nn.Sequential(
-                nn.Conv2d(in_planes, self.expansion*planes, kernel_size=1, stride=strides[0]*strides[1], bias=False),
-                nn.BatchNorm2d(self.expansion*planes)
-            )
+                nn.Conv2d(in_planes, planes, kernel_size=1, stride=strides[0]*strides[1], bias=False),
+                nn.BatchNorm2d(planes))
 
     def forward(self, x):
         out = F.relu(self.bn1(self.conv1(x)))
@@ -139,9 +182,9 @@ class ResNet(nn.Module):
 
     def forward(self, x):
         out = self.forward_no_linear(x)
-        out = F.avg_pool2d(out, 4)
-        out = out.view(out.size(0), -1)
-        out = self.linear(out)
+        # out = F.avg_pool2d(out, 4)
+        # out = out.view(out.size(0), -1)
+        # out = self.linear(out)
         return out
 
 class LinearEmbeddingClassifier(nn.Module):

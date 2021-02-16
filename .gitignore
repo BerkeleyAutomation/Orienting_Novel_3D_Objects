@@ -10,3 +10,6 @@ unsupervised_rbt.egg-info/
 build/*
 dist/*
 .vscode/
+*.gif
+*.npy
+nohup.out

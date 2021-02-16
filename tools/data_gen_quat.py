@@ -26,55 +26,6 @@ from termcolor import colored
 import pickle
 from tools.utils import *
 
-def create_scene(data_gen=True):
-    """Create scene for taking depth images.
-    """
-    scene = Scene(ambient_light=[0.02, 0.02, 0.02], bg_color=[1.0, 1.0, 1.0])
-    renderer = OffscreenRenderer(viewport_width=1, viewport_height=1)
-    if not data_gen:
-        config2 = YamlConfig(os.path.join(os.path.dirname(os.path.realpath(__file__)), '..',
-                                          'cfg/tools/data_gen_quat.yaml'))
-    else:
-        config2 = config
-    # initialize camera and renderer
-    cam = CameraStateSpace(config2['state_space']['camera']).sample()
-
-    # If using older version of sd-maskrcnn
-    # camera = PerspectiveCamera(cam.yfov, znear=0.05, zfar=3.0,
-    #                                aspectRatio=cam.aspect_ratio)
-    camera = IntrinsicsCamera(cam.intrinsics.fx, cam.intrinsics.fy,
-                              cam.intrinsics.cx, cam.intrinsics.cy,
-                              znear = 0.4, zfar = 2)
-    renderer.viewport_width = cam.width
-    renderer.viewport_height = cam.height
-
-    pose_m = cam.pose.matrix.copy()
-    pose_m[:, 1:3] *= -1.0
-    scene.add(camera, pose=pose_m, name=cam.frame)
-    scene.main_camera_node = next(iter(scene.get_nodes(name=cam.frame)))
-
-    # Add Table
-    table_mesh = trimesh.load_mesh(
-        os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            '../data/objects/plane/plane.obj',
-        )
-    )
-    table_tf = RigidTransform.load(
-        os.path.join(
-            os.path.dirname(os.path.realpath(__file__)),
-            '../data/objects/plane/pose.tf',
-        )
-    )
-    table_mesh.visual = table_mesh.visual.to_color()
-    table_mesh.visual.vertex_colors = [[0 for c in r] for r in table_mesh.visual.vertex_colors]
-    table_mesh = Mesh.from_trimesh(table_mesh)
-    table_node = Node(mesh=table_mesh, matrix=table_tf.matrix)
-    scene.add_node(table_node)
-
-    # scene.add(Mesh.from_trimesh(table_mesh), pose=table_tf.matrix, name='table')
-    return scene, renderer
-
 def parse_args():
     """Parse arguments from the command line.
     -config to input your own yaml config file. Default is data_gen_quat.yaml
@@ -85,8 +36,8 @@ def parse_args():
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
                                            '..',
                                            'cfg/tools/data_gen_quat.yaml')
-    parser.add_argument('-config', type=str, default=default_config_filename)
     parser.add_argument('-dataset', type=str, required=True)
+    parser.add_argument('-config', type=str, default=default_config_filename)
     args = parser.parse_args()
     return args
 
@@ -102,176 +53,111 @@ if __name__ == "__main__":
     tensor_config = config['dataset']['tensors']
     dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/" + name_gen_dataset + "/", tensor_config)
     datapoint = dataset.datapoint_template
-    scene, renderer = create_scene()
-    dataset_name_list = ['3dnet', 'thingiverse', 'kit']
-    mesh_dir = config['state_space']['heap']['objects']['mesh_dir']
-    mesh_dir_list = [os.path.join(mesh_dir, dataset_name) for dataset_name in dataset_name_list]
-    obj_config = config['state_space']['heap']['objects']
-    mesh_lists = [os.listdir(mesh_dir) for mesh_dir in mesh_dir_list]
-    print("NUM OBJECTS")
-    print([len(a) for a in mesh_lists])
+    scene, renderer = create_scene(config)
+    # print("NUM OBJECTS")
+    # print([len(a) for a in mesh_lists])
 
     num_samples_per_obj = config['num_samples_per_obj']
 
     obj_id = 0
     data_point_counter = 0
+    wrong_counter = 0
     # scales = pickle.load(open("cfg/tools/data/scales", "rb"))
     # print(max(scales.values()), min(scales.values()))
     # split = np.loadtxt('cfg/tools/data/train_split_546')
 
-    objects_added = {}
-    all_points, all_points300, all_scales = {}, {}, {}
+    objects_added, points_1000, eccentricities, max_bb = {}, {}, {}, {}
     scores = np.loadtxt("cfg/tools/data/final_scores")
     # split_872 = np.loadtxt("cfg/tools/data/train_split_872")
 
-    for mesh_dir, mesh_list in zip(mesh_dir_list, mesh_lists):
-        for mesh_filename in mesh_list:
-            obj_id += 1
-            # if obj_id != 2: #4 elephant, 90 twisty mug, 2 donut
-            #     continue
-            # dataset.flush()
-            # sys.exit(0)
-            # if scores[obj_id-1] < 156.5:
-            #     continue
+    light_pose = np.eye(4)
+    light_pose[:3,3] = np.array([0.5,0.5,1])
+    scene.add(pyrender.PointLight(color=[1.0, 1.0, 1.0], intensity=2.0), pose=light_pose)
 
-            print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
-            start_time = time.time()
+    for mesh_dir, mesh_filename in Load_Mesh_Path():
+        obj_id += 1
+        if obj_id != 73: #2 donut, 4 elephant, 6 is bottle, 31 L-Shaped, 73 L-Shaped, 90 twisty mug, 156 polygonal insertion
+            continue
+        # dataset.flush()
+        # sys.exit(0)
+        # if scores[obj_id-1] < 156.5:
+        #     continue
 
-            # load object mesh
-            mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
-            points = mesh.vertices
-            if mesh.scale > 0.25:
-                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.25/mesh.scale)) #Final submission was 0.25
-            if mesh.scale < 0.2:
-                mesh.apply_transform(trimesh.transformations.scale_and_translate(0.2/mesh.scale)) #Final submission was 0.2
-            # if not points.shape[0] < 300:
-            #     continue
-            # print(points.shape)
-            # all_scales[obj_id] = mesh.scale
-            all_points[obj_id] = points.T
-            # if points.shape[0] >= 300:
-            #     points_clone = np.copy(points)
-            #     np.random.shuffle(points_clone)
-            #     all_points300[obj_id] = points_clone[:300].T
-            # if points.shape[0] >= 500:
-            #     points_clone = np.copy(points)
-            #     np.random.shuffle(points_clone)
-            #     all_points[obj_id] = points_clone[:500].T
+        print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
+        start_time = time.time()
+        mesh = Load_Scale_Mesh(mesh_dir, mesh_filename,0.2,0.25) #CASE is 0.2 - 0.25
 
-            obj_mesh = Mesh.from_trimesh(mesh)
-            object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
-            scene.add_node(object_node)
+        # points_1000[obj_id] = Sample_Mesh_Points(mesh, vertices=False, n_points=1000)
 
-            # light_pose = np.eye(4)
-            # light_pose[:,3] = np.array([0.5,0.5,1,1])
-            # scene.add(pyrender.PointLight(color=[1.0, 1.0, 1.0], intensity=2.0), pose=light_pose) # for rgb?
+        # trans, bounds = trimesh.bounds.oriented_bounds(mesh,5,ordered=False)
+        # bound_ecc = np.max(bounds)/np.min(bounds)
+        # extent_ecc = np.max(mesh.extents)/np.min(mesh.extents)
+        # print("Bounds Ecc:", bound_ecc)
+        # print("Extents Ecc:", extent_ecc)
+        # if bound_ecc < extent_ecc:
+        #     wrong_counter +=1
+        # eccentricities[obj_id] = bound_ecc
+        # max_bb[obj_id] = np.max(bounds)
+        
+        obj_mesh = Mesh.from_trimesh(mesh)
+        object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
+        scene.add_node(object_node)
 
-            # calculate stable poses
-            # stable_poses, _ = mesh.compute_stable_poses(
-            #     sigma=obj_config['stp_com_sigma'],
-            #     n_samples=obj_config['stp_num_samples'],
-            #     threshold=obj_config['stp_min_prob']
-            # )
-            # if len(stable_poses) == 0:
-            #     print("No Stable Poses")
-            #     scene.remove_node(object_node)
-            #     continue
-            stable_poses = [np.eye(4)]
+        for j in range(num_samples_per_obj):
+            rand_transform = Get_Initial_Pose(0.01, 0.18, 0.23, rotation = "SO3")
+            ctr_of_mass = rand_transform[0:3, 3]
 
-            # most_stable_pose_matrix = stable_poses[0]
-            for j in range(num_samples_per_obj):
-                most_stable_pose_matrix = stable_poses[j % len(stable_poses)]
-                # Use first stable pose of the object for center of mass
-                # print(pose_matrix[:,3])
-                pose_matrix = most_stable_pose_matrix.copy()
-                pose_matrix[:2,3] += np.random.uniform(-0.01,0.01,2)
-                pose_matrix[2,3] += np.random.uniform(0.18,0.23)
-                # print(pose_matrix[:,3])
+            # Render image 1, which will be our original image with a random initial pose
+            scene.set_pose(object_node, pose=rand_transform)
+            image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+            # image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
 
-                ctr_of_mass = pose_matrix[0:3, 3]
+            # Render image 2, which will be image 1 rotated according to our specification
+            random_quat = Generate_Quaternion(end = np.pi/6)
+            quat_str = Quaternion_String(random_quat)
 
-                # Render image 1, which will be our original image with a random initial pose
-                # rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
-                rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
-                # rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
+            # rand_transform[:2,3] += np.random.uniform(-0.01,0.01,2)
+            # rand_transform[2,3] += np.random.uniform(-0.02,0.03)
+            # ctr_of_mass = rand_transform[0:3, 3]
 
-                scene.set_pose(object_node, pose=rand_transform)
-                image1 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
+            new_pose = Quaternion_to_Rotation(random_quat, ctr_of_mass) @ rand_transform
+            scene.set_pose(object_node, pose=new_pose)
+            image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
-                # image1, depth_im = renderer.render(scene, RenderFlags.SHADOWS_DIRECTIONAL)
+            image1 = Cut_Image(image1)
+            image1, image2 = Zero_BG(image1), Zero_BG(image2)
 
-                # Render image 2, which will be image 1 rotated according to our specification
-                random_quat = Generate_Quaternion(end = np.pi/6)
-                quat_str = Quaternion_String(random_quat)
+            datapoint = dataset.datapoint_template
+            datapoint["depth_image1"] = np.expand_dims(image1, -1)
+            datapoint["depth_image2"] = np.expand_dims(image2, -1)
+            datapoint["quaternion"] = random_quat
+            datapoint["lie"] = Quat_to_Lie(random_quat)
+            datapoint["obj_id"] = obj_id
+            datapoint["pose_matrix"] = rand_transform
 
-                # rand_transform[:2,3] += np.random.uniform(-0.01,0.01,2)
-                # rand_transform[2,3] += np.random.uniform(-0.02,0.03)
-                # ctr_of_mass = rand_transform[0:3, 3]
+            if config['debug']:
+                Plot_Image(image1, "test.png")
+                Plot_Image(image2, "test2.png")
+                Plot_Datapoint(image1, image2, random_quat)
+            data_point_counter += 1
+            dataset.add(datapoint)
+            objects_added[obj_id] = 1
 
-                new_pose = Quaternion_to_Rotation(random_quat, ctr_of_mass) @ rand_transform
-                scene.set_pose(object_node, pose=new_pose)
-                image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-
-                image_cut = image1
-                #Generate cuts
-                height = image_cut.shape[0]
-                segmask_size = np.sum(image1 <= 1 - 0.20001)
-                grip = [0,0]
-                while image1[grip[0]][grip[1]] > 1-0.20001:
-                    grip = np.random.randint(0,height,2)
-                iteration, threshold = 0, 0.7
-                while True:
-                    slope = np.random.uniform(-1,1,2)
-                    slope = slope[1]/np.max([slope[0], 1e-8])
-                    xx, yy = np.meshgrid(np.arange(0,height), np.arange(0,height))
-                    thiccness = 4 / 0.7 * threshold if image1.shape[0] == 128 else 8 / 0.7 * threshold
-                    mask = (np.abs(yy-grip[1] - slope*(xx-grip[0])) <= thiccness * (np.abs(slope)+1))
-                    image_cut = image1.copy()
-                    image_cut[mask] = np.max(image1)
-                    # print(slope)
-                    if iteration % 100 == 99:
-                        threshold -= 0.05
-                    if np.sum(image_cut <= 1 - 0.20001) >= 0.7 * segmask_size:
-                        # print(np.sum(image_cut >= 0.200001), segmask_size)
-                        break
-                    iteration += 1
-                # image_cut, image2 = Zero_BG(image_cut), Zero_BG(image2)
-                image_cut = Zero_BG(image_cut)
-                image2[image2 == np.max(image2)] = 0
-                image2[image2 != 0] = 0.8
-
-                if config['debug']:
-                    Plot_Image(image_cut, "test.png")
-                    Plot_Image(image2, "test2.png")
-
-                datapoint = dataset.datapoint_template
-                datapoint["depth_image1"] = np.expand_dims(image_cut, -1)
-                datapoint["depth_image2"] = np.expand_dims(image2, -1)
-                datapoint["quaternion"] = random_quat
-                datapoint["lie"] = Quat_to_Lie(random_quat)
-                datapoint["obj_id"] = obj_id
-                datapoint["pose_matrix"] = rand_transform
-
-                if config['debug']:
-                    Plot_Datapoint(image_cut, image2, random_quat)
-                data_point_counter += 1
-                dataset.add(datapoint)
-                objects_added[obj_id] = 1
-
-            print("Added object", obj_id, "and overall datapoints are:", data_point_counter, 
-                                "in", round(time.time() - start_time, 2), "seconds")
-            # delete the object to make room for the next
-            scene.remove_node(object_node)
+        print("Added object", obj_id, "and overall datapoints are:", data_point_counter, 
+                            "in", round(time.time() - start_time, 2), "seconds")
+        # delete the object to make room for the next
+        scene.remove_node(object_node)
     objects_added = np.array(list(objects_added.keys()),dtype=int)
     np.random.shuffle(objects_added)
-    print("Added ", data_point_counter, " datapoints to dataset from ", len(objects_added), "objects")
-    print("Obj ID to split on training and validation:")
-    print(objects_added[:len(objects_added)//5])
+    print("Added", data_point_counter, "datapoints to dataset from ", len(objects_added), "objects")
+    
     # if num_samples_per_obj > 0:
+        # print("Obj ID to split on training and validation:")
+        # print(objects_added[:len(objects_added)//5])
     #     np.savetxt("cfg/tools/data/train_split872", objects_added[:len(objects_added)//5])
     #     np.savetxt("cfg/tools/data/test_split872", objects_added[len(objects_added)//5:])
-    # print(all_points)
-    # pickle.dump(all_points, open("cfg/tools/data/point_clouds", "wb"))
-    # pickle.dump(all_points300, open("cfg/tools/data/point_clouds300", "wb"))
-    # pickle.dump(all_scales, open("cfg/tools/data/scales", "wb"))
+    # pickle.dump(points_1000, open("cfg/tools/data/surface_pc_1000", "wb"))
+    # print(wrong_counter, "Had base ecc higher than oriented ecc")
+    # pickle.dump(eccentricities, open("cfg/tools/data/eccentricities", "wb"))
+    # pickle.dump(max_bb, open("cfg/tools/data/max_bb", "wb"))
     dataset.flush()

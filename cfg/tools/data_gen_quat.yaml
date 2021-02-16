@@ -1,11 +1,11 @@
-debug: 0
-num_samples_per_obj: 128
+debug: 1
+num_samples_per_obj: 512
 noise: 0
 
 # dataset params
 dataset:
   tensors:
-    datapoints_per_file: 128 # Was 100
+    datapoints_per_file: 256 # Was 100
     fields:
       obj_id:
         dtype: uint32
