@@ -1,7 +1,3 @@
-'''
-This script generates data for the self-supervised rotation prediction task
-'''
-
 from autolab_core import YamlConfig, RigidTransform, TensorDataset
 from scipy.spatial.transform import Rotation
 import os
@@ -135,10 +131,10 @@ if __name__ == "__main__":
             # if obj_id != 4:
             #     continue
             #90 is twisty mug, 104 is golem, 241 is pharaoh, 351 is cat, 354 is chain mail
-            object_list = [90,104,241,351]
-            # object_list = [49,90, 104, 124, 184, 185, 241, 304, 344, 351, 359, 382, 384, 406, 414, 528, 537, 555, 595, 639, 665, 731] #22 objects
-            num_runs_per_obj = 1
-            max_iterations = 20
+            # object_list = [90,104,241,351]
+            object_list = [49,90, 104, 124, 184, 185, 241, 304, 344, 351, 359, 382, 384, 406, 414, 528, 537, 555, 595, 639, 665, 731] #22 objects
+            num_runs_per_obj = 50
+            max_iterations = 50
 
             if obj_id not in object_list:
                 continue
@@ -165,20 +161,21 @@ if __name__ == "__main__":
             # scene.add(pyrender.PointLight(color=[1.0, 1.0, 1.0], intensity=2.0), pose=light_pose) # for rgb?
 
             # calculate stable poses
-            stable_poses, _ = mesh.compute_stable_poses(
-                sigma=obj_config['stp_com_sigma'],
-                n_samples=obj_config['stp_num_samples'],
-                threshold=obj_config['stp_min_prob']
-            )
+            # stable_poses, _ = mesh.compute_stable_poses(
+            #     sigma=obj_config['stp_com_sigma'],
+            #     n_samples=obj_config['stp_num_samples'],
+            #     threshold=obj_config['stp_min_prob']
+            # )
 
-            if len(stable_poses) == 0:
-                print("No Stable Poses")
-                scene.remove_node(object_node)
-                continue
+            # if len(stable_poses) == 0:
+            #     print("No Stable Poses")
+            #     scene.remove_node(object_node)
+            #     continue
             
             base_path = "controller/objects/obj" + str(obj_id)
 
-            stbl_pose = stable_poses[0]
+            # stbl_pose = stable_poses[0]
+            stbl_pose = np.eye(4)
 
             center_of_mass_stbl = stbl_pose[:3,3]
             losses_obj = []
@@ -210,8 +207,8 @@ if __name__ == "__main__":
                 Plot_Image(I_s, base_path + "/images/0.png")
 
                 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-                model = ResNetSiameseNetwork(4, n_blocks=1, embed_dim=1024, dropout=6).to(device)
-                model.load_state_dict(torch.load("models/872obj/cos_sm_blk1_emb1024_reg9_drop4.pt"))
+                model = ResNetSiameseNetwork(4, 1, 1024, 4).to(device)
+                model.load_state_dict(torch.load("models/872objv2/cos_sm_blk1_emb1024_reg9_drop4.pt"))
                 # model.load_state_dict(torch.load("models/546objv3/cos_sm_blk4_emb1024_reg7_drop4.pt"))
                 model.eval()
 
