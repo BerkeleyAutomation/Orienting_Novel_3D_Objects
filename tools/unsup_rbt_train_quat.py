@@ -55,8 +55,8 @@ def train(dataset, batch_size, first=False):
 
     for step in tqdm(range(n_train_steps)):
         batch = dataset.get_item_list(train_indices[step*batch_size: (step+1)*batch_size])
-        depth_image1 = Quantize(batch["depth_image1"])
-        depth_image2 = Quantize(batch["depth_image2"])
+        depth_image1 = Quantize(batch["depth_image1"],demean=config['demean'])
+        depth_image2 = Quantize(batch["depth_image2"],demean=config['demean'])
         # depth_image1 = batch["depth_image1"]
         # depth_image2 = batch["depth_image2"]
 
@@ -65,7 +65,7 @@ def train(dataset, batch_size, first=False):
         true_quaternions = Variable(torch.from_numpy(batch["quaternion"])).to(device)
         obj_ids = batch["obj_id"]
         points_poses = batch["pose_matrix"][:,:3,:3]
-        points = get_points_single_obj(obj_ids, points_poses, point_clouds, scales, device)
+        points = point_cloud_fn(obj_ids, points_poses, point_clouds, scales, device)
 
         pred_quaternions = model(im1_batch, im2_batch)
         if config['loss'] == 'cosine' or first:
@@ -102,7 +102,7 @@ def test(dataset, batch_size):
     test_loss, total = 0, 0
 
     # test_indices = dataset.split('train')[1][:10000]
-    test_indices = dataset.split('train')[1]
+    test_indices = dataset.split('train')[1][::2]
     # test_indices = dataset.split('train2')[1][:64*100]
     n_test = len(test_indices)
     n_test_steps = n_test // batch_size
@@ -112,8 +112,8 @@ def test(dataset, batch_size):
     with torch.no_grad():
         for step in tqdm(range(n_test_steps)):
             batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
-            depth_image1 = Quantize(batch["depth_image1"])
-            depth_image2 = Quantize(batch["depth_image2"])
+            depth_image1 = Quantize(batch["depth_image1"],demean=config['demean'])
+            depth_image2 = Quantize(batch["depth_image2"],demean=config['demean'])
             # depth_image1 = batch["depth_image1"]
             # depth_image2 = batch["depth_image2"]
 
@@ -125,7 +125,7 @@ def test(dataset, batch_size):
 
             obj_ids = batch["obj_id"]
             points_poses = batch["pose_matrix"][:,:3,:3]
-            points = get_points_single_obj(obj_ids, points_poses, point_clouds, scales, device)
+            points = point_cloud_fn(obj_ids, points_poses, point_clouds, scales, device)
             # if config['loss'] == 'cosine':
             #     loss = loss_func(pred_quaternions, true_quaternions, ones)
 
@@ -178,6 +178,7 @@ if __name__ == '__main__':
     histdata = "results/" + dataset_name + prefix + "_histdata.txt"
     loss_plot_fname = "plots/" + dataset_name + prefix + "_loss.png"
     rot_plot_fname = "plots/" + dataset_name + prefix + "_rot"
+    fit_plot_fname = "plots/" + dataset_name + prefix + "_fit"
     best_epoch_dir = "models/" + dataset_name + prefix + ".pt"
     print("fname prefix", prefix)
     make_dirs(dataset_name)
@@ -185,9 +186,9 @@ if __name__ == '__main__':
     model = ResNetSiameseNetwork(split_resnet=config['split_resnet']).to(device)
     # model = Se3TrackNet().to(device)
 
-    # point_clouds = pickle.load(open("cfg/tools/data/surface_pc_1000", "rb"))
-    point_clouds = pickle.load(open("cfg/tools/data/point_clouds", "rb"))
-    # point_clouds = pickle.load(open("cfg/tools/data/point_clouds300", "rb"))
+    point_clouds = pickle.load(open("cfg/tools/data/surface_pc_1000", "rb"))
+    # point_clouds = pickle.load(open("cfg/tools/data/point_clouds", "rb"))
+    point_cloud_fn = get_points_random_obj if config['shuffled'] else get_points_single_obj
     scales = pickle.load(open("cfg/tools/data/scales", "rb"))
 
     # optimizer = optim.Adam(model.parameters())
@@ -222,7 +223,7 @@ if __name__ == '__main__':
 
         if config['load_orienting_model']:
             print("Loading model that is trained from orienting task")
-            model.load_state_dict(torch.load("models/872objv2/cos_sm_blk1_emb1024_reg9_drop4.pt")) 
+            model.load_state_dict(torch.load("models/872objv2/cos_sm_blk1_emb1024_reg9_drop4.pt"))
         else:
             # model.load_state_dict(torch.load(final_epoch_dir))
            model.load_state_dict(torch.load(best_epoch_dir))
@@ -245,8 +246,8 @@ if __name__ == '__main__':
                 batch = dataset.get_item_list(test_indices[step*batch_size: (step+1)*batch_size])
                 # depth_image1 = batch["depth_image1"]
                 # depth_image2 = batch["depth_image2"]
-                depth_image1 = Quantize(batch["depth_image1"])
-                depth_image2 = Quantize(batch["depth_image2"])
+                depth_image1 = Quantize(batch["depth_image1"],demean=config['demean'])
+                depth_image2 = Quantize(batch["depth_image2"],demean=config['demean'])
 
                 im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
                 im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
@@ -260,7 +261,7 @@ if __name__ == '__main__':
 
                 obj_ids = batch["obj_id"]
                 points_poses = batch["pose_matrix"][:,:3,:3]
-                points = get_points_single_obj(obj_ids, points_poses, point_clouds, scales, device)
+                points = point_cloud_fn(obj_ids, points_poses, point_clouds, scales, device)
                 sm_loss = loss_func2(pred_transform, transform_batch, points).item()
 
                 true_quaternions_list.extend(transform_batch.cpu().numpy())
@@ -283,8 +284,8 @@ if __name__ == '__main__':
         np.savetxt(histdata, np.array(angle_vs_losses))
         mean_cosine_loss = test_loss/total
         mean_angle_loss = np.arccos(1-mean_cosine_loss)*180/np.pi*2
-        # Plot_Angle_vs_Loss(angle_vs_losses, rot_plot_fname, 'shapematch', max_angle=config['max_angle'])
-        Plot_Angle_vs_Loss(angle_vs_losses, rot_plot_fname, 'fit', max_angle=config['max_angle'])
+        Plot_Angle_vs_Loss(angle_vs_losses, rot_plot_fname, 'shapematch', max_angle=config['max_angle'])
+        Plot_Angle_vs_Loss(angle_vs_losses, fit_plot_fname, 'fit', max_angle=config['max_angle'])
         # Plot_Eccentricity_vs_Fit(angle_vs_losses, rot_plot_fname, 0)
         # Plot_Eccentricity_vs_Fit(angle_vs_losses, rot_plot_fname, 10)
         Plot_Eccentricity_vs_Fit(angle_vs_losses, rot_plot_fname, 20)

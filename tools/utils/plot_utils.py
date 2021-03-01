@@ -20,7 +20,7 @@ def Plot_Bad_Predictions(dataset, predicted_quats, true_quaternions, angle_vs_lo
     """
     losses = []
     for obj_id, angle,cosine_loss,sm_loss,fit_loss in angle_vs_losses:
-        losses.append(fit_loss)
+        losses.append(sm_loss)
 
     if name == "worst":
         indices = np.argsort(losses)[-5:-1]
@@ -70,7 +70,7 @@ def Plot_Bad_Predictions(dataset, predicted_quats, true_quaternions, angle_vs_lo
 
 def Plot_Predicted_Rotation(datapoint, predicted_quat):
     object_id, pose_matrix = datapoint['obj_id'], datapoint['pose_matrix'][0]
-    scene, renderer = create_scene()
+    scene, renderer = create_scene_real()
     obj_id = 0
     for mesh_dir, mesh_filename in Load_Mesh_Path():
         obj_id += 1
@@ -94,7 +94,7 @@ def Plot_Predicted_Rotation(datapoint, predicted_quat):
         # scene.set_pose(object_node2, pose=new_pose2)
 
         image = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
-        return Zero_BG(image, DR = False)
+        return Zero_BG(Crop_Image(image), DR = False)
 
 def Plot_Predicted_Rotation_Prism(datapoint, predicted_quat):
     object_id, pose_matrix = datapoint['obj_id'], datapoint['pose_matrix'][0]
