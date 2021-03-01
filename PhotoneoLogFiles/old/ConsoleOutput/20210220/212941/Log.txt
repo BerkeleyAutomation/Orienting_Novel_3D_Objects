@@ -1,0 +1,58 @@
+2021-02-20 21:29:40.897 New API Output Channel 0
+2021-02-20 21:29:40.897 Sending message: ConnectCommand - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.897 Message sent: ConnectCommand - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.898 Message received: SendAndReceiveBoostSerializableClassVersionsCommand - Request from PhoXiFC-ComandMessages(14576).
+2021-02-20 21:29:40.898 Sending message: SendAndReceiveBoostSerializableClassVersionsCommand - Answer to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.898 Message sent: SendAndReceiveBoostSerializableClassVersionsCommand - Answer to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.898 Message received: ConnectCommand - Answer from PhoXiFC-ComandMessages(14576) 0. Duration: 1.51906
+2021-02-20 21:29:40.898 Sending message: GetDevices - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.898 Message sent: GetDevices - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.899 Message received: GetDevices - Answer from PhoXiFC-ComandMessages(14576) 0. Duration: 0.479981
+2021-02-20 21:29:40.899 Sending message: GetDevices - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.899 Message sent: GetDevices - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.899 Message received: GetDevices - Answer from PhoXiFC-ComandMessages(14576) 0. Duration: 0.404262
+2021-02-20 21:29:40.899 Sending message: GetDevices - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.900 Message sent: GetDevices - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.900 Message received: GetDevices - Answer from PhoXiFC-ComandMessages(14576) 0. Duration: 0.375324
+2021-02-20 21:29:40.900 Sending message: ConnectPhoXi - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.900 Message sent: ConnectPhoXi - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.929 Message received: ConnectPhoXi - Answer from PhoXiFC-ComandMessages(14576) 0. Duration: 28.9165
+2021-02-20 21:29:40.929 New API Output Channel 0
+2021-02-20 21:29:40.929 Sending message: ConnectCommand - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.930 Message sent: ConnectCommand - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.934 Message received: SendAndReceiveBoostSerializableClassVersionsCommand - Request from PhoXiCM(1703005)-ComandMessages(14576).
+2021-02-20 21:29:40.934 Sending message: SendAndReceiveBoostSerializableClassVersionsCommand - Answer to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.935 Message sent: SendAndReceiveBoostSerializableClassVersionsCommand - Answer to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.935 Message received: ConnectCommand - Answer from PhoXiCM(1703005)-ComandMessages(14576) 0. Duration: 5.50529
+2021-02-20 21:29:40.935 PhoXiTest Init OK
+2021-02-20 21:29:40.935PhoXi Device PhoXi Scanner is Connected
+2021-02-20 21:29:40.935 Sending message: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.935 Message sent: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.936 Message received: GetHWStatus - Answer from PhoXiCM(1703005)-ComandMessages(14576) 0. Duration: 0.414618
+2021-02-20 21:29:40.936 Sending message: GetPhoXiControlVersion - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.937 Message sent: GetPhoXiControlVersion - Request to PhoXiFC-ComandMessages(0)
+2021-02-20 21:29:40.938 Message received: GetPhoXiControlVersion - Answer from PhoXiFC-ComandMessages(14576) 0. Duration: 1.7902
+2021-02-20 21:29:40.938 Sending message: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.938 Message sent: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.938 Message received: GetHWStatus - Answer from PhoXiCM(1703005)-ComandMessages(14576) 0. Duration: 0.454682
+2021-02-20 21:29:40.940 Sending message: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.940 Message sent: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.941 Message received: GetHWStatus - Answer from PhoXiCM(1703005)-ComandMessages(14576) 0. Duration: 0.558656
+2021-02-20 21:29:40.941 Sending message: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.941 Message sent: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.941 Message received: GetHWStatus - Answer from PhoXiCM(1703005)-ComandMessages(14576) 0. Duration: 0.535246
+2021-02-20 21:29:40.942 Sending message: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.942 Message sent: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.942 Message received: GetHWStatus - Answer from PhoXiCM(1703005)-ComandMessages(14576) 0. Duration: 0.441922
+2021-02-20 21:29:40.942 Sending message: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.942 Message sent: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.943 Message received: GetHWStatus - Answer from PhoXiCM(1703005)-ComandMessages(14576) 0. Duration: 0.324362
+2021-02-20 21:29:40.943 Sending message: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.943 Message sent: GetHWStatus - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.943 Message received: GetHWStatus - Answer from PhoXiCM(1703005)-ComandMessages(14576) 0. Duration: 0.276141
+2021-02-20 21:29:40.943 Sending message: SoftwareTrigger - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.943 Message sent: SoftwareTrigger - Request to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:40.946 Message received: SoftwareTrigger - Answer from PhoXiCM(1703005)-ComandMessages(14576) 0. Duration: 3.31305
+2021-02-20 21:29:42.236 Message received: CommunicationDataBufferNewFrame - Request from PhoXiCM(1703005)-ComandMessages(14576).
+2021-02-20 21:29:42.237 Sending message: CommunicationDataBufferNewFrame - Answer to PhoXiCM(1703005)-ComandMessages(0)
+2021-02-20 21:29:42.237 Message sent: CommunicationDataBufferNewFrame - Answer to PhoXiCM(1703005)-ComandMessages(0)

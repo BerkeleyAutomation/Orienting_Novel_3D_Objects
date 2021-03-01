@@ -17,7 +17,7 @@ from termcolor import colored
 import pickle
 import torch
 import cv2
-from unsupervised_rbt.models import ResNetSiameseNetwork, InceptionSiameseNetwork
+from unsupervised_rbt.models import ResNetSiameseNetwork
 from pyquaternion import Quaternion
 from tools.utils import *
 
@@ -29,60 +29,26 @@ from ambidex.databases.postgres import YamlLoader, PostgresSchema
 from ambidex.class_registry import postgres_base_cls_map, full_cls_list
 from ambidex.envs.actions import Grasp3D
 
-# This is just a utility for loading an object from a config file
-class YamlObjLoader(object):
-    def __init__(self, basedir):
-        self.basedir = basedir
-        self._map = {}
-        for root, dirs, fns in os.walk(basedir):
-            for fn in fns:
-                full_fn = os.path.join(root, fn)
-                _, f = os.path.split(full_fn)
-                if f in self._map:
-                    raise ValueError('Duplicate file named {}'.format(f))
-                self._map[f] = full_fn
-        self._yaml_loader = YamlLoader(PostgresSchema('pg_schema', postgres_base_cls_map, full_cls_list))
-
-    def load(self, key):
-        key = key + '.yaml'
-        full_filepath = self._map[key]
-        return self._yaml_loader.load(full_filepath)
-
-    def clear(self):
-        self._yaml_loader.clear()
-
-    def __call__(self, key):
-        return self.load(key)
-
-def convert_quat(quat, wxyz = True):
-    if wxyz:
-        quat = np.array([quat[1],quat[2],quat[3],quat[0]])
-    else:
-        quat = np.array([quat[3],quat[0],quat[1],quat[2]])
-    return quat
-
 class Task:
     def __init__(self, calib_dir):
-        basedir = "/home/shivin/catkin_ws/src/ambidex/tests/cfg/"
-        
+        # INITIALIZE PHOXI CAMERA
+        phoxi_config = YamlConfig("physical/cfg/tools/colorized_phoxi.yaml")
         self.sensor_name = 'phoxi'
         self.sensor_config = phoxi_config['sensors'][self.sensor_name]
 
         self.sensor_type = self.sensor_config['type']
         self.sensor_frame = self.sensor_config['frame']
-        self.sensor = ColorizedPhoXiSensor("1703005", 0, calib_dir='/nfs/diskstation/calib/', inpaint=False) 
+        self.sensor = ColorizedPhoXiSensor("1703005", 3, calib_dir='/nfs/diskstation/calib/', inpaint=False) 
         self.sensor.start()
 
         # logger.info('Ready to capture images from sensor %s' %(self.sensor_name))
+        basedir = "/home/shivin/catkin_ws/src/ambidex/tests/cfg/"
         yaml_obj_loader = YamlObjLoader(basedir)
 
-        self.robot = yaml_obj_loader('physical_yumi')
+        self.robot = yaml_obj_loader('physical_yumi_no_jaw')
         self.home_pose = self.robot.right.get_pose()
         self.camera_intr = CameraIntrinsics.load(os.path.join(calib_dir, 'phoxi.intr'))
         self.T_camera_world = RigidTransform.load(os.path.join(calib_dir, 'phoxi_to_world.tf'))
-
-        # INITIALIZE PHOXI CAMERA
-        phoxi_config = YamlConfig("physical/cfg/tools/colorized_phoxi.yaml")
 
         x,y,z = self.home_pose.translation
         self.workspace = Box(np.array([x-0.1, y-0.075,z-0.05]),
@@ -94,12 +60,12 @@ class Task:
         if not os.path.exists(self.save_dir):
             os.mkdir(self.save_dir)
         
-        print "opening gripper \n"
-        self.robot.tools['suction'].open_gripper()
-        time.sleep(1)
-        print "waiting before closing gripper \n"
+        print "enabling suction \n"
         self.robot.tools['suction'].close_gripper()
-        sys.exit()
+        time.sleep(2)
+        # print "turnin off suction \n"
+        # self.robot.tools['suction'].open_gripper()
+        # sys.exit()
 
     def capture_image(self, center_i=None, center_j=None, frame=0):
         # logger.info('Capturing depth image' + str(frame))
@@ -157,15 +123,15 @@ class Task:
     def finish(self):
         # self.robot.right.open_gripper()
         self.robot.stop() # Stop the robot
-        self.sensor.stop() # Stop the phoxi
+        # self.sensor.stop() # Stop the phoxi
 
 def Plot_Image(image, filename):
     """x
     """
     # cv2.imwrite(filename, image)
-    fig1 = plt.imshow(image, cmap='gray', vmin = np.min(image[image != 0])*0.9, vmax = np.max(image))
-    fig1.axes.get_xaxis().set_visible(False)
-    fig1.axes.get_yaxis().set_visible(False)
+    img_range = np.max(image) - np.min(image[image != 0]) + 0.0001
+    plt.imshow(image, cmap='gray', vmin = np.min(image[image != 0]) - img_range * 0.1, vmax = np.max(image))
+    plt.axis('off')
     plt.savefig(filename)
     # plt.show()
     plt.close()
@@ -209,8 +175,8 @@ if __name__ == "__main__":
     # logger = Logger.get_logger('physical_controller.py')
 
     obj_id = 4
-    max_iterations = 50
-    iteration = 1
+    max_iterations = 20
+    iteration = 0
     base_path = "physical/objects/obj" + str(obj_id)
     base_path = Make_Directories(base_path, iteration)
     # INITIALIZE TO (440, -23, 281) TRANSLATION
@@ -218,9 +184,12 @@ if __name__ == "__main__":
     print(colored('---------- Starting for Object ' + str(obj_id) + ' Iteration ' + str(iteration) +'----------', 'red'))
     task = Task('/nfs/diskstation/calib/phoxi')
 
+    poses = {}
+
     goal_pose = Rotation.from_quat(convert_quat(task.robot.right.get_pose().quaternion, wxyz=True))
     ctr_of_mass = task.robot.right.get_pose().translation
-    Save_Poses(goal_pose.as_quat(), "goal")
+    # Save_Poses(goal_pose.as_quat(), "goal")
+    poses['goal'] = goal_pose.as_quat()
 
     # Render image 2, which will be the goal image of the object in a stable pose
     I_g, center_i, center_j = task.capture_image(frame= "goal")
@@ -238,13 +207,14 @@ if __name__ == "__main__":
 
     task.robot.right.goto_pose(rot_transform)
     start_pose = Rotation.from_quat(convert_quat(task.robot.right.get_pose().quaternion, wxyz=True))
-    Save_Poses(start_pose.as_quat(), "0")
+    # Save_Poses(start_pose.as_quat(), "0")
+    poses[0] = start_pose.as_quat()
 
     I_s, _, _ = task.capture_image(center_i, center_j, 0)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ResNetSiameseNetwork(4, n_blocks=1, embed_dim=1024, dropout=4).to(device)
-    model.load_state_dict(torch.load("models/872obj/cos_sm_blk1_emb1024_reg9_drop4.pt"))
+    model = ResNetSiameseNetwork().to(device)
+    model.load_state_dict(torch.load("models/cos_sm_blk0_reg9.pt"))
     model.eval()
 
     im1_batch = torch.Tensor(torch.from_numpy(I_s).float()).to(device).unsqueeze(0).unsqueeze(0)
@@ -262,27 +232,28 @@ if __name__ == "__main__":
         # if pred_quat[3] >= 1: # 0 degrees
             print("Stopping Criteria:", np.arccos(pred_quat[3]) * 180 /np.pi*2, pred_quat)
             break
-        if angle < 2.5:
+        if angle < 1.0:
             slerp = 1 if angle < 0.5 else 0.5/angle
         else:
-            slerp = 0.2
+            slerp = 0.5
         pred_quat = Quaternion(convert_quat(pred_quat, wxyz=False))
         rot_quat = Quaternion.slerp(Quaternion(), pred_quat, slerp).elements # 1 is pred quat, 0 is no rot
         rot_quat = normalize(convert_quat(rot_quat, wxyz=True))
         rot_transform, cur_pose = Get_Transform(rot_quat, ctr_of_mass)
         task.robot.right.goto_pose(rot_transform)
         cur_pose = Rotation.from_quat(convert_quat(task.robot.right.get_pose().quaternion, wxyz=True))
-        Save_Poses(cur_pose.as_quat(), str(i))
+        # Save_Poses(cur_pose.as_quat(), str(i))
+        poses[i] = cur_pose.as_quat()
 
         cur_image, _, _ = task.capture_image(center_i, center_j, i)
         # cur_image = (cur_image*65535).astype(int)
         im1_batch = torch.Tensor(torch.from_numpy(cur_image).float()).to(device).unsqueeze(0).unsqueeze(0)
         total_iters = i
         losses = []
-        quat_goal = np.loadtxt(base_path + "/poses/quat_goal.txt")
+        quat_goal = poses['goal']
         # print(quat_goal)
         for j in range(total_iters):
-            q = np.loadtxt(base_path + "/poses/quat_" + str(j) + ".txt")
+            q = poses[j]
             # print(q)
             # print(np.dot(q,quat_goal))
             angle_error = np.arccos(np.abs(np.dot(quat_goal, q)))*180/np.pi*2

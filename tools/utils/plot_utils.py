@@ -87,7 +87,7 @@ def Plot_Predicted_Rotation(datapoint, predicted_quat):
         # print(pose_matrix)
         ctr_of_mass = pose_matrix[0:3, 3]
 
-        new_pose = Quaternion_to_Rotation(predicted_quat, ctr_of_mass) @ pose_matrix
+        new_pose = Quaternion_to_Rotation(predicted_quat, ctr_of_mass).dot(pose_matrix)
         scene.set_pose(object_node, pose=new_pose)
 
         # new_pose2 = Quaternion_to_Rotation(datapoint['quaternion'][0], ctr_of_mass) @ pose_matrix
@@ -117,10 +117,10 @@ def Plot_Predicted_Rotation_Prism(datapoint, predicted_quat):
         scene.add_node(object_node) 
         ctr_of_mass = pose_matrix[0:3, 3]
 
-        new_pose = Quaternion_to_Rotation(predicted_quat, ctr_of_mass) @ pose_matrix
+        new_pose = Quaternion_to_Rotation(predicted_quat, ctr_of_mass).dot(pose_matrix)
         scene.set_pose(object_node, pose=new_pose)
 
-        gt_pose = Quaternion_to_Rotation(datapoint['quaternion'][0], ctr_of_mass) @ pose_matrix
+        gt_pose = Quaternion_to_Rotation(datapoint['quaternion'][0], ctr_of_mass).dot(pose_matrix)
         scene.set_pose(prism_node, pose=gt_pose)
 
         image = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)

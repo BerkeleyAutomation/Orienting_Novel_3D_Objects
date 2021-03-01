@@ -10,6 +10,17 @@ sensors:
             device_id: 0
         calib_dir: /nfs/diskstation/calib/
 
+# Insertion
+# workspace:
+#     min_pt:
+#      - 0.25
+#      - -0.15
+#      - 0.002
+#     max_pt:
+#      - 0.55
+#      - 0.15
+#      - 0.4
+
 # Orienting Objects CASE Paper
 # workspace:
 #     min_pt:
@@ -21,16 +32,36 @@ sensors:
 #      - 0
 #      - 0.4
 
-# Stable Poses on floor
-workspace:
+# Green Card Plane
+plane_workspace:
     min_pt:
-     - 0.13
-     - -0.425
-     - 0.01
+     - 0.165 #bottom of image, part next to yumi base
+     - -0.375 # right of image, part next to Hermes
+     - -0.0
     max_pt:
-     - 0.645
-     - 0.375
-     - 0.4
+     - 0.645 #top of image
+     - 0.335 # left of image
+     - 0.6
+
+box_workspace:
+    min_pt:
+     - 0.165 #bottom of image, part next to yumi base
+     - -0.375 # right of image, part next to Hermes
+     - 0.359
+    max_pt:
+     - 0.645 #top of image
+     - 0.335 # left of image
+     - 0.6
+
+negative_workspace:
+    min_pt:
+     - 0.3 #bottom of image, part next to yumi base
+     - 0.10 # right of image, part next to Hermes
+     - -0.0
+    max_pt:
+     - 0.525 #top of image
+     - 0.25 # left of image
+     - 0.105
 
 # Full above table
     # min_pt:

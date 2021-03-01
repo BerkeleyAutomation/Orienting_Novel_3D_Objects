@@ -22,7 +22,7 @@ class ConvBNReLU(nn.Sequential):
 
 class ResnetBasicBlock(nn.Module):
     def __init__(self, inplanes, planes, stride=1, bias=False):
-        super().__init__()
+        super(ResnetBasicBlock,self).__init__()
         self.conv1 = nn.Conv2d(inplanes, planes, kernel_size=3, stride=stride, padding=1, bias=bias)
         self.bn1 = nn.BatchNorm2d(planes)
         self.relu = nn.ReLU(inplace=False)

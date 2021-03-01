@@ -1,0 +1,5 @@
+2021-02-25 23:44:22.084 New API Output Channel 0
+2021-02-25 23:44:22.084 Sending message: ConnectCommand - Request to PhoXiFC-ComandMessages(0)
+2021-02-25 23:44:22.089 Message sent: ConnectCommand - Request to PhoXiFC-ComandMessages(0)
+2021-02-25 23:44:27.091 Message received: WakeDummy - Request from PhoXiFC-ComandMessages(24066).
+2021-02-25 23:44:27.141 Failed to connect to PhoXi Control application

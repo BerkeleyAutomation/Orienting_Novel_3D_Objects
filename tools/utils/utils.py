@@ -16,7 +16,7 @@ from .plot_utils import *
 from .rotation_utils import *
 from pyrender import (Scene, IntrinsicsCamera, Mesh,
                       Viewer, OffscreenRenderer, RenderFlags, Node)
-from sd_maskrcnn.envs import CameraStateSpace
+#from sd_maskrcnn.envs import CameraStateSpace
 
 def make_dirs(dataset_name):
     if not os.path.exists("results/" + dataset_name):
@@ -85,11 +85,11 @@ def Get_Initial_Pose(xy=0.01,z_lower=0.18,z_upper=0.23, rotation='SO3'):
     #TODO have some simulation where you don't rotate around center of mass
 
     if rotation == 'SO3':
-        rand_transform = Generate_Random_TransformSO3(ctr_of_mass) @ pose_matrix
+        rand_transform = Generate_Random_TransformSO3(ctr_of_mass).dot(pose_matrix)
     elif rotation == 'z':
-        rand_transform = Generate_Random_Z_Transform(ctr_of_mass) @ pose_matrix
+        rand_transform = Generate_Random_Z_Transform(ctr_of_mass).dot(pose_matrix)
     elif rotation == 'uniform':
-        rand_transform = Generate_Random_Transform(ctr_of_mass) @ pose_matrix
+        rand_transform = Generate_Random_Transform(ctr_of_mass).dot(pose_matrix)
     else:
         Exception()
     return rand_transform
