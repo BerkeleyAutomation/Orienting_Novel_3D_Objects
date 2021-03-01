@@ -50,10 +50,11 @@ if __name__ == "__main__":
         name_gen_dataset += "_junk"
 
     # dataset configuration
-    tensor_config = config['dataset']['tensors']
-    dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/" + name_gen_dataset + "/", tensor_config)
-    datapoint = dataset.datapoint_template
-    scene, renderer = create_scene(config)
+    if not config['debug']:
+        tensor_config = config['dataset']['tensors']
+        dataset = TensorDataset("/nfs/diskstation/projects/unsupervised_rbt/" + name_gen_dataset + "/", tensor_config)
+        datapoint = dataset.datapoint_template
+    scene, renderer = create_scene_real(config)
     # print("NUM OBJECTS")
     # print([len(a) for a in mesh_lists])
 
@@ -76,8 +77,8 @@ if __name__ == "__main__":
 
     for mesh_dir, mesh_filename in Load_Mesh_Path():
         obj_id += 1
-        if obj_id != 73: #2 donut, 4 elephant, 6 is bottle, 31 L-Shaped, 73 L-Shaped, 90 twisty mug, 156 polygonal insertion
-            continue
+        # if obj_id != 73: #2 donut, 4 elephant, 6 is bottle, 31 L-Shaped, 73 L-Shaped, 90 twisty mug, 156 polygonal insertion
+        #     continue
         # dataset.flush()
         # sys.exit(0)
         # if scores[obj_id-1] < 156.5:
@@ -85,7 +86,7 @@ if __name__ == "__main__":
 
         print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
         start_time = time.time()
-        mesh = Load_Scale_Mesh(mesh_dir, mesh_filename,0.2,0.25) #CASE is 0.2 - 0.25
+        mesh = Load_Scale_Mesh(mesh_dir, mesh_filename,0.1,0.15) #CASE is 0.2 - 0.25
 
         # points_1000[obj_id] = Sample_Mesh_Points(mesh, vertices=False, n_points=1000)
 
@@ -103,8 +104,9 @@ if __name__ == "__main__":
         object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
         scene.add_node(object_node)
 
-        for j in range(num_samples_per_obj):
-            rand_transform = Get_Initial_Pose(0.01, 0.18, 0.23, rotation = "SO3")
+        j = 0
+        while j < num_samples_per_obj:
+            rand_transform = Get_Initial_Pose(0.05,0.07,0.25,0.4, rotation = "SO3")
             ctr_of_mass = rand_transform[0:3, 3]
 
             # Render image 1, which will be our original image with a random initial pose
@@ -116,16 +118,26 @@ if __name__ == "__main__":
             random_quat = Generate_Quaternion(end = np.pi/6)
             quat_str = Quaternion_String(random_quat)
 
-            # rand_transform[:2,3] += np.random.uniform(-0.01,0.01,2)
-            # rand_transform[2,3] += np.random.uniform(-0.02,0.03)
-            # ctr_of_mass = rand_transform[0:3, 3]
-
             new_pose = Quaternion_to_Rotation(random_quat, ctr_of_mass) @ rand_transform
             scene.set_pose(object_node, pose=new_pose)
             image2 = renderer.render(scene, flags=RenderFlags.DEPTH_ONLY)
 
+            original1, original2 = image1, image2
+            Plot_Image(original1, "test.png") if config['debug'] else 0
+            Plot_Image(original2, "test2.png")if config['debug'] else 0
+
+            try:
+                image1, image2 = Crop_Image(image1), Crop_Image(image2)
+            except AssertionError:
+                print("Bad location for object")
+                continue
             image1 = Cut_Image(image1)
             image1, image2 = Zero_BG(image1), Zero_BG(image2)
+
+            if config['debug']:
+                print(image1[image1!=0].max(), image1.min())
+                Plot_Datapoint(image1, image2, random_quat)
+                sys.exit()
 
             datapoint = dataset.datapoint_template
             datapoint["depth_image1"] = np.expand_dims(image1, -1)
@@ -135,13 +147,18 @@ if __name__ == "__main__":
             datapoint["obj_id"] = obj_id
             datapoint["pose_matrix"] = rand_transform
 
-            if config['debug']:
-                Plot_Image(image1, "test.png")
-                Plot_Image(image2, "test2.png")
-                Plot_Datapoint(image1, image2, random_quat)
             data_point_counter += 1
             dataset.add(datapoint)
             objects_added[obj_id] = 1
+            
+            if j % 10 == 9:
+                scene.remove_node(object_node)
+                mesh = Load_Scale_Mesh(mesh_dir, mesh_filename, 0.07, 0.1)
+                obj_mesh = Mesh.from_trimesh(mesh)
+                object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
+                scene.add_node(object_node)
+            
+            j += 1
 
         print("Added object", obj_id, "and overall datapoints are:", data_point_counter, 
                             "in", round(time.time() - start_time, 2), "seconds")

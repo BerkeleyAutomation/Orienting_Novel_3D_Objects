@@ -1,0 +1,9 @@
+Surface: 
+Mean Cosine loss is:  0.0013268789839823783
+Mean Angle loss is:  5.9037956498533255
+Mean SM loss is:  0.013687094584745665
+
+Vertices: 
+Mean Cosine loss is:  0.0013301877027923435
+Mean Angle loss is:  5.911153579602069
+Mean SM loss is:  0.013907085872174573

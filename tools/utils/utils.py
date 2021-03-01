@@ -17,6 +17,81 @@ from .rotation_utils import *
 from pyrender import (Scene, IntrinsicsCamera, Mesh,
                       Viewer, OffscreenRenderer, RenderFlags, Node)
 from sd_maskrcnn.envs import CameraStateSpace
+from perception import CameraIntrinsics
+
+def Crop_Image(img):
+    if img.shape[1] == 128:
+        return img
+    assert img.shape[0] == 772 and img.shape[1] == 1032
+    default_i, default_j = 386, 516
+
+    ind = np.where(img < 0.7999)
+    mean_i, mean_j = int(np.mean(ind[0])), int(np.mean(ind[1]))
+
+    height, width = np.max(ind[0])- np.min(ind[0]), np.max(ind[1])- np.min(ind[1])
+    height, width = (height*11) // 10, (width*11) // 10
+    height, width = max((height,128,width)), max((width,128,height)) #TODO might be performing badly because image 1 will have different crop from image 2
+    # print("Crop size is ", height) 
+
+    max_i, max_j, min_i, min_j = np.max(ind[0]), np.max(ind[1]), np.min(ind[0]), np.min(ind[1])
+    center_i, center_j = (max_i+min_i)//2, (max_j+min_j)//2 #TODO might be performing badly because image 1 will have different center from image 2
+    assert center_i >= height // 2 and center_j >= width // 2, "Center is : {},{}, Height and Width are: {} {}".format(center_i, center_j, height, width)
+
+    img_crop = img[center_i-height//2:center_i+height//2,center_j-width//2:center_j+width//2]
+    img_crop = cv2.resize(img_crop,(128,128), interpolation = cv2.INTER_NEAREST)
+    return img_crop
+
+def create_scene_real(config=None):
+    """Create scene for taking depth images.
+    """
+    if config is None:
+        config = YamlConfig(os.path.join(os.path.dirname(os.path.realpath(__file__)),
+                                           '..', '..',
+                                           'cfg/tools/data_gen_quat.yaml'))
+
+    scene = Scene(ambient_light=[0.02, 0.02, 0.02], bg_color=[1.0, 1.0, 1.0])
+    renderer = OffscreenRenderer(viewport_width=1, viewport_height=1)
+    # initialize camera and renderer
+    phoxi_intr = CameraIntrinsics.load("/nfs/diskstation/calib/phoxi/phoxi.intr")
+    T_camera_world = RigidTransform.load(os.path.join("/nfs/diskstation/calib/phoxi/phoxi_to_world.tf"))
+    camera = IntrinsicsCamera(phoxi_intr.fx, phoxi_intr.fy,
+                              phoxi_intr.cx, phoxi_intr.cy,
+                              znear = 0.2, zfar = 1.5)
+    renderer.viewport_width = phoxi_intr.width
+    renderer.viewport_height = phoxi_intr.height
+
+    pose_m = np.array([
+        [0.0, -1.0,  0.0, 0.0],
+        [-1.0, 0.0,  0.0, 0.0],
+        [0.0,  0.0, -1.0, 0.8],
+        [0.0,  0.0,  0.0, 1.0]
+      ])
+    pose_m[:, 1:3] *= -1.0
+
+    scene.add(camera, pose=pose_m, name=phoxi_intr.frame)
+    scene.main_camera_node = next(iter(scene.get_nodes(name=phoxi_intr.frame)))
+
+    # Add Table
+    table_mesh = trimesh.load_mesh(
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), '../'
+            '../data/objects/plane/plane.obj',
+        )
+    )
+    table_tf = RigidTransform.load(
+        os.path.join(
+            os.path.dirname(os.path.realpath(__file__)), '../',
+            '../data/objects/plane/pose.tf',
+        )
+    )
+    table_mesh.visual = table_mesh.visual.to_color()
+    table_mesh.visual.vertex_colors = [[0 for c in r] for r in table_mesh.visual.vertex_colors]
+    table_mesh = Mesh.from_trimesh(table_mesh)
+    table_node = Node(mesh=table_mesh, matrix=table_tf.matrix)
+    scene.add_node(table_node)
+
+    # scene.add(Mesh.from_trimesh(table_mesh), pose=table_tf.matrix, name='table')
+    return scene, renderer
 
 def make_dirs(dataset_name):
     if not os.path.exists("results/" + dataset_name):
@@ -75,11 +150,11 @@ def create_scene(config=None):
     # scene.add(Mesh.from_trimesh(table_mesh), pose=table_tf.matrix, name='table')
     return scene, renderer
 
-def Get_Initial_Pose(xy=0.01,z_lower=0.18,z_upper=0.23, rotation='SO3'):
+def Get_Initial_Pose(x=0.01,y=0.01,z_lower=0.18,z_upper=0.23, rotation='SO3'):
     pose_matrix = np.eye(4)
-    pose_matrix[:2,3] += np.random.uniform(-xy,xy,2)
+    pose_matrix[0,3] += np.random.uniform(-x,x)
+    pose_matrix[1,3] += np.random.uniform(-y,y)
     pose_matrix[2,3] += np.random.uniform(z_lower,z_upper)
-    #TODO render a big image of the whole scene, have objects at all positions and then crop it like in physical
 
     ctr_of_mass = pose_matrix[0:3, 3] 
     #TODO have some simulation where you don't rotate around center of mass
@@ -137,10 +212,9 @@ def Load_Mesh_Path():
 
 def Load_Scale_Mesh(mesh_dir, mesh_filename, lower_scale=0.17, upper_scale=0.21):
     mesh = trimesh.load_mesh(os.path.join(mesh_dir, mesh_filename))
-    if mesh.scale > upper_scale:
-        mesh.apply_transform(trimesh.transformations.scale_and_translate(upper_scale/mesh.scale))
-    if mesh.scale < lower_scale:
-        mesh.apply_transform(trimesh.transformations.scale_and_translate(lower_scale/mesh.scale))
+    random_scale = np.random.rand()
+    random_scale = ((upper_scale - lower_scale) * random_scale) + lower_scale
+    mesh.apply_transform(trimesh.transformations.scale_and_translate(random_scale/mesh.scale))
     return mesh
 
 def Percent_Fit(batch, predicted_quat, expand = 1.1):
@@ -161,6 +235,7 @@ def Wrapped_Percent_Fit(object_id, pose_matrix, predicted_quat, true_quat, expan
 
         prism_mesh = Aligned_Prism_Mesh(mesh, expand)
         # prism_mesh = mesh.copy()
+        # prism_mesh.apply_transform(trimesh.transformations.scale_and_translate(expand))
         
         mesh.apply_transform(pose_matrix)
         prism_mesh.apply_transform(pose_matrix)
@@ -206,7 +281,7 @@ def Cut_Image(image1):
         slope = np.random.uniform(-1,1,2)
         slope = slope[1]/np.max([slope[0], 1e-8])
         xx, yy = np.meshgrid(np.arange(0,height), np.arange(0,height))
-        thiccness = 4 / 0.7 * threshold if image1.shape[0] == 128 else 8 / 0.7 * threshold
+        thiccness = height / 32 / 0.7 * threshold
         mask = (np.abs(yy-grip[1] - slope*(xx-grip[0])) <= thiccness * (np.abs(slope)+1))
         image_cut = image1.copy()
         image_cut[mask] = np.max(image1)
@@ -227,14 +302,8 @@ def Zero_BG(image, DR = True):
     mask = image_new == np.max(image_new)
     image_new[mask] = 0
     if DR:
-        if height == 128:
-            mask2 = np.random.randint(height // 8, (height // 8) * 7, (2,100)) #100 for 128x128
-        elif height == 256:
-            mask2 = np.random.randint(height // 8, (height // 8) * 7, (2,400)) #100 for 128x128
-        else:
-            assert False, "Wrong Height"
+        mask2 = np.random.randint(height // 8, (height // 8) * 7, (2,(height * height) // 160)) #100 for 128x128
         image_new[mask2[0], mask2[1]] = 0
-
     return image_new
 
 def get_points_random_obj(obj_ids, points_poses, point_clouds, scales, device):
@@ -246,6 +315,7 @@ def get_points_random_obj(obj_ids, points_poses, point_clouds, scales, device):
     return points
 
 def get_points_single_obj(obj_ids, points_poses, point_clouds, scales, device):
+    assert np.sum(obj_ids) == obj_ids[0] * len(obj_ids), "Obj_ID: {}".format(obj_ids)
     pc1 = point_clouds[obj_ids[0]] / scales[obj_ids[0]] * 10
     points = np.tile(pc1, (points_poses.shape[0],1,1))
     # print(batch["pose_matrix"][0])
@@ -254,7 +324,12 @@ def get_points_single_obj(obj_ids, points_poses, point_clouds, scales, device):
     # print(points[:,:5])
     return points
 
-def Quantize(img):
+def Quantize(img, demean=False):
+    if demean:
+        img_max = img.max()
+        img_min = img[img!=0].min()
+        img_range = img_max - img_min
+        img[img!=0] = (img[img!=0] - img_min + 0.00001) / (img_range*2 + 0.00001) + 0.5
     return (img * 65535).astype(int) / 65535
 
 def get_points_vertices(obj_ids, points_poses, point_clouds, scales, device):
