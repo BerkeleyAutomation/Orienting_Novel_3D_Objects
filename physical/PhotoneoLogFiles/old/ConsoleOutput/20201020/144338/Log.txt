@@ -1,0 +1,14 @@
+2020-10-20 14:43:37.644 New API Output Channel 0
+2020-10-20 14:43:37.644 Sending message: ConnectCommand - Request to PhoXiFC-ComandMessages(0)
+2020-10-20 14:43:37.644 Message sent: ConnectCommand - Request to PhoXiFC-ComandMessages(0)
+2020-10-20 14:43:37.645 Message received: SendAndReceiveBoostSerializableClassVersionsCommand - Request from PhoXiFC-ComandMessages(4172).
+2020-10-20 14:43:37.645 Sending message: SendAndReceiveBoostSerializableClassVersionsCommand - Answer to PhoXiFC-ComandMessages(0)
+2020-10-20 14:43:37.645 Message sent: SendAndReceiveBoostSerializableClassVersionsCommand - Answer to PhoXiFC-ComandMessages(0)
+2020-10-20 14:43:37.646 Message received: ConnectCommand - Answer from PhoXiFC-ComandMessages(4172) 0. Duration: 1.81704
+2020-10-20 14:43:37.646 Sending message: GetDevices - Request to PhoXiFC-ComandMessages(0)
+2020-10-20 14:43:37.646 Message sent: GetDevices - Request to PhoXiFC-ComandMessages(0)
+2020-10-20 14:43:37.646 Message received: GetDevices - Answer from PhoXiFC-ComandMessages(4172) 0. Duration: 0.502506
+2020-10-20 14:43:37.789 Sending message: DisconnectCommand - Request to PhoXiFC-ComandMessages(0)
+2020-10-20 14:43:37.789 Message sent: DisconnectCommand - Request to PhoXiFC-ComandMessages(0)
+2020-10-20 14:43:37.789 Message received: DisconnectCommand - Answer from PhoXiFC-ComandMessages(4172) 0. Duration: 0.301805
+2020-10-20 14:43:37.789 Message received: WakeDummy - Request from PhoXiFC-ComandMessages(4172).
