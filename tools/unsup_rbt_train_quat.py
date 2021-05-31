@@ -21,9 +21,7 @@ from unsupervised_rbt.losses.shapematch import ShapeMatchLoss
 # from perception import DepthImage, RgbdImage
 from tools.utils import *
 
-import trimesh
-from pyrender import (Scene, IntrinsicsCamera, Mesh,
-                      Viewer, OffscreenRenderer, RenderFlags, Node)
+import time 
 
 def Make_Train_Splits(dataset_path, dataset):
     if not os.path.exists(dataset_path + "/splits/train"):
@@ -154,15 +152,11 @@ def parse_args():
 if __name__ == '__main__':
     """Train on a dataset or generate a graph of the training and validation loss.
     Current Datasets: 
-        best_scores: obj > 300 points, 257 obj, 500 rot. score >= 40. 128293
-        best_scoresv2: occlusion is now w background pixels. 82 obj > 300 pts, 1800 rot, score >= 156.52. 163930. 16 obj in val
-        best_scoresv3: Initial pose translation. 82 obj > 300 pts, 2000 rot, score >= 156.52. 163930. 16 obj in val
-        best_scoresv4: No pose translation, no dr.
-        best_scoresv5: DR with pose sampling 0-45 degrees from stable pose
         872obj: Translation +-(0.01,0.01,0.18-0.23), 128 rot, Zeroed DR, SO3, z buffer (0.4,2), Scaled mesh sizes 0.2-0.25
-        best_scoresv6: 100 objects, 1500 rot, Translation as above, SO3, Zeroed DR
+        best_scoresv6: 100 objects, 1500 rot, Translation as above, SO3, Zeroed DR, score >= 156.52
         872objv2: Above, but with 512 rot 
-        872objv3: Above, but with 256x256 dimension, 512 rot 
+        872objv3: v2 but new scene, z (0.2,1.5), cropping 10% slack on center, mesh size 0.07-0.1, tr (0.05,0.07,0.25,0.4)
+        872objv3: v2 but new scene, z (0.2,1.5), cropping 5-25% slack on center +-5, mesh size 0.07-0.2, tr (0.05,0.07,0.2,0.4)
     """
     args = parse_args()
     config = YamlConfig(args.config)
@@ -190,7 +184,13 @@ if __name__ == '__main__':
     # point_clouds = pickle.load(open("cfg/tools/data/point_clouds", "rb"))
     point_cloud_fn = get_points_random_obj if config['shuffled'] else get_points_single_obj
     scales = pickle.load(open("cfg/tools/data/scales", "rb"))
-
+    
+    if config['shuffled']:
+        point_clouds_arr = np.zeros((len(point_clouds),3,1000))
+        for obj_id in range(1,len(point_clouds_arr)+1):
+            point_clouds_arr[obj_id-1] = point_clouds[obj_id] / scales[obj_id] * 10
+        point_cloud_fn = get_points_numpy
+        point_clouds = point_clouds_arr
     # optimizer = optim.Adam(model.parameters())
     optimizer = optim.Adam(model.parameters(), lr=2e-3, weight_decay=10**(-1 * config['reg']))
     scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5,gamma=0.95)
@@ -232,7 +232,9 @@ if __name__ == '__main__':
         model.eval()
         test_loss, test_loss2, total_fit, total = 0, 0, 0, 0
 
-        test_indices = dataset.split('train')[1]
+        pose_estim = PoseEstimator()
+
+        test_indices = dataset.split('train')[1][::4]
         # test_indices = dataset.split('train2')[1]
         n_test = len(test_indices)
         batch_size = 1
@@ -252,7 +254,9 @@ if __name__ == '__main__':
                 im1_batch = Variable(torch.from_numpy(depth_image1).float()).to(device)
                 im2_batch = Variable(torch.from_numpy(depth_image2).float()).to(device)
                 transform_batch = Variable(torch.from_numpy(batch["quaternion"])).to(device)
-                pred_transform = model(im1_batch, im2_batch)
+
+                pred_transform = pose_estim.get_rotation(im1_batch, im2_batch)
+                # pred_transform = model(im1_batch, im2_batch)
                 # print("True Quaternions: {}, Predicted Quaternions: {}".format(transform_batch, pred_transform))
                 total += transform_batch.size(0)
 
@@ -269,15 +273,18 @@ if __name__ == '__main__':
 
                 # random_quat = Generate_Quaternion_SO3()[None,:]
 
-                # fit_loss = 1 - Percent_Fit(batch, pred_transform.cpu().numpy())
+                # start_time = time.time()
+                fit_loss = 1 - Percent_Fit(batch, pred_transform.cpu().numpy())                
                 # fit_loss = 1 - Percent_Fit(batch, random_quat)
-                fit_loss = 0.99
+                # fit_loss = 0.99
+                
+                # print(time.time() - start_time)
 
                 true_quat = transform_batch.cpu().numpy()[0]
                 angle = np.arccos(true_quat[3]) * 180 / np.pi * 2
                 # print(true_quat[3], angle)
 
-                angle_vs_losses.append([obj_ids[0],angle,cosine_loss,sm_loss,fit_loss]) # CHANGE THIS BACK
+                angle_vs_losses.append([obj_ids[0],angle,cosine_loss,sm_loss,fit_loss])
                 test_loss += cosine_loss
                 test_loss2 += sm_loss
                 total_fit += 1 - fit_loss

@@ -86,7 +86,7 @@ if __name__ == "__main__":
 
         print(colored('------------- Object ID ' + str(obj_id) + ' -------------', 'red'))
         start_time = time.time()
-        mesh = Load_Scale_Mesh(mesh_dir, mesh_filename,0.1,0.15) #CASE is 0.2 - 0.25
+        mesh = Load_Scale_Mesh(mesh_dir, mesh_filename,0.07,0.2) #CASE is 0.2 - 0.25
 
         # points_1000[obj_id] = Sample_Mesh_Points(mesh, vertices=False, n_points=1000)
 
@@ -106,7 +106,7 @@ if __name__ == "__main__":
 
         j = 0
         while j < num_samples_per_obj:
-            rand_transform = Get_Initial_Pose(0.05,0.07,0.25,0.4, rotation = "SO3")
+            rand_transform = Get_Initial_Pose(0.05,0.07,0.2,0.4, rotation = "SO3")
             ctr_of_mass = rand_transform[0:3, 3]
 
             # Render image 1, which will be our original image with a random initial pose
@@ -153,7 +153,7 @@ if __name__ == "__main__":
             
             if j % 10 == 9:
                 scene.remove_node(object_node)
-                mesh = Load_Scale_Mesh(mesh_dir, mesh_filename, 0.07, 0.1)
+                mesh = Load_Scale_Mesh(mesh_dir, mesh_filename, 0.07, 0.2)
                 obj_mesh = Mesh.from_trimesh(mesh)
                 object_node = Node(mesh=obj_mesh, matrix=np.eye(4))
                 scene.add_node(object_node)

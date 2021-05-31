@@ -76,8 +76,8 @@ class ResNetSiameseNetwork(nn.Module):
         self.conv4 = ResnetBasicBlock(256,256)
         self.conv5 = ConvBNReLU(256,256,stride=2)
         self.conv6 = ResnetBasicBlock(256,256)
-        self.pool = nn.AdaptiveAvgPool2d((2,2))
-        self.final_fc = nn.Linear(1024,4)
+        self.pool = nn.AdaptiveAvgPool2d((4,4))
+        self.final_fc = nn.Linear(4096,4)
 
     def forward(self, input1, input2):
         output1 = self.resnet(input1)

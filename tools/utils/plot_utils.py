@@ -265,7 +265,8 @@ def Plot_Eccentricity_vs_Fit(angle_vs_losses, fname, angle_lower):
     for obj_id in ecc.keys():
         ecc[obj_id] -= 1
     # thresholds = [0.0,0.1,0.3,0.6,1.0,1.5,2.5,4.0,6.0,9.0,100.0]
-    thresholds = [2.0,2.5,3.0,4.0,5.0,6.0,7.5,9.0,100.0]
+    # thresholds = [2.0,2.5,3.0,4.0,5.0,6.0,7.5,9.0,100.0]
+    thresholds = [0.0,1.0,2.0,4.0,6.0,9.0,100.0]
     assert angle_lower == 0 or angle_lower == 10 or angle_lower == 20
     baseline_fit = [0.80, 0.78, 0.74][angle_lower // 10] #surface was [0.687, 0.670, 0.636]
     bins = len(thresholds) - 1
@@ -299,8 +300,8 @@ def Plot_Eccentricity_vs_Fit(angle_vs_losses, fname, angle_lower):
     plt.title("Percent Fit vs Eccentricity, {}-{} Degree Rotations".format(angle_lower,angle_lower+10), fontsize=20)
     plt.xlabel("Eccentricity", fontsize=20)
     # print("Plot_Loss Mean is:", mean_loss)
-    plt.ylabel("Mean Percent Fit", fontsize=20)
-    plt.axhline(baseline_fit, c='lime', label = "Random quaternion baseline: {}".format(baseline_fit))
+    # plt.ylabel("Mean Percent Fit", fontsize=20)
+    # plt.axhline(baseline_fit, c='lime', label = "Random quaternion baseline: {}".format(baseline_fit))
     plt.legend()
 
     plt.tight_layout(pad=1)

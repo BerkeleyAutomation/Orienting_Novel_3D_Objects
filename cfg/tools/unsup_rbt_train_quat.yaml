@@ -3,11 +3,12 @@ batch_size: 64
 num_epochs: 100
 # loss: cosine
 loss: shapematch
-n_blocks: 1 # 0 is regular, 1 is demean
+n_blocks: 2 # 0 is regular, 1 is demean, 1 is random fit, 2 is baseline
 reg: 9
 max_angle: 30
-image_dim: 256
+image_dim: 128
 split_resnet: 0
 load_orienting_model: 0
 shuffled: 0
-demean: 1
+demean: 0
+quantize: 0

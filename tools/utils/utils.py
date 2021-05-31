@@ -29,14 +29,17 @@ def Crop_Image(img):
     mean_i, mean_j = int(np.mean(ind[0])), int(np.mean(ind[1]))
 
     height, width = np.max(ind[0])- np.min(ind[0]), np.max(ind[1])- np.min(ind[1])
-    height, width = (height*11) // 10, (width*11) // 10
-    height, width = max((height,128,width)), max((width,128,height)) #TODO might be performing badly because image 1 will have different crop from image 2
-    # print("Crop size is ", height) 
+    crop_factor = ((np.random.rand() * 2) + 10.5)
+    height, width = (height*crop_factor) // 10, (width*crop_factor) // 10
+    #TODO might be performing badly because image 1 will have different crop from image 2
+    height, width = int(max((height,128,width))), int(max((width,128,height)))
+    # print("Crop size is ", height, width) 
 
     max_i, max_j, min_i, min_j = np.max(ind[0]), np.max(ind[1]), np.min(ind[0]), np.min(ind[1])
-    center_i, center_j = (max_i+min_i)//2, (max_j+min_j)//2 #TODO might be performing badly because image 1 will have different center from image 2
+    #TODO might be performing badly because image 1 will have different center from image 2
+    center_i, center_j = (max_i+min_i)//2, (max_j+min_j)//2
+    center_i, center_j = center_i + int(np.random.randint(-5,6)), center_j + int(np.random.randint(-5,6))
     assert center_i >= height // 2 and center_j >= width // 2, "Center is : {},{}, Height and Width are: {} {}".format(center_i, center_j, height, width)
-
     img_crop = img[center_i-height//2:center_i+height//2,center_j-width//2:center_j+width//2]
     img_crop = cv2.resize(img_crop,(128,128), interpolation = cv2.INTER_NEAREST)
     return img_crop
@@ -251,18 +254,24 @@ def Wrapped_Percent_Fit(object_id, pose_matrix, predicted_quat, true_quat, expan
         return Percent_Fit_Mesh(mesh, prism_mesh)
 
 def Percent_Fit_Mesh(mesh, mesh_goal):
-    num_sampled = 1000
+    num_sampled = 10000
     total_sampled, samples = 0, None
+
     # import time
     # start_time = time.time()
+
     while total_sampled < num_sampled:
         sampled_points = trimesh.sample.volume_mesh(mesh, (num_sampled * 6) // 5)
         total_sampled += len(sampled_points)
         samples = sampled_points if samples is None else np.concatenate((samples, sampled_points)) 
+
     # print("Sampled in", round(time.time() - start_time, 2), "seconds") # W/o pyembree Usually 0.5-0.7
     # start_time = time.time()
+
     contained_points = mesh_goal.contains(samples[:num_sampled])
+    
     # print("Checked inside in", round(time.time() - start_time, 2), "seconds") # W/o pyembree Around 0.09-0.15
+    # print(np.sum(contained_points), num_sampled)
     return np.sum(contained_points) / num_sampled
 
 def negative_depth(img, ctr_of_mass):
@@ -308,6 +317,14 @@ def Zero_BG(image, DR = True):
 
 def get_points_random_obj(obj_ids, points_poses, point_clouds, scales, device):
     points = [point_clouds[obj_id] / scales[obj_id] * 10 for obj_id in obj_ids]
+    # print(batch["pose_matrix"][0])
+    points, points_poses = torch.Tensor(points).to(device), torch.Tensor(points_poses).to(device)
+    points = torch.bmm(points_poses, points)
+    # print(points[:,:5])
+    return points
+
+def get_points_numpy(obj_ids, points_poses, point_clouds, scales, device):
+    points = point_clouds[obj_ids-1]
     # print(batch["pose_matrix"][0])
     points, points_poses = torch.Tensor(points).to(device), torch.Tensor(points_poses).to(device)
     points = torch.bmm(points_poses, points)

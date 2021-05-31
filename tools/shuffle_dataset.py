@@ -36,14 +36,14 @@ if __name__ == "__main__":
     
     # iterate over it and mix stuff up
     print("old dataset has datapoints: ", old_dataset.num_datapoints)
-    idx = np.arange(0,old_dataset.num_datapoints, 512*64)
+    idx = np.arange(0,old_dataset.num_datapoints, 512*128)
     print(idx)
     # np.random.shuffle(idx)
     
     # import pdb
     # pdb.set_trace()
     for i in tqdm(idx):
-        batch = old_dataset.get_item_list(np.arange(i, np.min((old_dataset.num_datapoints,i+512*64))))
+        batch = old_dataset.get_item_list(np.arange(i, np.min((old_dataset.num_datapoints,i+512*128))))
 
         depth_image1 = np.expand_dims(np.squeeze(batch["depth_image1"]),-1)
         depth_image2 = np.expand_dims(np.squeeze(batch["depth_image2"]),-1)
@@ -64,6 +64,7 @@ if __name__ == "__main__":
             datapoint["quaternion"] = quaternion[j]
             datapoint["pose_matrix"] = pose_matrix[j]
             dataset.add(datapoint)
+            # print("Adding object", obj_id[j])
 #         print("\n num datapoints in set: ", dataset.num_datapoints)
         
     dataset.flush()
