@@ -16,7 +16,7 @@ from .plot_utils import *
 from .rotation_utils import *
 from pyrender import (Scene, IntrinsicsCamera, Mesh,
                       Viewer, OffscreenRenderer, RenderFlags, Node)
-from sd_maskrcnn.envs import CameraStateSpace
+# from sd_maskrcnn.envs import CameraStateSpace
 from perception import CameraIntrinsics
 
 def Crop_Image(img):
