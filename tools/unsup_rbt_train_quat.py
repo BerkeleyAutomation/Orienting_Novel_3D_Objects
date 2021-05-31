@@ -24,6 +24,9 @@ from tools.utils import *
 import time 
 
 def Make_Train_Splits(dataset_path, dataset):
+    """Split the data into training and validation..
+    Split 'train' adds all objects from a file to the validation split and leaves the rest in training
+    Split 'train2' randomly samples 80% of the data for training and 20% for validation."""
     if not os.path.exists(dataset_path + "/splits/train"):
         print("Creating Train Split")
         obj_id_split = np.loadtxt("cfg/tools/data/train_split_872")

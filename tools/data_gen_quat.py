@@ -28,9 +28,8 @@ from tools.utils import *
 
 def parse_args():
     """Parse arguments from the command line.
-    -config to input your own yaml config file. Default is data_gen_quat.yaml
     -dataset to input a name for your dataset. Should start with quaternion
-    --objpred to use the num_samples_per_obj_objpred option of your config
+    -config to input your own yaml config file. Default is cfg/tools/data_gen_quat.yaml
     """
     parser = argparse.ArgumentParser()
     default_config_filename = os.path.join(os.path.dirname(os.path.realpath(__file__)),
@@ -71,6 +70,7 @@ if __name__ == "__main__":
     scores = np.loadtxt("cfg/tools/data/final_scores")
     # split_872 = np.loadtxt("cfg/tools/data/train_split_872")
 
+    # Add lights to scene if you want to take RGB images
     light_pose = np.eye(4)
     light_pose[:3,3] = np.array([0.5,0.5,1])
     scene.add(pyrender.PointLight(color=[1.0, 1.0, 1.0], intensity=2.0), pose=light_pose)
@@ -90,6 +90,7 @@ if __name__ == "__main__":
 
         # points_1000[obj_id] = Sample_Mesh_Points(mesh, vertices=False, n_points=1000)
 
+        # # Calculate Eccentricities of the mesh
         # trans, bounds = trimesh.bounds.oriented_bounds(mesh,5,ordered=False)
         # bound_ecc = np.max(bounds)/np.min(bounds)
         # extent_ecc = np.max(mesh.extents)/np.min(mesh.extents)
@@ -126,6 +127,7 @@ if __name__ == "__main__":
             Plot_Image(original1, "test.png") if config['debug'] else 0
             Plot_Image(original2, "test2.png")if config['debug'] else 0
 
+            # Crop the images. If the cropping fails then redo this iteration
             try:
                 image1, image2 = Crop_Image(image1), Crop_Image(image2)
             except AssertionError:
@@ -152,6 +154,7 @@ if __name__ == "__main__":
             objects_added[obj_id] = 1
             
             if j % 10 == 9:
+                # Every 10 iterations resample the mesh with a different size
                 scene.remove_node(object_node)
                 mesh = Load_Scale_Mesh(mesh_dir, mesh_filename, 0.07, 0.2)
                 obj_mesh = Mesh.from_trimesh(mesh)

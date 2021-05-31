@@ -104,7 +104,6 @@ def parse_args():
                                            '..',
                                            'cfg/tools/data_gen_quat.yaml')
     parser.add_argument('-config', type=str, default=default_config_filename)
-    parser.add_argument('--start', action='store_true')
     args = parser.parse_args()
     return args
 
