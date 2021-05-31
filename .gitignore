@@ -13,3 +13,4 @@ dist/*
 *.gif
 *.npy
 nohup.out
+PhotoneoLogFiles/*

@@ -141,8 +141,9 @@ def Plot_Image(img, fname="test.png"):
     img_range = np.max(img) - np.min(img[img != 0]) + 0.0001
     plt.imshow(img, cmap='gray', vmin = np.min(img[img != 0]) - img_range * 0.1)
     plt.axis('off')
+    plt.tight_layout()
     # plt.show()
-    plt.savefig("plots/" + fname)
+    plt.savefig(fname)
     plt.close()    
 
 def Plot_Datapoint(image1, image2, quat, zeroed=True, show = False):

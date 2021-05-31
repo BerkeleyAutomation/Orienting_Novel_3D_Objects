@@ -32,143 +32,166 @@ from ambidex.envs.actions import Grasp3D
 
 from cavity_process import Cavity
 
-class Task:
-    def __init__(self, sensor=None):
-        # INITIALIZE PHOXI CAMERA
-        calib_dir = '/nfs/diskstation/calib/phoxi'
-        phoxi_config = YamlConfig("physical/cfg/tools/colorized_phoxi.yaml")
-        self.sensor_name = 'phoxi'
-        self.sensor_config = phoxi_config['sensors'][self.sensor_name]
+from pose_estimator import PoseEstimator, demean
 
-        self.sensor_type = self.sensor_config['type']
-        self.sensor_frame = self.sensor_config['frame']
-        if sensor:
-            self.sensor = sensor
+class Task(BaseTask):
+    def __init__(self, obj_id, plot_images, base_path, sensor=None):
+        super(Task, self).__init__(obj_id, plot_images)
+        self.init_camera(sensor)
+        self.init_robot()
+        self.init_workspace()
+        self.init_attributes(base_path)
+
+    def init_attributes(self, base_path):
+        self.base_path = base_path
+
+    def good_rotation_state(self,upwards=True):
+        if upwards:
+            desired_trans = np.array([0.40,-0.12,0.22])
         else:
-            self.sensor = ColorizedPhoXiSensor("1703005", 3, calib_dir='/nfs/diskstation/calib/', inpaint=False) 
-            self.sensor.start()
+            desired_trans = np.array([0.40,-0.12,0.35])
+            desired_trans[0:2] = self.robot.right.get_pose().translation[:2] #TODO better way of doing this
+        next_pose = self.robot.right.get_pose().copy()
+            # next_pose.translation = desired_trans
+            # self.move(next_pose)
+        next_pose.translation = desired_trans
+        self.move(next_pose)
 
-        # logger.info('Ready to capture images from sensor %s' %(self.sensor_name))
-        basedir = "/home/shivin/catkin_ws/src/ambidex/tests/cfg/"
-        yaml_obj_loader = YamlObjLoader(basedir)
+        # self.robot.right.goto_pose_delta(desired_trans-self.robot.right.get_pose().translation)
+        # cur_pose = self.reset_home_pose_workspace()
 
-        self.robot = yaml_obj_loader('physical_yumi_no_jaw')
-        self.home_pose = self.robot.right.get_pose()
-        self.camera_intr = CameraIntrinsics.load(os.path.join(calib_dir, 'phoxi.intr'))
-        self.T_camera_world = RigidTransform.load(os.path.join(calib_dir, 'phoxi_to_world.tf'))
+        return next_pose
 
-        x,y,z = self.home_pose.translation
-        self.workspace = Box(np.array([x-0.1, y-0.075,z-0.05]),
-                            np.array([x+0.1,y+0.075, z+0.10]), frame = "world")
+    def one_eighty_upwards(self, next_pose):
+        # trans_delta = 0.35 - self.robot.right.get_pose().translation[2]
+        # self.move(Delta_to_Transform([0,0,trans_delta],[np.pi,0,0],self.robot.right.get_pose()))
 
-        Logger.reconfigure_root()
-
-        self.save_dir = "ros_phoxi"
-        if not os.path.exists(self.save_dir):
-            os.mkdir(self.save_dir)
+        trans_delta = 0.35 - next_pose.translation[2]
+        self.move(Delta_to_Transform([0,0,trans_delta],[np.pi,0,0],next_pose))
         
-        # print "enabling suction \n"
-        # self.robot.tools['suction'].close_gripper()
-        # time.sleep(2)
-        # print "turnin off suction \n"
-        # self.robot.tools['suction'].open_gripper()
-        # sys.exit()
+        # self.robot.right.goto_pose_delta([0,0,-0.07])
+        cur_pose = self.reset_home_pose_workspace()
 
-    def capture_image(self, center_i=None, center_j=None, frame=0):
-        # logger.info('Capturing depth image' + str(frame))
-        img = self.sensor.read()
-        rgb_1, depth_1 = img.color, img.depth
+    def one_eighty_downwards(self,num_incr=3):
+        trans_delta = 0.22 - self.robot.right.get_pose().translation[2]
+        for i in range(num_incr):
+            self.move(Delta_to_Transform([0,0,trans_delta/num_incr],[-np.pi/num_incr,0,0],self.robot.right.get_pose()))
+        # cur_pose = task.reset_home_pose_workspace()
 
-        # deproject into 3D world coordinates
-        point_cloud_cam = self.camera_intr.deproject(depth_1)
-        point_cloud_cam.remove_zero_points()
-        point_cloud_world = self.T_camera_world * point_cloud_cam
-        seg_point_cloud_world, _ = point_cloud_world.box_mask(self.workspace)
-        
-        # compute the segmask for points above the box
-        seg_point_cloud_cam = self.T_camera_world.inverse() * seg_point_cloud_world
-        depth_2 = self.camera_intr.project_to_image(seg_point_cloud_cam)
-        segmask = depth_2.to_binary()
-        rgb_2 = rgb_1.mask_binary(segmask)
+    def align_centroid(self, centroid, pc_center):
+        above_centroid = centroid.copy()
+        above_centroid[2] += 0.07 if self.obj_id != 7 else 0.09
+        # above_centroid = np.array([0.443,-0.065,0.32])
 
-        rgb_3, depth_3 = self.color_mask(rgb_2,depth_2)
-        ind = np.where(depth_3.data != 0)
-        if not center_i or not center_j:
-            center_i, center_j = (np.max(ind[0]) + np.min(ind[0])) / 2, (np.max(ind[1]) + np.min(ind[1])) / 2 
-        height, width = np.max(ind[0])- np.min(ind[0]), np.max(ind[1])- np.min(ind[1])
-        height, width = (height*11)/10, (width*11)/10
-        height, width = max((height,width)), max((height,width))
+        # rot_transform = self.robot.right.get_pose()
+        # rot_transform.translation = above_centroid
+        # self.robot.right.goto_pose(rot_transform)
+        self.robot.right.goto_pose_delta([0,0,0.35 - self.robot.right.get_pose().translation[2]])
 
-        print(height, width, center_i, center_j)
-        
-        depth_int = depth_3.crop(height, width, center_i, center_j)
-        depth_4 = depth_int.resize((128,128), 'nearest')
-        # depth_seg4.save('ros_phoxi/depth_seg4_%d.png' %(frame))
-        I_sg = depth_4.data
-        # mask = I_sg != 0
-        # I_sg[mask] = I_sg[mask] - np.min(depth_seg4.data)
-        # I_sg[mask] = (I_sg[mask] / np.max(I_sg[mask]) * 0.1) + 0.5
-        frame_string = str(frame).zfill(2)
-        Plot_Image(rgb_1.data, base_path + "/rgb_1/" + frame_string + ".png")
-        Plot_Image(rgb_2.data, base_path + "/rgb_2/" + frame_string + ".png")
-        Plot_Image(rgb_3.data, base_path + "/rgb_3/" + frame_string + ".png")
-        Plot_Image(depth_1.data, base_path + "/depth_1/" + frame_string + ".png")
-        Plot_Image(depth_2.data, base_path + "/depth_2/" + frame_string + ".png")
-        Plot_Image(depth_3.data, base_path + "/depth_3/" + frame_string + ".png")
-        Plot_Image(depth_4.data, base_path + "/depth_4/" + frame_string + ".png")
+        delta = above_centroid - pc_center
+        delta[2] = above_centroid[2] - self.robot.right.get_pose().translation[2]
+        self.robot.right.goto_pose_delta(delta)
+        self.robot.tools['suction'].open_gripper()
 
-        # I_sg = demean_preprocess(I_sg)
+    def insert_positive(self, cavity, pc_center):
+        cavity_pc = cavity.process_clamshell_negative()
+        cavity_centroid = cavity_pc.mean().data
+        next_pose = self.good_rotation_state(upwards=False)
+        self.one_eighty_downwards()
+        self.align_centroid(cavity_centroid, pc_center)
 
-        return I_sg, center_i, center_j
-    
-    def color_mask(self, rgb_2, depth_2):
-        # color_mask = rgb_2.segment_hsv(np.array([80,60,0]), np.array([120,255,255])) #blue-green pipe connector
-        # color_mask = rgb_2.segment_hsv(np.array([90,60,0]), np.array([140,255,255])) #purple clamp
-        # color_mask = rgb_2.segment_hsv(np.array([0,0,1]), np.array([140,255,70])) #black tube
-        # color_mask = rgb_2.segment_hsv(np.array([0,100,1]), np.array([25,255,255])) #brown rock climbing hold
-        # color_mask = rgb_2.segment_hsv(np.array([80,60,0]), np.array([120,255,255])) #blue barclamp
-        color_mask = rgb_2.segment_hsv(np.array([0,0,100]), np.array([180,120,255])) #gold handrail bracket
+    def insert_negative(self, cavity_centroid, pc_center):
+        self.good_rotation_state(upwards=False)
+        self.one_eighty_downwards()
+        self.align_centroid(cavity_centroid, pc_center)
 
-        rgb_3 = rgb_2.mask_binary(color_mask, invert=False)
-        depth_3 = depth_2.mask_binary(color_mask, invert=False)
+    def get_rotation(self, pc1, pc2):
+        estimator = PoseEstimator(self.camera_intr, self.T_camera_world,self.workspace)
+        pc1,_ = pc1.subsample(pc1.num_points / 500)
+        pc2,_ = pc2.subsample(pc2.num_points / 500)
+        pc1 = torch.Tensor(demean(pc1.data)).float().to("cuda")
+        pc2 = torch.Tensor(demean(pc2.data)).float().to("cuda")
+        return estimator._is_match(pc1, pc2)
 
-        # rgb_3, depth_3 = rgb_2, depth_2
-        return rgb_3, depth_3
+    def network_orient(self, I_g, poses, max_iterations):
+        cur_pose = self.reset_home_pose_workspace()
+        ctr_of_mass = cur_pose.translation
 
-    def move(self, rot_transform):
-        """params: all in frame of object --> world
-        Moves gripper"""
-        self.robot.right.goto_pose(rot_transform)
+        I_s, cur_pc = self.capture_image(frame=0)
+        pc_center = cur_pc.mean().data
 
-    def finish(self):
-        # self.robot.right.open_gripper()
-        self.robot.stop() # Stop the robot
-        # self.sensor.stop() # Stop the phoxi
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        model = ResNetSiameseNetwork().to(device)
+        model.load_state_dict(torch.load("models/872objv4_17.pt"))
+        # model.load_state_dict(torch.load("models/872objv4_shuffled_15.pt"))
+        model.eval()
 
-def Plot_Image(image, filename):
-    """x
-    """
-    # cv2.imwrite(filename, image)
-    img_range = np.max(image) - np.min(image[image != 0]) + 0.0001
-    plt.imshow(image, cmap='gray', vmin = np.min(image[image != 0]) - img_range * 0.1, vmax = np.max(image))
-    plt.axis('off')
-    plt.savefig(filename)
-    # plt.show()
-    plt.close()
+        im1_batch = torch.Tensor(torch.from_numpy(I_s).float()).to(device).unsqueeze(0).unsqueeze(0)
+        im2_batch = torch.Tensor(torch.from_numpy(I_g).float()).to(device).unsqueeze(0).unsqueeze(0)
+        # print(im1_batch.size())
+        # print(im2_batch.size())
+
+        angle_error = np.arccos(np.abs(np.dot(poses[0], poses[1])))*180/np.pi*2
+        print("Iter 0 Current Error: ", angle_error)
+        losses = [angle_error]
+        for i in range(1,max_iterations):
+            pred_quat = model(im1_batch,im2_batch).detach().cpu().numpy()[0]
+            angle = np.arccos(pred_quat[3])*2 * 180 / np.pi
+            print("Angle to rotate:", angle)
+
+            slerp = Get_Slerp(0.8, 2.0, angle)
+            rot_transform, cur_pose = Slerp_to_Transform(slerp, pred_quat, ctr_of_mass)
+            self.move(rot_transform)
+            cur_pose = Rotation.from_quat(convert_quat(self.robot.right.get_pose().quaternion, wxyz=True))
+            poses[i+1] = cur_pose.as_quat()
+
+            cur_image, cur_pc = self.capture_image(frame=i)
+            pc_center = cur_pc.mean().data
+            im1_batch = torch.Tensor(torch.from_numpy(cur_image).float()).to(device).unsqueeze(0).unsqueeze(0)
+            quat_goal = poses[0]
+            for j in range(i+1):
+                q = poses[j+1]
+                angle_error = np.arccos(np.abs(np.dot(quat_goal, q)))*180/np.pi*2
+                if j == i:
+                    print("Iter",i,"Current Error: ", angle_error)
+                    losses.append(angle_error)
+            if pred_quat[3] >= 0.99904822158: # 5 degrees
+            # if pred_quat[3] >= 0.99939082701: # 4 degrees
+            # if pred_quat[3] >= 0.9998476952: # 2 degrees
+                print("Stopping Criteria:", np.arccos(pred_quat[3]) * 180 /np.pi*2, pred_quat)
+                break
+        return losses, pc_center
+
+    def baseline_orient(self, cavity_pc):
+        cur_pose = self.reset_home_pose_workspace()
+        ctr_of_mass = cur_pose.translation
+        I_s, cur_pc = self.capture_image(frame=0)
+        rot = self.get_rotation(cur_pc, cavity_pc)
+        print("Predicted rotation of", rot * 180 / np.pi, "around z-axis")
+        rot_transform = Delta_to_Transform(np.array([0,0,0]),np.array([0,0,1])*rot,self.robot.right.get_pose())
+        self.move(rot_transform)
+        cur_image, cur_pc = self.capture_image(frame=1)
+        pc_center = cur_pc.mean().data
+        return pc_center
+
+    def apply_random_rot(self,rot_angle=30.0):
+        cur_pose = self.reset_home_pose_workspace()
+        ctr_of_mass = cur_pose.translation
+        rot_quat = Generate_Quaternion((rot_angle - 0.1)/180*np.pi,rot_angle/180*np.pi)
+        next_pose, start_pose = Get_Transform(rot_quat, ctr_of_mass)
+        # self.move(next_pose)
+        return next_pose
+
+    def align_for_orienting(self,cavity_centroid):
+        next_pose = self.robot.right.get_pose().copy()
+        next_pose.translation[2] = cavity_centroid[2] #- 0.005
+        self.move(next_pose)
+
 
 def Save_Poses(pose_quat, index):
     """x
     """
     np.savetxt(base_path + "/poses/quat_" + index + ".txt", pose_quat)
-
-def Make_Directories(base_path, iteration):
-    cur_dir = base_path + "/iteration" + str(iteration)
-    for folder in ["rgb_1","rgb_2","rgb_3","depth_1","depth_2","depth_3","depth_4", "poses"]:
-        next_dir = cur_dir + "/" + folder + "/"
-        if not os.path.exists(os.path.dirname(next_dir)):
-            print("Making path", next_dir)
-            os.makedirs(os.path.dirname(next_dir))
-    return cur_dir
 
 def parse_args():
     """Parse arguments from the command line.
@@ -189,123 +212,90 @@ def Get_Transform(rot_quat, ctr_of_mass):
     rot_transform = RigidTransform(RigidTransform.rotation_from_quaternion(convert_quat(next_pose.as_quat(), wxyz=False)), ctr_of_mass)
     return rot_transform, next_pose
 
+def Get_Slerp(default_slerp, min_angle, rot_angle):
+    if rot_angle < min_angle / default_slerp:
+        slerp = 1 if rot_angle < min_angle else default_slerp*rot_angle / min_angle
+    else:
+        slerp = default_slerp
+    return slerp
+
+def Slerp_to_Transform(slerp, pred_quat, ctr_of_mass):
+    pred_quat = Quaternion(convert_quat(pred_quat, wxyz=False))
+    rot_quat = Quaternion.slerp(Quaternion(), pred_quat, slerp).elements # 1 is pred quat, 0 is no rot
+    rot_quat = normalize(convert_quat(rot_quat, wxyz=True))
+    rot_transform, cur_pose = Get_Transform(rot_quat, ctr_of_mass)
+    return rot_transform, cur_pose
+        
 if __name__ == "__main__":
     args = parse_args()
     config = YamlConfig(args.config)
-    # logger = Logger.get_logger('physical_controller.py')
 
-    obj_id = 5
-    max_iterations = 20
-    iteration = 0
+    obj_id = 7
+    max_iterations = 8
+    iteration = 9
+    positive = 0
+    rot_angle = 30.0
+    plot_images = 0
+
     base_path = "physical/objects/obj" + str(obj_id)
     base_path = Make_Directories(base_path, iteration)
-    # INITIALIZE TO (440, -23, 281) TRANSLATION
-
     print(colored('---------- Starting for Object ' + str(obj_id) + ' Iteration ' + str(iteration) +'----------', 'red'))
-    cavity = Cavity()
-    # Render image 2, which will be the goal image of the object in a stable pose
+    cavity = Cavity(plot_images=plot_images)
+
+    # Render image 2, which will be the goal image of the object
     # I_g, center_i, center_j = task.capture_image(frame= "goal")
     # I_g = cavity.process_clamshell_positive()
-    I_g = cavity.get_goal_img()
-    Plot_Image(I_g, base_path + "/depth_4/goal.png")
 
-    # raw_input("Grasp object in correct pose ")
-    task = Task(sensor=cavity.sensor)
-    # task.robot.tools['suction'].close_gripper()
+    task = Task(obj_id,plot_images, base_path, sensor=cavity.sensor)
+    
     # segment_robot(task.robot)
 
-    ctr_of_mass = task.robot.right.get_pose().translation
-    # assert ctr_of_mass[1] > -0.130
-    start_pose = Rotation.from_quat(convert_quat(task.robot.right.get_pose().quaternion, wxyz=True))
-    # next_pose = Rotation.from_rotvec(np.array([np.pi,0,0])) * start_pose #TODO this is weird
-    next_pose = Rotation.from_rotvec(np.array([0,np.pi,0])) * start_pose #TODO this is weird
-    translated_c_o_m = ctr_of_mass.copy()
-    # translated_c_o_m[2] = 0.32
-    rot_transform = RigidTransform(RigidTransform.rotation_from_quaternion(convert_quat(next_pose.as_quat(), wxyz=False)), translated_c_o_m)
-    task.robot.right.goto_pose(rot_transform)
-    sys.exit()
-    poses = {}
+    task.reset()
+    task.robot.tools['suction'].close_gripper()
+    # sys.exit()
+    raw_input("Grasp object ")
 
-    goal_pose = Rotation.from_quat(convert_quat(task.robot.right.get_pose().quaternion, wxyz=True))
-    # ctr_of_mass = task.robot.right.get_pose().translation
-    # Save_Poses(goal_pose.as_quat(), "goal")
-    poses['goal'] = goal_pose.as_quat()
+    if positive:
+        I_g, cavity_pc = cavity.get_goal_img(obj_id)
+        cavity_centroid = cavity_pc.mean().data
+    else:
+        cavity_pc = cavity.process_clamshell_negative(elevated=True)
+        I_g, cavity_centroid = cavity.rotate_negative(cavity_pc)
+    print("Cavity was centered at", cavity_centroid)
 
+    Plot_Image(I_g, base_path + "/depth_4/goal.png")
+    
+    poses = np.zeros((max_iterations+1,4))
+    initial_pose = Rotation.from_quat(convert_quat(task.robot.right.get_pose().quaternion, wxyz=True))
+    goal_pose = Rotation.from_rotvec(np.array([np.pi,0,0])) * initial_pose
+    poses[0] = goal_pose.as_quat()
 
-    # Render image 1, which will be 30 degrees away from the goal
-    rot_quat = Generate_Quaternion(19.9/180*np.pi,20.0/180*np.pi)
-    rot_transform, start_pose = Get_Transform(rot_quat, ctr_of_mass)
+    # Rotate object 30 degrees away from the goal
+    next_pose = task.good_rotation_state(upwards=True)
+    next_pose = task.apply_random_rot(rot_angle)
+    # task.move(next_pose)
+    # time.sleep(0.5)
 
-    print("Robot starts at quat: ", Quaternion_String(goal_pose.as_quat()))
-    print("Rotating by Quat:", rot_quat)
-    print("Rotating by Euler Angles:", Rotation.from_quat(rot_quat).as_euler('xyz', degrees=True))
-    print("Robot should be at quat: ", Quaternion_String(start_pose.as_quat()))
+    task.one_eighty_upwards(next_pose)
+    task.align_for_orienting(cavity_centroid)
 
-    print(rot_transform.quaternion, rot_transform.translation)
+    # task.good_rotation_state(upwards=False)
+    # task.one_eighty_downwards()
 
-    task.robot.right.goto_pose(rot_transform)
-    start_pose = Rotation.from_quat(convert_quat(task.robot.right.get_pose().quaternion, wxyz=True))
-    # Save_Poses(start_pose.as_quat(), "0")
-    poses[0] = start_pose.as_quat()
+    # print("Robot starts at quat: ", Quaternion_String(goal_pose.as_quat()))
+    # print("Rotating by Quat:", rot_quat)
+    # print("Rotating by Euler Angles:", Rotation.from_quat(rot_quat).as_euler('xyz', degrees=True))
+    # print("Robot should be at quat: ", Quaternion_String(start_pose.as_quat()))
 
-    I_s, center_i, center_j = task.capture_image(frame=0)
-    # I_s, _, _ = task.capture_image(center_i, center_j,frame=0)
+    # start_pose = Rotation.from_quat(convert_quat(task.robot.right.get_pose().quaternion, wxyz=True))
+    # poses[1] = start_pose.as_quat()
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = ResNetSiameseNetwork().to(device)
-    model.load_state_dict(torch.load("models/new_datagen_16.pt"))
-    model.eval()
+    pc_center = task.baseline_orient(cavity_pc)
 
-    im1_batch = torch.Tensor(torch.from_numpy(I_s).float()).to(device).unsqueeze(0).unsqueeze(0)
-    im2_batch = torch.Tensor(torch.from_numpy(I_g).float()).to(device).unsqueeze(0).unsqueeze(0)
-    # print(im1_batch.size())
-    # print(im2_batch.size())
-    total_iters = 1
-    cur_pose = start_pose
-    for i in range(1,max_iterations):
-        pred_quat = model(im1_batch,im2_batch).detach().cpu().numpy()[0]
-        angle = np.arccos(pred_quat[3])*2 * 180 / np.pi
-        print("Angle to rotate:", angle)
-        # if pred_quat[3] >= 0.9998476952: # 2 degrees
-        if pred_quat[3] >= 0.99996192306: # 1 degree
-        # if pred_quat[3] >= 0.99999048128: # 0.5 degrees
-        # if pred_quat[3] >= 1: # 0 degrees
-            print("Stopping Criteria:", np.arccos(pred_quat[3]) * 180 /np.pi*2, pred_quat)
-            break
-        if angle < 1.25:
-            slerp = 1 if angle < 1.0 else 0.6*angle
-        else:
-            slerp = 0.6
-        pred_quat = Quaternion(convert_quat(pred_quat, wxyz=False))
-        rot_quat = Quaternion.slerp(Quaternion(), pred_quat, slerp).elements # 1 is pred quat, 0 is no rot
-        rot_quat = normalize(convert_quat(rot_quat, wxyz=True))
-        rot_transform, cur_pose = Get_Transform(rot_quat, ctr_of_mass)
-        task.robot.right.goto_pose(rot_transform)
-        cur_pose = Rotation.from_quat(convert_quat(task.robot.right.get_pose().quaternion, wxyz=True))
-        # Save_Poses(cur_pose.as_quat(), str(i))
-        poses[i] = cur_pose.as_quat()
+    # losses,pc_center = task.network_orient(I_g,poses,max_iterations)
+    # Plot_Physical_Loss(losses, base_path)
+    # print(np.round(losses,2)[::5])
 
-        cur_image, _, _ = task.capture_image(center_i, center_j, i)
-        # cur_image = (cur_image*65535).astype(int)
-        im1_batch = torch.Tensor(torch.from_numpy(cur_image).float()).to(device).unsqueeze(0).unsqueeze(0)
-        total_iters = i
-        losses = []
-        quat_goal = poses['goal']
-        # print(quat_goal)
-        for j in range(total_iters):
-            q = poses[j]
-            # print(q)
-            # print(np.dot(q,quat_goal))
-            angle_error = np.arccos(np.abs(np.dot(quat_goal, q)))*180/np.pi*2
-            if j == total_iters - 1:
-                print("Current Error: ", angle_error)
-            losses.append(angle_error)
-        # print(np.round(losses,2)[::5])
-        plt.plot(losses)
-        plt.title("Angle Difference Between Iteration Orientation and Goal Orientation")
-        plt.ylabel("Angle Difference (Degrees)")
-        plt.xlabel("Iteration Number")
-        plt.savefig(base_path + "/loss.png")
-        plt.close()
-        np.save(base_path + "/losses.npy",losses)
+    np.savetxt(base_path + "/poses.txt", poses)
+    task.insert_positive(cavity, pc_center) if positive else task.insert_negative(cavity_centroid, pc_center)
     task.finish()
