@@ -15,7 +15,7 @@ baselines==0.1.5
 beautifulsoup4==4.8.2
 bleach==3.1.5
 catkin-pkg==0.4.16
-certifi==2019.3.9
+certifi==2022.12.7
 chardet==3.0.4
 Click==7.0
 cloudpickle==0.8.1
